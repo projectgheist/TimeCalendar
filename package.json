@@ -1,0 +1,23 @@
+{
+  "name": "timecalendar",
+  "version": "0.0.1",
+  "description": "",
+  "main": "app.js",
+  "dependencies": {
+    "jade": "^1.11.0",
+    "koa": "^1.1.1",
+    "moment": "^2.10.6",
+    "mongoomise": "0.0.8",
+    "mongoose": "^4.2.3",
+    "passport": "^0.3.0",
+    "passport-google-oauth": "^0.2.0",
+    "rsvp": "^3.1.0",
+    "shortid": "^2.2.4"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "app.js"
+  },
+  "author": "projectgheist",
+  "license": "MIT"
+}
