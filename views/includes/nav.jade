@@ -1,0 +1,51 @@
+.navbar.navbar-default.navbar-static-top
+	.container-fluid
+		.navbar-header
+			form.navbar-form
+				.form-group
+					input.form-control.typeahead#nrss(type="text",placeholder="Fetch a feed")
+			ul.nav.navbar-nav.navbar-left
+				li
+					a(href="#", ng-click='nt()')
+						i.fa.fa-align-justify.fa-fw
+			ul.nav.navbar-right
+				li.dropdown
+					a.text-right.dropdown-toggle(href="#",role="button",data-toggle="dropdown")
+						i.fa.fa-ellipsis-v.fa-fw
+					ul.dropdown-menu.pull-right
+						li(ng-click="updateStyle('list')")
+							a(href="#")
+								i.fa.fa-bars.fa-fw
+								| &nbsp;List
+						li(ng-click="updateStyle('tile')")
+							a(href="#")
+								i.fa.fa-th.fa-fw
+								| &nbsp;Tiles
+						li(ng-click="updateStyle('mini')")
+							a(href="#")
+								i.fa.fa-th-large.fa-fw
+								| &nbsp;Full
+						li.divider
+						li
+							a(href="/manage")
+								i.fa.fa-bar-chart.fa-fw
+								| &nbsp;Management		
+						li.divider
+						li
+							a(href="https://github.com/projectgheist/ofeeds",target="_blank")
+								i.fa.fa-github.fa-fw
+								| &nbsp;View on Github
+						if user
+							li
+								a(href="#")
+									i.fa.fa-cog.fa-fw
+									| &nbsp;Settings
+							li
+								a(href="#")
+									i.fa.fa-sign-out.fa-fw
+									| &nbsp;Logout
+						else
+							li
+								a(href="/auth/google", target="_self")
+									i.fa.fa-google-plus.fa-fw
+									| &nbsp;Sign in

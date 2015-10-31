@@ -1,14 +1,19 @@
 /** Module dependencies
  */
-var ex = require('express'),
+var ko = require('koa'),
 	cf = require('../config'),
 	pp = require('passport'),
 	gs = require('passport-google-oauth').OAuth2Strategy,
 	mg = require('mongoose'),
 	db = require('./storage');
 
-var app = module.exports = ex();
-	
+var app = module.exports = ko();
+
+/** Setup of Passport.js
+ */
+app.use(pp.initialize());
+app.use(pp.session());
+
 // Redirect the user to Google for authentication.  When complete, Google
 // will redirect the user back to the application at '/auth/google/callback'
 app.get('/auth/google', 

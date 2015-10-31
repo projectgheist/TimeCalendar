@@ -1,30 +1,40 @@
 /** Module dependencies
  */
-var ex = require('express'),
-	ss = require('express-session'),
+var ko = require('koa'),
 	cf = require('./config'),
 	pp = require('passport'),
-	ap = ex();
-
-/** Load configurations
- */
-ap.set('views', cf.Dir() + 'views');
-ap.set('view engine', 'jade');
-ap.use(ss({secret: 'ofeeds_secret_key'}));
-ap.use(pp.initialize());
-ap.use(pp.session());
-ap.use(ex.static(cf.Dir() + 'public'));
+	kj = require('koa-jade'),
+	ap = ko();
 
 /** turn off console.log
  */
-if (false) {
+if (ap.env !== 'development') {
 	console.log = function() {};
 }
 
-/** GET / POST Pages
+/** Enables Jade templating
  */
-ap.listen(cf.Port(), cf.IpAddr(), function(){
-	console.log('%s: Node server started on %s:%d ...', Date(Date.now()), cf.IpAddr(), cf.Port());
+ap.use(new kj({
+	// where Jade templates be stored
+	viewPath: './views',
+	// identify paths when using extends
+	basedir: './views',
+	// variables that will be passed to Jade templates
+	locals: {},
+	// make sure that templates aren't cached in development mode
+	noCache: (ap.env === 'development')
+}).middleware);
+
+/** Enables the exposure of static Javascript, font and CSS files
+ */
+ap.use(require('koa-static')('./public', {}));
+
+/** Start the server on a specific port
+ */
+ap.listen(cf.Port());
+
+ap.use(function* () {
+  this.render('index', {}, true);
 });
 
 /** startup/connect to database
@@ -33,12 +43,9 @@ require('./src/storage').setup();
 
 /** GET / POST Pages
  */
-ap.use(require('./src/auth')); 
-ap.use(require('./src/routes')); 
+//ap.use(require('./src/auth')); 
+//ap.use(require('./src/routes')); 
 
 /** Include routes
  */
-ap.use(require('./src/api/events'));
-/*
-app.use(require('./src/api/preference'));
-*/
+//ap.use(require('./src/api/events'));

@@ -1,0 +1,118 @@
+include includes/header
+.container(ng-controller='dashController')
+	.row
+		.col-xs-12
+			.jumbotron
+				h1 TimeCalendar
+			hr
+	.row
+		.col-xs-12
+			.well
+				h1
+					i.fa.fa-plus.fa-fw
+					| Create new event
+				hr
+				form.form-inline
+					.form-group
+						label.sr-only Event name
+						input.form-control(type='text', placeholder='Event name')
+					.form-group
+						label.sr-only Event description
+						input.form-control(type='text', placeholder='Event description')
+					.form-group
+						label.sr-only Event type
+						select.form-control
+							option Warning
+							option Error
+							option Normal
+							option Info
+					button.btn.btn-primary Add event
+					button.btn.btn-default Reset
+			.well
+				h1
+					i.fa.fa-plus.fa-fw
+					| Create new event
+				hr
+				form
+					.form-group
+						label Event name
+						input.form-control(type='text', placeholder='Event name')
+					.row
+						.col-xs-12
+							ul.nav.nav-tabs(role='tablist',style='margin-bottom:15px')
+								li.active(role="presentation")
+									a(href='#current',aria-controls="current",role='tab',data-toggle='tab')
+										i.fa.fa-clock-o.fa-fw
+										| Now
+								li(role="presentation")
+									a(href='#specify',aria-controls="specify",role='tab',data-toggle='tab')
+										i.fa.fa-calendar-check-o.fa-fw
+										| Specify
+								li(role="presentation")
+									a(href='#duration',aria-controls="duration",role='tab',data-toggle='tab')
+										i.fa.fa-hourglass-o.fa-fw
+										| Duration
+					.tab-content
+						#current.tab-pane.fade.in.active(role="tabpanel")
+							.row
+								.col-xs-12
+									p No other arguments
+						#specify.tab-pane.fade(role="tabpanel")
+							.row
+								.col-xs-6
+									h2
+										.text-center Start time
+									.form-group
+										.row
+											.col-lg-8
+												.input-group(style='margin-top:34px')
+													span.input-group-btn
+														button.btn.btn-default
+															i.fa.fa-calendar.fa-fw
+													input.form-control(type='text',ng-model="startdate",datepicker-popup='dd MMMM yyyy',datepicker-options="dateOptions",is-open="false",ng-required="true")
+											.col-lg-4
+												uib-timepicker(ng-model='starttime',hour-step="1",minute-step="15",show-meridian="true")
+								.col-xs-6
+									h2
+										.text-center End time
+									.form-group
+										.row
+											.col-lg-8
+												.input-group(style='margin-top:34px')
+													span.input-group-btn
+														button.btn.btn-default
+															i.fa.fa-calendar.fa-fw
+													input.form-control(type='text',ng-model="startdate",datepicker-popup='dd MMMM yyyy',datepicker-options="dateOptions",is-open="false",ng-required="true")
+											.col-lg-4
+												uib-timepicker(ng-model='starttime',hour-step="1",minute-step="15",show-meridian="true")
+						#duration.tab-pane.fade(role="tabpanel")
+							.row
+								.col-xs-6
+									h2
+										.text-center Start time
+									.form-group
+										.row
+											.col-lg-8
+												.input-group(style='margin-top:34px')
+													span.input-group-btn
+														button.btn.btn-default
+															i.fa.fa-calendar.fa-fw
+													input.form-control(type='text',ng-model="startdate",datepicker-popup='dd MMMM yyyy',datepicker-options="dateOptions",is-open="false",ng-required="true")
+											.col-lg-4
+												uib-timepicker(ng-model='starttime',hour-step="1",minute-step="15",show-meridian="true")
+					hr
+					button.btn.btn-primary Add event
+	.row
+		.col-xs-6
+			.btn-group
+				button.btn.btn-default Previous
+				button.btn.btn-default Next
+			button.btn.btn-default.active Today
+		.col-xs-6
+			.btn-group
+				button.btn.btn-default Week
+				button.btn.btn-default.active Day
+	.row
+		.col-xs-12(style='height:512px')
+			mwl-calendar(view='calendarview',current-day='calendarday',events='events')
+include includes/js
