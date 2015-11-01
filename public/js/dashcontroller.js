@@ -35,9 +35,61 @@
 			e.preventDefault()
 			$(this).tab('show');
 		});
+		
+		var date = new Date();
+		var d = date.getDate();
+		var m = date.getMonth();
+		var y = date.getFullYear();
+		
+		// event source that contains custom events on the scope
+		$scope.calendarEvents = [
+		  {title: 'All Day Event',start: new Date(y, m, 1),color: '#f00',textColor: 'yellow'},
+		  {title: 'Long Event',start: new Date(y, m, d - 5),end: new Date(y, m, d - 2)},
+		  {id: 999,title: 'Repeating Event',start: new Date(y, m, d - 3, 16, 0),allDay: false},
+		  {id: 999,title: 'Repeating Event',start: new Date(y, m, d + 4, 16, 0),allDay: false},
+		  {title: 'Birthday Party',start: new Date(y, m, d + 1, 19, 0),end: new Date(y, m, d + 1, 22, 30),allDay: false},
+		  {title: 'Click for Google',start: new Date(y, m, 28),end: new Date(y, m, 29)}
+		];
+		
+		$scope.calendarEventSources = [$scope.calendarEvents];
+		
+	    // config object for calendar
+		$scope.uiConfig = {
+			calendar:{
+				height: 450,
+				editable: true,
+				header:{
+					left: 'month basicWeek basicDay agendaWeek agendaDay',
+					center: 'title',
+					right: 'today prev,next'
+				},
+				buttonText: {
+					today:    'Today',
+					month:    'Month',
+					week:     'Week',
+					day:      'Day'
+				},
+				dayClick: $scope.alertEventOnClick,
+				eventDrop: $scope.alertOnDrop,
+				eventResize: $scope.alertOnResize
+			}
+		};
 	
+		//
 		$scope.startdate = new Date();
-		$scope.starttime = new Date();
+
+		// !disable the add to startdate
+		$scope.addstartdate = false;
+		
+		//
+		$scope.stopdate = moment($scope.startdate).add(1, 'hours');
+		
+		// disable the subtract from stopdate
+		$scope.subtractstopdate = false;
+		
+		//
+		$scope.eventtypes = ['normal','info'];
+		
 		//These variables MUST be set as a minimum for the calendar to work
 		$scope.calendarview = 'day';
 		$scope.calendarday = new Date();
@@ -67,6 +119,5 @@
 				resizable: true
 			}
 		];
-		$scope.$broadcast('calendar.refreshView');
 	}
 })();

@@ -31,8 +31,8 @@
 			'ngFlowtype',
 			// Include Angular Bootstrap UI
 			'ui.bootstrap',
-			// Include Angular Bootstrap Calendar
-			'mwl.calendar',
+			// Include Angular UI Calendar
+			'ui.calendar',
 			'AppService'
 		])
 		.config(appConfig)

@@ -16,12 +16,16 @@ var Event = mg.Schema({
 	description: String,
 	// creator
 	user: ut.ref('User'),
+	// Type of event to determine the color, etc.
+	eventtype: ut.ref('EventType'),
 	// date that this event was created
     creationTime: { type: Date, default: Date.now },
 	// date that this event was created
     startTime: { type: Date, default: Date.now },
 	// date that this event was created
     endTime: { type: Date, default: Date.now },
+	// Flag true if event takes up the entire day
+    allDay: { type: Boolean, default: false },
 });
 
 /** Returns the difference in milliseconds
