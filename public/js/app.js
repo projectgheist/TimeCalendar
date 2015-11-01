@@ -9,12 +9,6 @@
 	 * On page load ready, only load images that are currently visible in the view area
 	 */
 	jQuery(document).ready(function($) {
-		// have some nice font scaling.
-		$('.alert').flowtype({
-			minFont:12,
-			maxFont:36,
-			fontRatio:96
-		});
 	});
 
 	/** function clamp
@@ -28,11 +22,14 @@
 			'ngRoute',
 			'ngSanitize',
 			'ngResource',
+			// Include Angular Flowtype
 			'ngFlowtype',
 			// Include Angular Bootstrap UI
 			'ui.bootstrap',
 			// Include Angular UI Calendar
 			'ui.calendar',
+			// Include Angular Bootstrap Colorpicker
+			'colorpicker.module',
 			'AppService'
 		])
 		.config(appConfig)

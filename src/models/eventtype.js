@@ -1,12 +1,11 @@
 /** Includes
  */
 var mg = require('mongoose'),
-    ut = require('../utils'),
-	sh = require('shortid');
+    ut = require('../utils');
 	
-/** declare Event Mongoose schema
+/** declare EventType Mongoose schema
  */
-var Label = mg.Schema({
+var EventType = mg.Schema({
 	// name/title
 	name: { type: String, required: true, index: { unique: true } },
 	// description
@@ -19,4 +18,4 @@ var Label = mg.Schema({
 
 /**
  */
-module.exports = mg.model('Label', Label);
+module.exports = mg.model('EventType', EventType);

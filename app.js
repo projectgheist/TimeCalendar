@@ -2,9 +2,8 @@
  */
 var ko = require('koa'),
 	cf = require('./config'),
-	pp = require('passport'),
 	kj = require('koa-jade'),
-	ap = ko();
+	ap = module.exports = ko();
 
 /** turn off console.log
  */
@@ -33,19 +32,11 @@ ap.use(require('koa-static')('./public', {}));
  */
 ap.listen(cf.Port());
 
-ap.use(function* () {
-  this.render('index', {}, true);
-});
-
-/** startup/connect to database
- */
-require('./src/storage').setup();
-
 /** GET / POST Pages
  */
 //ap.use(require('./src/auth')); 
-//ap.use(require('./src/routes')); 
+require('./src/routes'); 
 
 /** Include routes
  */
-//ap.use(require('./src/api/events'));
+require('./src/api/events');

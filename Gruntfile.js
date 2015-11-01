@@ -23,7 +23,7 @@ module.exports = function(grunt) {
 					'./bower_components/moment/moment.js', // needs to be included before angular-bootstrap-calendar-tpls
 					'./bower_components/angular-ui-calendar/src/calendar.js',
 					'./bower_components/fullcalendar/dist/fullcalendar.js',
-					'./bower_components/fullcalendar/dist/gcal.js',
+					'.bower_components/fullcalendar/dist/gcal.js',
 					'./bower_components/typeahead.js/dist/bloodhound.js',
 					'./bower_components/typeahead.js/dist/typeahead.jquery.js',
 					'./bower_components/Flowtype.js/flowtype.js',
@@ -37,7 +37,7 @@ module.exports = function(grunt) {
 				src: [
 					'./bower_components/font-awesome/css/font-awesome.css', // needs to be included before bootstrap
 					'./bower_components/bootstrap/dist/css/bootstrap.css', // needs to be included before fullcalendar
-					'./bower_components/fullcalendar/dist/fullcalendar.css'
+					'./bower_components/fullcalendar/dist/fullcalendar.css',
 				],
 				dest: './public/css/<%= pkg.name %>.css'
 			}
@@ -84,6 +84,13 @@ module.exports = function(grunt) {
 						src: [
 						], 
 						dest: './public/js'
+					},
+					{
+						expand: true,
+						flatten: true,
+						src: [
+						], 
+						dest: './public/img'
 					}
 				],
 			},

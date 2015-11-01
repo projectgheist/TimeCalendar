@@ -12,7 +12,15 @@
 
 	function dashService($resource) {
 		return {
+			getTypes: getTypes,
+			postEvents: postEvents,
 		};
+		function getTypes() {
+			return $resource('/api/0/events/list', {type:'@type', params:'@params'}, { query:{ method: 'GET', isArray: true } });
+		}
+		function postEvents() {
+			return $resource('/api/0/events/add', {params:'@params'});
+		}
 	};
 
     dashController.$inject = [
@@ -119,5 +127,20 @@
 				resizable: true
 			}
 		];
+		
+		//
+		$scope.submitType = function() {
+			//dashService.getTypes().query({}, function(r) {});
+			dashService.postEvents().save({
+				params:{
+					name: $scope.typename,
+					desc: $scope.typedesc,
+					textcolor: $scope.textcolor,
+					bgcolor: $scope.bgcolor,
+				}
+			}, function() {
+				// data saved. do something here.
+			});
+		}
 	}
 })();
