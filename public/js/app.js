@@ -28,8 +28,6 @@
 			'ui.bootstrap',
 			// Include Angular UI Calendar
 			'ui.calendar',
-			// Include Angular Bootstrap Colorpicker
-			'colorpicker.module',
 			'AppService'
 		])
 		.config(appConfig)
