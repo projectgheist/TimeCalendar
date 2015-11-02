@@ -5,7 +5,7 @@ include includes/header
 			.well
 				h1
 					i.fa.fa-plus.fa-fw
-					| Create event type
+					| Create type
 				hr
 				form.form-inline
 					.row
@@ -22,7 +22,7 @@ include includes/header
 							.form-group
 								label.sr-only Background color
 								input.form-control(type='text',ng-model='bgcolor')
-							button.btn.btn-primary(type='button') Create
+							button.btn.btn-primary(type='button',ng-click='submitType()') Create
 			.well
 				h1
 					i.fa.fa-check.fa-fw
@@ -40,8 +40,8 @@ include includes/header
 							.form-group
 								label.sr-only Event type
 								select.form-control(ng-model='eventType')
-									option(ng-repeat='l in eventtypes') {{l.name}}
-							button.btn.btn-primary(type='button',ng-click='submitType()') Start
+									option(ng-repeat='l in eventTypes',value='{{l.shortid}}') {{l.name}}
+							button.btn.btn-primary(type='button',ng-click='submitEvent()') Start
 					.row
 						.col-xs-12
 							ul.nav.nav-tabs(role='tablist',style='margin-bottom:15px')
@@ -54,11 +54,11 @@ include includes/header
 										i.fa.fa-calendar-check-o.fa-fw
 										| Specify
 					.tab-content
-						#current.tab-pane.fade(role="tabpanel")
+						#current.tab-pane.fade.in.active(role="tabpanel")
 							.row
 								.col-xs-12
 									p No additional information needed
-						#specify.tab-pane.fade.in.active(role="tabpanel")
+						#specify.tab-pane.fade(role="tabpanel")
 							.row
 								.col-xs-6
 									h3.text-center Start time

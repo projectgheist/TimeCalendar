@@ -1,13 +1,16 @@
 /** Includes
  */
 var mg = require('mongoose'),
-    ut = require('../utils');
+    ut = require('../utils'),
+	sh = require('shortid');
 	
 /** declare EventType Mongoose schema
  */
 var EventType = mg.Schema({
+	// unique identifier
+	shortid: { type: String, index: { unique: true }, default: sh.generate },
 	// name/title
-	name: { type: String, required: true, index: { unique: true } },
+	name: { type: String, required: true },
 	// description
 	description: String,
 	// color of the text

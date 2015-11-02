@@ -8,9 +8,9 @@ var mg = require('mongoose'),
  */
 var Event = mg.Schema({
 	// unique identifier
-	shortid: { type: String, default: sh.generate },
+	shortid: { type: String, index: { unique: true }, default: sh.generate },
 	// name/title
-	name: { type: String, index: { unique: true } },
+	name: { type: String, required: true },
 	// description
 	description: String,
 	// creator

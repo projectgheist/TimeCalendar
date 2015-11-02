@@ -12,11 +12,11 @@
 
 	function dashService($resource) {
 		return {
-			getTypes: getTypes,
+			types: types,
 			postEvents: postEvents,
 		};
-		function getTypes() {
-			return $resource('/api/0/events/list', {type:'@type', params:'@params'}, { query:{ method: 'GET', isArray: true } });
+		function types() {
+			return $resource('/api/0/eventtypes', {name:'@name',desc:'@desc',textColor:'@textColor',bgColor:'@bgColor'}, { query:{ method: 'GET', isArray: true } });
 		}
 		function postEvents() {
 			return $resource('/api/0/events/add', {name:'@name',desc:'@desc',type:'@type'});
@@ -129,17 +129,30 @@
 			}
 		];
 		
-		//
+		// Retrieve event types 
+		$scope.getEventTypes = function() {
+			dashService.types().query(function(r) {
+				$scope.eventTypes = r;
+			});
+		};
+		
+		// Immediately call function
+		$scope.getEventTypes();
+		
+		// POST new event
+		$scope.submitEvent = function() {
+			console.log($scope.eventType)
+		};
+
+		// POST new event type
 		$scope.submitType = function() {
-			console.log()
-			//dashService.getTypes().query({}, function(r) {});
-			dashService.postEvents().save({
-				name: $scope.eventName,
-				desc: $scope.eventDesc,
-				type: $scope.eventType,
+			dashService.types().save({
+				name: $scope.typename,
+				desc: $scope.typedesc,
+				textColor: $scope.textcolor,
+				bgColor: $scope.bgcolor,
 			}, function(r) {
-				// data saved. do something here.
-				console.log(r)
+				$scope.getEventTypes();
 			});
 		}
 	}

@@ -40,3 +40,4 @@ require('./src/routes');
 /** Include routes
  */
 require('./src/api/events');
+require('./src/api/eventtypes');
