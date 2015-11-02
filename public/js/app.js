@@ -9,6 +9,7 @@
 	 * On page load ready, only load images that are currently visible in the view area
 	 */
 	jQuery(document).ready(function($) {
+		$('input.minicolors').minicolors({theme: 'bootstrap'});
 	});
 
 	/** function clamp

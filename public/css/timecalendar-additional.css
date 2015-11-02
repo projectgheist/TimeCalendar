@@ -1,3 +1,13 @@
 .form-inline .form-group, .form-inline button, .btn-group {
 	margin-right: 5px;
 }
+
+.form-inline .minicolors-theme-bootstrap .minicolors-swatch  {
+	display: block;
+	margin-left: 3px;
+	left: inherit;
+}
+
+.form-inline .minicolors-position-left .minicolors-panel {
+	left: inherit;
+}}

@@ -18,10 +18,10 @@ include includes/header
 								input.form-control(type='text', placeholder='Event description',ng-model='typedesc')
 							.form-group
 								label.sr-only Text color
-								input.form-control(type='text',ng-model='textcolor')
+								input.form-control.minicolors(type='text',ng-model='textcolor',data-control='saturation')
 							.form-group
 								label.sr-only Background color
-								input.form-control(type='text',ng-model='bgcolor')
+								input.form-control.minicolors(type='text',ng-model='bgcolor',data-control='saturation')
 							button.btn.btn-primary(type='button',ng-click='submitType()') Create
 			.well
 				h1
