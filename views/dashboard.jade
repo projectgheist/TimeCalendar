@@ -22,7 +22,7 @@ include includes/header
 							.form-group
 								label.sr-only Background color
 								input.form-control(type='text',ng-model='bgcolor')
-							button.btn.btn-primary(type='button',ng-click='submitType()') Create
+							button.btn.btn-primary(type='button') Create
 			.well
 				h1
 					i.fa.fa-check.fa-fw
@@ -33,15 +33,15 @@ include includes/header
 						.col-xs-12(style='margin-bottom: 15px')
 							.form-group
 								label.sr-only Event name
-								input.form-control(type='text', placeholder='Event name')
+								input.form-control(type='text', placeholder='Event name',ng-model='eventName',ng-required)
 							.form-group
 								label.sr-only Event description
-								input.form-control(type='text', placeholder='Event description')
+								input.form-control(type='text', placeholder='Event description',ng-model='eventDesc')
 							.form-group
 								label.sr-only Event type
-								select.form-control
-									option(ng-repeat='l in eventtypes') {{l}}
-							button.btn.btn-primary(type='button') Start
+								select.form-control(ng-model='eventType')
+									option(ng-repeat='l in eventtypes') {{l.name}}
+							button.btn.btn-primary(type='button',ng-click='submitType()') Start
 					.row
 						.col-xs-12
 							ul.nav.nav-tabs(role='tablist',style='margin-bottom:15px')

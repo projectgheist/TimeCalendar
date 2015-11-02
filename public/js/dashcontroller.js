@@ -19,7 +19,7 @@
 			return $resource('/api/0/events/list', {type:'@type', params:'@params'}, { query:{ method: 'GET', isArray: true } });
 		}
 		function postEvents() {
-			return $resource('/api/0/events/add', {params:'@params'});
+			return $resource('/api/0/events/add', {name:'@name',desc:'@desc',type:'@type'});
 		}
 	};
 
@@ -96,7 +96,8 @@
 		$scope.subtractstopdate = false;
 		
 		//
-		$scope.eventtypes = ['normal','info'];
+		$scope.eventtypes = [{'name':'normal'},{'name':'info'}];
+		$scope.eventType = $scope.eventtypes[0]
 		
 		//These variables MUST be set as a minimum for the calendar to work
 		$scope.calendarview = 'day';
@@ -130,16 +131,15 @@
 		
 		//
 		$scope.submitType = function() {
+			console.log()
 			//dashService.getTypes().query({}, function(r) {});
 			dashService.postEvents().save({
-				params:{
-					name: $scope.typename,
-					desc: $scope.typedesc,
-					textcolor: $scope.textcolor,
-					bgcolor: $scope.bgcolor,
-				}
-			}, function() {
+				name: $scope.eventName,
+				desc: $scope.eventDesc,
+				type: $scope.eventType,
+			}, function(r) {
 				// data saved. do something here.
+				console.log(r)
 			});
 		}
 	}

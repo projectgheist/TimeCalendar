@@ -9,7 +9,9 @@ var mg = require('mongoose'),
  * export the models
  */
 exports.Event = require('./models/event');
-exports.Event = require('./models/user');
+exports.EventType = require('./models/eventtype');
+exports.EventItem = require('./models/eventitem');
+exports.User = require('./models/user');
 
 // if database is already connected return
 if (!mg.connection || !mg.connection.db) {
@@ -46,4 +48,22 @@ exports.all = function(model, options) {
 		q.limit(options.limit); 
 	}
 	return q;
+};
+
+/** function findOrCreate
+ * use an empty callback function as a fourth parameter
+ */
+exports.findOrCreate = function(model, item, debug) {
+    return exports.updateOrCreate(model, item, item, debug); 
+};
+
+/** function updateOrCreate
+ */
+exports.updateOrCreate = function(model, item, update, debug) {
+	// upsert: bool - creates the object if it doesn't exist. Defaults to false.
+	var q = model.findOneAndUpdate(item, update, {upsert: true, 'new': true});
+	if (debug) {
+		console.log(q);
+	}
+    return q;
 };

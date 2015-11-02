@@ -10,8 +10,10 @@ var EventType = mg.Schema({
 	name: { type: String, required: true, index: { unique: true } },
 	// description
 	description: String,
-	// color
-	color: String,
+	// color of the text
+	fontTextColor: String,
+	// color of the text
+	fontBgColor: String,
 	// creator
 	user: ut.ref('User'),
 });
