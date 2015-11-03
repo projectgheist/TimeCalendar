@@ -10,7 +10,7 @@ var Event = mg.Schema({
 	// unique identifier
 	shortid: { type: String, index: { unique: true }, default: sh.generate },
 	// name/title
-	name: { type: String, required: true },
+	name: { type: String, unique: true, required: true },
 	// description
 	description: String,
 	// creator

@@ -18,14 +18,10 @@ route
 	})
 	.post(function * (next) {
 		console.log(this.request.query)
-		var self = this,
-			params = this.request.query;
-		yield db
-			.findOrCreate(db.EventType, params)
-			.then(function(type) {
-				self.body = 'OK';
-				self.status = 200;
-			});
+		var params = this.request.query;
+		yield db.updateOrCreate(db.EventType, {$or:[{name: params.name}, {shortid: params.shortid}]}, params);
+		this.body = {status:'OK'};
+		this.status = 200;
 		yield next;
 	})
 	/*

@@ -10,13 +10,13 @@ var EventType = mg.Schema({
 	// unique identifier
 	shortid: { type: String, index: { unique: true }, default: sh.generate },
 	// name/title
-	name: { type: String, required: true },
+	name: { type: String, unique: true, trim: true, required: true },
 	// description
-	description: String,
+	description: { type: String, trim: true, default: '' },
 	// color of the text
-	fontTextColor: String,
+	fontTextColor: { type: String, default: '' },
 	// color of the text
-	fontBgColor: String,
+	fontBgColor: { type: String, default: '' },
 	// creator
 	user: ut.ref('User'),
 });

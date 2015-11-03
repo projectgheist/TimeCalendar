@@ -2,6 +2,10 @@ include includes/header
 .container(ng-controller='dashController')
 	.row
 		.col-xs-12
+			.alert.alert-dismissible.fade.in(ng-class='alertStyle',role="alert")
+				button.close(type="button",data-dismiss="alert",aria-label="Close")
+					span(aria-hidden='true') &times;
+				p {{alertMessage}}
 			.well
 				h1
 					i.fa.fa-plus.fa-fw
@@ -12,16 +16,16 @@ include includes/header
 						.col-xs-12(style='margin-bottom: 15px')
 							.form-group
 								label.sr-only Type name
-								input.form-control(type='text',placeholder='Event name',ng-model='typename')
+								input.form-control(type='text',placeholder='Type name',ng-model='typename')
 							.form-group
 								label.sr-only Type description
-								input.form-control(type='text', placeholder='Event description',ng-model='typedesc')
+								input.form-control(type='text', placeholder='Type description',ng-model='typedesc')
 							.form-group
 								label.sr-only Text color
-								input.form-control.minicolors(type='text',ng-model='textcolor',data-control='saturation')
+								input.form-control.minicolors(type='text',ng-model='textcolor',data-control='saturation',placeholder='Font color')
 							.form-group
 								label.sr-only Background color
-								input.form-control.minicolors(type='text',ng-model='bgcolor',data-control='saturation')
+								input.form-control.minicolors(type='text',ng-model='bgcolor',data-control='saturation',placeholder='Background color')
 							button.btn.btn-primary(type='button',ng-click='submitType()') Create
 			.well
 				h1
@@ -40,7 +44,7 @@ include includes/header
 							.form-group
 								label.sr-only Event type
 								select.form-control(ng-model='eventType')
-									option(ng-repeat='l in eventTypes',value='{{l.shortid}}') {{l.name}}
+									option(ng-repeat='l in eventTypes',value='{{l.shortid}}',style='color:{{l.fontTextColor}};background-color:{{l.fontBgColor}}') {{l.name}}
 							button.btn.btn-primary(type='button',ng-click='submitEvent()') Start
 					.row
 						.col-xs-12

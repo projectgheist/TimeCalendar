@@ -13,13 +13,13 @@
 	function dashService($resource) {
 		return {
 			types: types,
-			postEvents: postEvents,
+			events: events,
 		};
 		function types() {
-			return $resource('/api/0/eventtypes', {name:'@name',desc:'@desc',textColor:'@textColor',bgColor:'@bgColor'}, { query:{ method: 'GET', isArray: true } });
+			return $resource('/api/0/eventtypes', {name:'@name',description:'@description',fontTextColor:'@fontTextColor',fontBgColor:'@fontBgColor'}, { query:{ method: 'GET', isArray: true } });
 		}
-		function postEvents() {
-			return $resource('/api/0/events/add', {name:'@name',desc:'@desc',type:'@type'});
+		function events() {
+			return $resource('/api/0/events', {name:'@name',desc:'@desc',type:'@type'});
 		}
 	};
 
@@ -131,7 +131,7 @@
 		
 		// Retrieve event types 
 		$scope.getEventTypes = function() {
-			dashService.types().query(function(r) {
+			dashService.types().query(function(r) {	
 				$scope.eventTypes = r;
 			});
 		};
@@ -139,20 +139,49 @@
 		// Immediately call function
 		$scope.getEventTypes();
 		
+		// Retrieve event types 
+		$scope.getEvents = function() {
+			dashService.events().query(function(r) {
+				$scope.events = r;
+			});
+		};
+
 		// POST new event
 		$scope.submitEvent = function() {
-			console.log($scope.eventType)
+			dashService.events().save({name:$scope.eventName,desc:$scope.eventDesc,type:$scope.eventType},function(r) {
+				if (r && r.status === 'OK') {
+					$scope.alertStyle = 'alert-success';
+					$scope.alertMessage = 'Successfully store new event!';
+					$('#success-alert').fadeTo(2000, 500).slideUp(500, function(){
+						$('#success-alert').alert('close');
+					});
+					$scope.getEvents();
+				} else {
+					$scope.alertStyle = 'alert-danger';
+					$scope.alertMessage = 'Something when wrong submitting new event!';
+				}
+			});
 		};
 
 		// POST new event type
 		$scope.submitType = function() {
 			dashService.types().save({
 				name: $scope.typename,
-				desc: $scope.typedesc,
-				textColor: $scope.textcolor,
-				bgColor: $scope.bgcolor,
+				description: $scope.typedesc,
+				fontTextColor: $scope.textcolor,
+				fontBgColor: $scope.bgcolor,
 			}, function(r) {
-				$scope.getEventTypes();
+				if (r && r.status === 'OK') {
+					$scope.alertStyle = 'alert-success';
+					$scope.alertMessage = 'Successfully store new event type!';
+					$('#success-alert').fadeTo(2000, 500).slideUp(500, function(){
+						$('#success-alert').alert('close');
+					});
+					$scope.getEventTypes();
+				} else {
+					$scope.alertStyle = 'alert-danger';
+					$scope.alertMessage = 'Something when wrong submitting new event type!';
+				}
 			});
 		}
 	}
