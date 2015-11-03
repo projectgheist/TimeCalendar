@@ -32,12 +32,13 @@
 		'$routeParams', 
 		'$anchorScroll', 
 		'$sce', 
+		'$interval',
 		'$timeout', 
 		'$window', 
 		'dashService'
 	];
 
-	function dashController($rootScope, $scope, $http, $location, $route, $routeParams, $anchorScroll, $sce, $timeout, $window, dashService) {
+	function dashController($rootScope, $scope, $http, $location, $route, $routeParams, $anchorScroll, $sce, $interval, $timeout, $window, dashService) {
 		// !Prevents the page from scrolling to the id
 		$('.nav-tabs a').click(function (e) {
 			e.preventDefault()
@@ -66,10 +67,12 @@
 			calendar:{
 				height: 450,
 				editable: true,
+				// initial view when the calendar loads
+				defaultView: 'agendaDay',
 				header:{
-					left: 'month basicWeek basicDay agendaWeek agendaDay',
+					left: '', // 'month basicWeek basicDay agendaWeek agendaDay',
 					center: 'title',
-					right: 'today prev,next'
+					right: '', // 'today prev,next'
 				},
 				buttonText: {
 					today:    'Today',
@@ -82,10 +85,23 @@
 				eventResize: $scope.alertOnResize
 			}
 		};
+		
+		//
+		$scope.textcolor = '#ffa';
+		$scope.bgcolor = '#ab';
 	
 		//
-		$scope.startdate = new Date();
-
+		$scope.updateStartDate = function() {
+			$scope.startDate = new Date();
+			$scope.startDateFormat = moment($scope.startDate).format('MMM DD, HH:mm');
+		};
+		
+		// Do every 15 seconds
+		$interval($scope.updateStartDate, 1000 * 15);
+		
+		// Do immediately
+		$scope.updateStartDate();
+		
 		// !disable the add to startdate
 		$scope.addstartdate = false;
 		

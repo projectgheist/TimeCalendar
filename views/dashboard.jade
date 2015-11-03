@@ -6,115 +6,41 @@ include includes/header
 				button.close(type="button",data-dismiss="alert",aria-label="Close")
 					span(aria-hidden='true') &times;
 				p {{alertMessage}}
-			.well
-				h1
-					i.fa.fa-plus.fa-fw
-					| Create type
-				hr
-				form.form-inline
-					.row
-						.col-xs-12(style='margin-bottom: 15px')
-							.form-group
-								label.sr-only Type name
-								input.form-control(type='text',placeholder='Type name',ng-model='typename')
-							.form-group
-								label.sr-only Type description
-								input.form-control(type='text', placeholder='Type description',ng-model='typedesc')
-							.form-group
-								label.sr-only Text color
-								input.form-control.minicolors(type='text',ng-model='textcolor',data-control='saturation',placeholder='Font color')
-							.form-group
-								label.sr-only Background color
-								input.form-control.minicolors(type='text',ng-model='bgcolor',data-control='saturation',placeholder='Background color')
-							button.btn.btn-primary(type='button',ng-click='submitType()') Create
+	.row
+		.col-xs-12
+	.row
+		.col-sm-6
 			.well
 				h1
 					i.fa.fa-check.fa-fw
 					| Start event
 				hr
-				form.form-inline
+				form
 					.row
-						.col-xs-12(style='margin-bottom: 15px')
+						.col-xs-12
 							.form-group
 								label.sr-only Event name
 								input.form-control(type='text', placeholder='Event name',ng-model='eventName',ng-required)
 							.form-group
-								label.sr-only Event description
-								input.form-control(type='text', placeholder='Event description',ng-model='eventDesc')
+								label.sr-only Start time
+								.input-group
+									span.input-group-btn
+										button.btn.btn-default
+											i.fa.fa-clock-o.fa-fw
+									input.form-control(type='text', placeholder='Event start time',ng-model='startDateFormat',disabled)
+					.row
+						.col-xs-6
 							.form-group
-								label.sr-only Event type
-								select.form-control(ng-model='eventType')
-									option(ng-repeat='l in eventTypes',value='{{l.shortid}}',style='color:{{l.fontTextColor}};background-color:{{l.fontBgColor}}') {{l.name}}
-							button.btn.btn-primary(type='button',ng-click='submitEvent()') Start
+								label.sr-only Text color
+								input.form-control.minicolors(type='text',ng-model='textcolor',data-control='saturation',placeholder='Font color')
+						.col-xs-6
+							.form-group
+								label.sr-only Background color
+								input.form-control.minicolors(type='text',ng-model='bgcolor',data-control='saturation',placeholder='Background color')
 					.row
 						.col-xs-12
-							ul.nav.nav-tabs(role='tablist',style='margin-bottom:15px')
-								li.active(role="presentation")
-									a(href='#current',aria-controls="current",role='tab',data-toggle='tab')
-										i.fa.fa-clock-o.fa-fw
-										| Now
-								li(role="presentation")
-									a(href='#specify',aria-controls="specify",role='tab',data-toggle='tab')
-										i.fa.fa-calendar-check-o.fa-fw
-										| Specify
-					.tab-content
-						#current.tab-pane.fade.in.active(role="tabpanel")
-							.row
-								.col-xs-12
-									p No additional information needed
-						#specify.tab-pane.fade(role="tabpanel")
-							.row
-								.col-xs-6
-									h3.text-center Start time
-									.form-group
-										.row
-											.col-lg-8
-												.input-group(style='margin-top:34px')
-													span.input-group-btn
-														button.btn.btn-default
-															i.fa.fa-calendar.fa-fw
-													input.form-control(type='text',ng-model="startdate",uib-datepicker-popup='dd MMMM yyyy',datepicker-options="dateOptions",is-open="false")
-											.col-lg-4
-												uib-timepicker(ng-model='startdate',hour-step="1",minute-step="15",show-meridian="true")
-									.form-group
-										.checkbox
-											label
-												input(type='checkbox',ng-model='addstartdate')
-												| &nbsp;Add duration
-									.form-group
-										.row
-											.col-lg-4
-												input.form-control(type='text',placeholder='Days',ng-disabled='!addstartdate',style='width:100%')
-											.col-lg-4
-												input.form-control(type='text',placeholder='Hours',ng-disabled='!addstartdate',style='width:100%')
-											.col-lg-4
-												input.form-control(type='text',placeholder='Minutes',ng-disabled='!addstartdate',style='width:100%')
-								.col-xs-6
-									h3.text-center End time
-									.form-group
-										.row
-											.col-lg-8
-												.input-group(style='margin-top:34px')
-													span.input-group-btn
-														button.btn.btn-default
-															i.fa.fa-calendar.fa-fw
-													input.form-control(type='text',ng-model="stopdate",uib-datepicker-popup='dd MMMM yyyy',datepicker-options="dateOptions",is-open="false")
-											.col-lg-4
-												uib-timepicker(ng-model='stopdate',hour-step="1",minute-step="15",show-meridian="true")
-									.form-group
-										.checkbox
-											label
-												input(type='checkbox',ng-model='subtractstopdate')
-												| &nbsp;Subtract duration
-									.form-group
-										.row
-											.col-lg-4
-												input.form-control(type='text',placeholder='Days',ng-disabled='!subtractstopdate',style='width:100%')
-											.col-lg-4
-												input.form-control(type='text',placeholder='Hours',ng-disabled='!subtractstopdate',style='width:100%')
-											.col-lg-4
-												input.form-control(type='text',placeholder='Minutes',ng-disabled='!subtractstopdate',style='width:100%')
-	.row
-		.col-xs-12
+							.text-right
+								button.btn.btn-primary(type='button',ng-click='submitEvent()') Start
+		.col-sm-6
 			.calendar(ui-calendar='uiConfig.calendar',ng-model='calendarEventSources')
 include includes/js

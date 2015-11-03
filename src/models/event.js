@@ -19,6 +19,10 @@ var Event = mg.Schema({
 	type: ut.ref('EventType'),
 	// @todo
     array: [ut.ref('EventItem')],
+	// color of the text
+	fontTextColor: { type: String, default: '' },
+	// color of the text
+	fontBgColor: { type: String, default: '' },
 });
 
 /**

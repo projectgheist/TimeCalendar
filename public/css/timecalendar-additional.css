@@ -8,6 +8,10 @@
 	left: inherit;
 }
 
+form .minicolors-theme-bootstrap .minicolors-swatch {
+	left: 18px;
+}
+
 .form-inline .minicolors-position-left .minicolors-panel {
 	left: inherit;
 }}

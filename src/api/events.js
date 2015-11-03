@@ -15,7 +15,7 @@ route
 		this.status = 200;
 		yield next;
 	})
-	/** Add a new event */
+	/** Add a new event item */
 	.post(function * (next) {
 		var params = this.request.query;
 		// Find of create event type
