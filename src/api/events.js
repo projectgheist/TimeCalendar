@@ -2,44 +2,53 @@
  */
 var ap = require('../../app'),
 	ut = require('../utils'),
-	db = require('../storage');
+	db = require('../storage'),
+	mm = require('moment');
 
 /** Event route */
 var route = ap.route(/\/api\/0\/events\/?/);
 route
 	/** Retrieve all events */
 	.get(function * (next) {
-		console.log(this.request.query)
-		var events = yield db.all(db.Event,{}).populate('type');
-		this.body = events;
+		var events = yield db.all(db.EventItem,{}).populate('event'),
+			f = []; // correctly formatted items
+		for (var i in events) {
+			var ref = events[i];
+			f.push({
+				title: ref.event.name,
+				start: ref.startTime,
+				end: ref.endTime,
+				allDay: ref.allDay,
+				color: ref.event.fontBgColor || '#000',
+				textColor: ref.event.fontTextColor || '#fff'
+			});
+		}
+		this.body = {'array':f};
 		this.status = 200;
 		yield next;
 	})
 	/** Add a new event item */
 	.post(function * (next) {
 		var params = this.request.query;
-		// Find of create event type
-		var eventType = yield db.findOrCreate(db.EventType, {
-				name: params.type,
-			});
 		// Find of create event
-		var event = yield db
+		var dbEvent = yield db
 			.findOrCreate(db.Event, {
 				name: params.name,
 			});
-		event.description = params.desc;
-		event.type = eventType;
-		yield event.save();
+		dbEvent.description = params.desc;
+		dbEvent.fontTextColor = params.fontTextColor;
+		dbEvent.fontBgColor = params.fontBgColor;
+		yield dbEvent.save();
 		
 		// Create new element for event
-		/*
-		var element = yield db
+		yield db
 			.findOrCreate(db.EventItem, {
-				startTime: params.name,
-				endTime:
+				startTime: params.st,
+				endTime: params.et,
+				event: dbEvent,
+				allDay: false
 			});
-*/
-		self.body = event;
-		self.status = 200;
+		this.body = {status:'OK'};
+		this.status = 200;
 		yield next;
 	});

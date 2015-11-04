@@ -8,17 +8,13 @@ var mg = require('mongoose'),
  */
 var Event = mg.Schema({
 	// unique identifier
-	shortid: { type: String, index: { unique: true }, default: sh.generate },
+	shortid: { type: String, unique: true, default: sh.generate },
 	// name/title
 	name: { type: String, unique: true, required: true },
 	// description
 	description: String,
 	// creator
 	user: ut.ref('User'),
-	// Type of event to determine the color, etc.
-	type: ut.ref('EventType'),
-	// @todo
-    array: [ut.ref('EventItem')],
 	// color of the text
 	fontTextColor: { type: String, default: '' },
 	// color of the text
