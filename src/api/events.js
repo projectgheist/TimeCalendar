@@ -11,19 +11,26 @@ route
 	/** Retrieve all events */
 	.get(function * (next) {
 		var events = yield db.all(db.EventItem,{}).populate('event'),
-			f = []; // correctly formatted items
+			running = [],
+			completed = [];
 		for (var i in events) {
-			var ref = events[i];
-			f.push({
-				title: ref.event.name,
-				start: ref.startTime,
-				end: ref.endTime,
-				allDay: ref.allDay,
-				color: ref.event.fontBgColor || '#000',
-				textColor: ref.event.fontTextColor || '#fff'
-			});
+			var ref = events[i],	
+				n = {
+					title: ref.event.name,
+					start: ref.startTime,
+					end: ref.endTime,
+					duration: ref.duration,
+					allDay: ref.allDay,
+					color: ref.event.fontBgColor || '#000',
+					textColor: ref.event.fontTextColor || '#fff'
+				};
+			if (ref.endTime) {
+				completed.push(n);
+			} else {
+				running.push(n);
+			}
 		}
-		this.body = {'array':f};
+		this.body = {'array': [{'events':running},{'events':completed}]};
 		this.status = 200;
 		yield next;
 	})

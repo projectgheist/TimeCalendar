@@ -6,8 +6,14 @@ include includes/header
 				button.close(type="button",data-dismiss="alert",aria-label="Close")
 					span(aria-hidden='true') &times;
 				p {{alertMessage}}
-	.row
+	.row(ng-if='eventSources && eventSources.length && eventSources[0].events.length')
 		.col-xs-12
+			h1 To be completed events
+			ul.list-group
+				li.list-group-item(ng-repeat='e in eventSources[0].events')
+					span.badge {{e.duration}}
+					h4.list-group-item-heading(style='margin-top:5px')
+						span.bordered(style='color:{{e.textColor}};background-color:{{e.color}}') {{e.title}}
 	.row
 		.col-sm-6
 			.well
@@ -41,6 +47,12 @@ include includes/header
 						.col-xs-12
 							.text-right
 								button.btn.btn-primary(type='button',ng-click='submitEvent()') Start
+			h1 Previous events
+			ul.list-group
+				li.list-group-item(ng-repeat='e in eventSources[1].events')
+					span.badge {{e.duration}}
+					h4.list-group-item-heading(style='margin-top:5px')
+						span.bordered(style='color:{{e.textColor}};background-color:{{e.color}}') {{e.title}}
 		.col-sm-6
 			.calendar(ui-calendar='uiConfig.calendar',ng-model='eventSources')
 include includes/js

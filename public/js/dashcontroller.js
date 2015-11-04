@@ -57,6 +57,8 @@
 		$scope.uiConfig = {
 			calendar:{
 				height: 450,
+				// Flagged true when an allDay event is present
+				allDaySlot: false,
 				editable: true,
 				// initial view when the calendar loads
 				defaultView: 'agendaDay',
@@ -71,12 +73,23 @@
 					week:     'Week',
 					day:      'Day'
 				},
-				/*
 				dayClick: $scope.alertEventOnClick,
-				eventDrop: $scope.alertOnDrop,
-				eventResize: $scope.alertOnResize
-				*/
+				eventDrop: $scope.alertEventOnClick,
+				eventResize: $scope.alertEventOnClick
 			}
+		};
+
+		$scope.alertEventOnClick = function() {
+			console.log('alertEventOnClick');
+		};
+		
+		$scope.alertOnDrop = function() {
+			console.log('alertOnDrop');
+		};
+		
+		$scope.alertOnResize = function(event, delta, revertFunc) {
+			console.log('alertOnResize');
+			console.log(event)
 		};
 		
 		// Set default colors
@@ -98,8 +111,8 @@
 		// !disable the add to startdate
 		$scope.addstartdate = false;
 		
-		//
-		$scope.stopdate = moment($scope.startdate).add(1, 'hours');
+		// Disable the stopdate by default, indicates a currently running event
+		$scope.stopdate = 0;
 		
 		// disable the subtract from stopdate
 		$scope.subtractstopdate = false;
@@ -136,7 +149,7 @@
 		// Retrieve event types 
 		$scope.getEvents = function() {
 			dashService.events().query(function(r) {
-				$scope.eventSources = [{'events': r.array}];
+				$scope.eventSources = r.array;
 			});
 		};
 		
