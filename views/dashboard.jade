@@ -26,7 +26,12 @@ include includes/header
 						.col-xs-12
 							.form-group
 								label.sr-only Event name
-								input.form-control(type='text', placeholder='Event name',ng-model='eventName',ng-required)
+								input.form-control(type='text',placeholder='Event name',ng-model='eventName',ng-required,uib-typeahead='event.name for event in getEvents($viewValue)',typeahead-loading='loadingEvents',typeahead-no-results='noEvents',typeahead-on-select='onTypeAheadSelect($item, $model, $label)')
+								p
+									i.fa.fa-refresh(ng-show='loadingEvents')
+									span(ng-show='noEvents')
+										i.fa.fa-remove
+										| No events found!
 							.form-group
 								label.sr-only Start time
 								.input-group
@@ -38,15 +43,16 @@ include includes/header
 						.col-xs-6
 							.form-group
 								label.sr-only Text color
-								input.form-control.minicolors(type='text',ng-model='textcolor',data-control='saturation',placeholder='Font color')
+								input.form-control.minicolors#textcolor(type='hidden',ng-model='textcolor',data-control='saturation',placeholder='Font color',value='{{textcolor}}')
 						.col-xs-6
 							.form-group
 								label.sr-only Background color
-								input.form-control.minicolors(type='text',ng-model='bgcolor',data-control='saturation',placeholder='Background color')
+								input.form-control.minicolors#bgcolor(type='hidden',ng-model='bgcolor',data-control='saturation',placeholder='Background color',value='{{bgcolor}}')
 					.row
 						.col-xs-12
 							.text-right
-								button.btn.btn-primary(type='button',ng-click='submitEvent()') Start
+								button.btn.btn-default(type='button',ng-click='submitEventItem()',style='margin-right:5px') Change
+								button.btn.btn-primary(type='button',ng-click='submitEventItem()') Start
 			h1 Previous events
 			ul.list-group
 				li.list-group-item(ng-repeat='e in eventSources[1].events')

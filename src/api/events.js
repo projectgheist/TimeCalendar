@@ -8,7 +8,7 @@ var ap = require('../../app'),
 /** Event route */
 var route = ap.route(/\/api\/0\/events\/?/);
 route
-	/** Retrieve all events */
+	/** Retrieve all event items */
 	.get(function * (next) {
 		var events = yield db.all(db.EventItem,{}).populate('event'),
 			running = [],
@@ -24,7 +24,7 @@ route
 					color: ref.event.fontBgColor || '#000',
 					textColor: ref.event.fontTextColor || '#fff'
 				};
-			if (ref.endTime) {
+			if (ref.duration > 0) {
 				completed.push(n);
 			} else {
 				running.push(n);
@@ -51,11 +51,18 @@ route
 		yield db
 			.findOrCreate(db.EventItem, {
 				startTime: params.st,
-				endTime: params.et,
+				duration: params.td,
 				event: dbEvent,
 				allDay: false
 			});
 		this.body = {status:'OK'};
+		this.status = 200;
+		yield next;
+	});
+route.nested('/list')
+	.get(function * (next) {
+		var events = yield db.all(db.Event,{});
+		this.body = {'status':200,'events':events};
 		this.status = 200;
 		yield next;
 	});

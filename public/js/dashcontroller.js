@@ -12,9 +12,10 @@
 
 	function dashService($resource) {
 		return {
-			events: events,
+			eventItems: eventItems,
+			events: events
 		};
-		function events() {
+		function eventItems() {
 			return $resource('/api/0/events', {
 					name:'@name',
 					desc:'@desc',
@@ -22,7 +23,15 @@
 					fontTextColor:'@fontTextColor',
 					fontBgColor:'@fontBgColor',
 					st:'@st',
+					td:'@td', // time duration
 					et:'@et'
+				}, { 
+					query:{ method: 'GET', isArray: false } 
+				});
+		}
+		function events() {
+			return $resource('/api/0/events/list', {
+					name: '@name'
 				}, { 
 					query:{ method: 'GET', isArray: false } 
 				});
@@ -57,7 +66,7 @@
 		$scope.uiConfig = {
 			calendar:{
 				height: 450,
-				// Flagged true when an allDay event is present
+				// Flag true when an allDay event is present
 				allDaySlot: false,
 				editable: true,
 				// initial view when the calendar loads
@@ -73,14 +82,24 @@
 					week:     'Week',
 					day:      'Day'
 				},
-				dayClick: $scope.alertEventOnClick,
-				eventDrop: $scope.alertEventOnClick,
-				eventResize: $scope.alertEventOnClick
+				// Start of the working day (@todo: to be overridden when an earlier event op the day is detected)
+				minTime: '08:00:00',
+				// End of the working day (@todo: to be overridden when a later event op the day is detected)
+				maxTime: '19:00:00',
+				// How much time a row occupies
+				slotDuration: '00:15:00',
+				
+				dayClick: alertEventOnClick,
+				eventDrop: alertEventOnClick,
+				eventResize: alertEventOnClick
 			}
 		};
+		
+		console.log($scope.uiConfig.calendar);
 
-		$scope.alertEventOnClick = function() {
+		function alertEventOnClick() {
 			console.log('alertEventOnClick');
+			console.log($scope)
 		};
 		
 		$scope.alertOnDrop = function() {
@@ -123,14 +142,14 @@
 		$scope.autoOpen = true;
 		
 		// POST new event
-		$scope.submitEvent = function() {
-			dashService.events().save({
+		$scope.submitEventItem = function() {
+			dashService.eventItems().save({
 				name:$scope.eventName,
 				desc:$scope.eventDesc,
 				fontTextColor:$scope.textcolor,
 				fontBgColor:$scope.bgcolor,
 				st:$scope.startDate,
-				et:moment($scope.startdate).add(1, 'hours').toDate()
+				td:0
 			},function(r) {
 				if (r && r.status === 'OK') {
 					$scope.alertStyle = 'alert-success';
@@ -138,7 +157,8 @@
 					$('#success-alert').fadeTo(2000, 500).slideUp(500, function(){
 						$('#success-alert').alert('close');
 					});
-					$scope.getEvents();
+					// refetch events
+					$scope.getEventItems();
 				} else {
 					$scope.alertStyle = 'alert-danger';
 					$scope.alertMessage = 'Something when wrong submitting new event!';
@@ -147,13 +167,74 @@
 		};
 
 		// Retrieve event types 
-		$scope.getEvents = function() {
-			dashService.events().query(function(r) {
+		$scope.onTypeAheadSelect = function(item, model, label) {
+			$scope.textcolor = item.fontTextColor;
+			$('#textcolor').minicolors('value',item.fontTextColor);
+			$scope.bgcolor = item.fontBgColor;
+			$('#bgcolor').minicolors('value',item.fontBgColor);
+		};
+		
+		// Retrieve event types 
+		$scope.getEvents = function(val) {
+			return dashService.events().query({name: val}).$promise.then(function(r) {
+				if (r.status === 200) {
+					return r.events;
+				}
+				return false;
+			});
+		};
+
+		//
+		$scope.setRunningEvents = function() {
+			if ($scope.eventSources.length) {
+				var ref = $scope.eventSources[0].events;
+				// loop all running events
+				for (var i in ref) {
+					if (typeof ref[i] === 'object') {
+						// set end time to now (it's still running)
+						ref[i].end = Date.now();
+						// calculate new duration time
+						ref[i].duration = moment(moment().diff(ref[i].start)).format('HH:mm');
+					}
+				}
+			}
+		};
+
+		// Do every 15 seconds
+		$interval($scope.setRunningEvents, 1000 * 15);
+		
+		// Retrieve event types 
+		$scope.getEventItems = function() {
+			dashService.eventItems().query(function(r) {
+				// store the events to the calendar
 				$scope.eventSources = r.array;
+				// has current running events?
+				if ($scope.eventSources.length && $scope.eventSources[0].events.length) {
+					// set new day start time
+					var minDate = moment($scope.uiConfig.calendar.minTime,'HH:mm');
+					if (moment(minDate).diff(moment(),'minutes') > 0) {
+						var newMinTime = moment().subtract(1,'hour').format('HH') + ':00:00';
+						// !Special case: Midnight
+						if (newMinTime === '23:00:00') {
+							newMinTime = '00:00:00';
+						}
+						$scope.uiConfig.calendar.minTime = newMinTime;
+					}
+					// set new day end time
+					var maxDate = moment($scope.uiConfig.calendar.maxTime,'HH:mm');
+					if (moment().diff(maxDate,'minutes') > 0) {
+						var newMaxTime = moment().add(1,'hour').format('HH') + ':00:00';
+						// !Special case: Midnight
+						if (newMaxTime === '00:00:00') {
+							newMaxTime = '23:59:59';
+						}
+						$scope.uiConfig.calendar.maxTime = newMaxTime;
+					}
+				}
 			});
 		};
 		
 		// Immediately call function
-		$scope.getEvents();
+		$scope.getEventItems();
 	}
 })();

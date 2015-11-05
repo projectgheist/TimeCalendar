@@ -18,8 +18,8 @@ var EventItem = mg.Schema({
     creationTime: { type: Date, default: Date.now },
 	// date that this event was created
     startTime: { type: Date, default: Date.now },
-	// date that this event was created
-    endTime: { type: Date, default: 0 },
+	// how long the event lasted
+    duration: { type: Number, min: 0, default: 0 },
 	// Flag true if event takes up the entire day
     allDay: { type: Boolean, default: false },
 });
@@ -30,8 +30,8 @@ EventItem.index({user: 1, shortid: 1}, {unique: true});
 
 /** Returns the difference in milliseconds
  */
-EventItem.virtual('duration').get(function() {
-    return (this.endTime ? mm(mm(this.endTime).diff(this.startTime)).format('HH:mm') : 0);
+EventItem.virtual('endTime').get(function() {
+    return (this.duration ? mm(this.startTime).add(this.startTime, 'ms') : 0);
 });
 
 /**

@@ -12,6 +12,19 @@ form .minicolors-theme-bootstrap .minicolors-swatch {
 	left: 18px;
 }
 
+.minicolors-theme-bootstrap .minicolors-swatch-color {
+	margin-left: 15px;
+	margin-right: 15px;
+	height: 34px;
+	border: 1px solid #e3e3e3;
+	border-radius:4px;
+}
+
+.minicolors-position-left .minicolors-panel {
+	left: inherit;
+	top: 37px;
+}
+
 .form-inline .minicolors-position-left .minicolors-panel {
 	left: inherit;
 }}

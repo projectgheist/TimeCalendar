@@ -54738,11 +54738,9 @@ angular.module('ui.calendar', [])
       scope: {eventSources:'=ngModel',calendarWatchEvent: '&'},
       controller: 'uiCalendarCtrl',
       link: function(scope, elm, attrs, controller) {
-
-        var sources = scope.eventSources,
-            sourcesChanged = false,
+        var sourcesChanged = false,
             calendar,
-            eventSourcesWatcher = controller.changeWatcher(sources, controller.sourceFingerprint),
+            eventSourcesWatcher = controller.changeWatcher(scope.eventSources, controller.sourceFingerprint),
             eventsWatcher = controller.changeWatcher(controller.allEvents, controller.eventFingerprint),
             options = null;
 
@@ -54754,7 +54752,7 @@ angular.module('ui.calendar', [])
 
           var localeFullCalendarConfig = controller.getLocaleConfig(fullCalendarConfig);
           angular.extend(localeFullCalendarConfig, fullCalendarConfig);
-          options = { eventSources: sources };
+          options = { eventSources: scope.eventSources };
           angular.extend(options, localeFullCalendarConfig);
           //remove calendars from options
           options.calendars = null;
