@@ -8,11 +8,11 @@ var mg = require('mongoose'),
  */
 var Event = mg.Schema({
 	// unique identifier
-	shortid: { type: String, default: sh.generate },
+	sid: { type: String, default: sh.generate },
 	// name/title
 	name: { type: String, trim: true, required: true },
 	// description
-	description: String,
+	description: { type: String, trim: true },
 	// creator
 	user: ut.ref('User'),
 	// color of the text
@@ -23,7 +23,7 @@ var Event = mg.Schema({
 
 /**
  */
-Event.index({user: 1, shortid: 1}, {unique: true});
+Event.index({user: 1, name: 1}, {});
 
 /**
  */

@@ -9,7 +9,7 @@ var mg = require('mongoose'),
  */
 var EventItem = mg.Schema({
 	// unique identifier
-	shortid: { type: String, default: sh.generate },
+	sid: { type: String, default: sh.generate },
 	// event it belongs to
 	event: ut.ref('Event'),
 	// creator
@@ -18,6 +18,8 @@ var EventItem = mg.Schema({
     creationTime: { type: Date, default: Date.now },
 	// date that this event was created
     startTime: { type: Date, default: Date.now },
+	// date that this event was created
+    endTime: { type: Date },
 	// how long the event lasted
     duration: { type: Number, min: 0, default: 0 },
 	// Flag true if event takes up the entire day
@@ -26,13 +28,7 @@ var EventItem = mg.Schema({
 
 /**
  */
-EventItem.index({user: 1, shortid: 1}, {unique: true});
-
-/** Returns the difference in milliseconds
- */
-EventItem.virtual('endTime').get(function() {
-    return (this.duration ? mm(this.startTime).add(this.startTime, 'ms') : 0);
-});
+EventItem.index({user: 1, sid: 1}, {unique: true});
 
 /**
  */

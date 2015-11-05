@@ -17,7 +17,7 @@
 		};
 		function eventItems() {
 			return $resource('/api/0/events', {
-					shortid:'@shortid',
+					id:'@id',
 					name:'@name',
 					desc:'@desc',
 					type:'@type',
@@ -70,6 +70,8 @@
 				// Flag true when an allDay event is present
 				allDaySlot: false,
 				editable: true,
+				// how far down the scroll pane is initially scrolled down
+				scrollTime: moment().format('HH') + ':00:00',
 				// initial view when the calendar loads
 				defaultView: 'agendaDay',
 				header:{
@@ -142,8 +144,8 @@
 			dashService.eventItems().save({
 				name:$scope.eventName,
 				desc:$scope.eventDesc,
-				fontTextColor:$scope.textcolor,
-				fontBgColor:$scope.bgcolor,
+				fontTextColor:$('#textcolor').minicolors('value'),
+				fontBgColor:$('#bgcolor').minicolors('value'),
 				st:$scope.startDate,
 				td:0
 			},function(r) {
@@ -164,16 +166,13 @@
 
 		// Retrieve event types 
 		$scope.onTypeAheadSelect = function(item, model, label) {
-			$scope.textcolor = item.fontTextColor;
 			$('#textcolor').minicolors('value',item.fontTextColor);
-			$scope.bgcolor = item.fontBgColor;
 			$('#bgcolor').minicolors('value',item.fontBgColor);
 		};
 		
 		//
 		$scope.stopEvent = function(eventItemId) {
-			console.log(eventItemId)
-			dashService.eventItems().save({'shortid':eventItemId},function(r) {
+			dashService.eventItems().save({'id':eventItemId},function(r) {
 				if (r && r.status === 'OK') {
 					$scope.alertStyle = 'alert-success';
 					$scope.alertMessage = 'Successfully store new event!';
@@ -198,6 +197,12 @@
 				return false;
 			});
 		};
+		
+		$scope.setNewEvent = function(val) {
+			$scope.eventName = val.title;
+			$('#textcolor').minicolors('value',val.textColor);
+			$('#bgcolor').minicolors('value',val.color);
+		};
 
 		//
 		$scope.setRunningEvents = function() {
@@ -211,7 +216,7 @@
 						// set end time to now (it's still running)
 						ref[i].end = Date.now();
 						// calculate new duration time
-						ref[i].duration = moment(moment().diff(ref[i].start)).format('HH:mm');
+						ref[i].duration = moment(moment().diff(moment(ref[i].start))).format('HH:mm');
 					}
 				}
 			}
@@ -250,6 +255,39 @@
 				}
 				// Update events
 				$scope.setRunningEvents();
+				
+				if ($scope.eventSources.length) {
+					var ref = $scope.eventSources[1].events;
+					// loop all running events
+					for (var i in ref) {
+						if (typeof ref[i] === 'object') {
+							// format duration time
+							ref[i].duration = moment(ref[i].duration).format('HH:mm');
+						}
+					}
+				}
+			});
+		};
+		
+		$scope.changeEvent = function() {
+			dashService.eventItems().save({
+				name:$scope.eventName,
+				desc:$scope.eventDesc,
+				fontTextColor:$('#textcolor').minicolors('value'),
+				fontBgColor:$('#bgcolor').minicolors('value'),
+			},function(r) {
+				if (r && r.status === 'OK') {
+					$scope.alertStyle = 'alert-success';
+					$scope.alertMessage = 'Successfully store new event!';
+					$('#success-alert').fadeTo(2000, 500).slideUp(500, function(){
+						$('#success-alert').alert('close');
+					});
+					// refetch events
+					$scope.getEventItems();
+				} else {
+					$scope.alertStyle = 'alert-danger';
+					$scope.alertMessage = 'Something when wrong submitting new event!';
+				}
 			});
 		};
 		

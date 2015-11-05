@@ -15,7 +15,9 @@ include includes/header
 						.col-lg-10
 							h4.list-group-item-heading(style='margin-top:5px')
 								span.bordered(style='color:{{e.textColor}};background-color:{{e.color}};margin-right:10px') {{e.title}}
-								small Elapsed time: {{e.duration}}
+								small
+									i.fa.fa-clock-o.fa-fw
+									| &nbsp;{{e.duration}}
 						.col-lg-2
 							button.btn.btn-block(type='button',ng-click='stopEvent(e.id)') Stop
 	.row
@@ -55,14 +57,18 @@ include includes/header
 					.row
 						.col-xs-12
 							.text-right
-								button.btn.btn-default(type='button',ng-click='submitEventItem()',style='margin-right:5px') Change
+								button.btn.btn-default(type='button',ng-click='changeEvent()',style='margin-right:5px') Change
 								button.btn.btn-primary(type='button',ng-click='submitEventItem()') Start
 			h1 Previous events
 			ul.list-group
-				li.list-group-item(ng-repeat='e in eventSources[1].events')
-					span.badge {{e.duration}}
-					h4.list-group-item-heading(style='margin-top:5px')
-						span.bordered(style='color:{{e.textColor}};background-color:{{e.color}}') {{e.title}}
+				li.list-group-item(ng-repeat='e in eventSources[1].events',style='background-color:{{e.color}};padding:0 15px')
+					.row
+						.col-lg-1
+							button.close.pull-left(type='button',style='margin:25px 0')
+								span &times;
+						.col-lg-11(ng-click='setNewEvent(e)')
+							span.badge.pull-right(style='margin:25px 0') {{e.duration}}
+							h4(style='color:{{e.textColor}};margin:25px 0') {{e.title}}
 		.col-sm-6
 			.calendar(ui-calendar='uiConfig.calendar',ng-model='eventSources')
 include includes/js
