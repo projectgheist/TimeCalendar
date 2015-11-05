@@ -14,8 +14,9 @@ route
 			running = [],
 			completed = [];
 		for (var i in events) {
-			var ref = events[i],	
+			var ref = events[i],
 				n = {
+					id: ref.shortid,
 					title: ref.event.name,
 					start: ref.startTime,
 					end: ref.endTime,
@@ -37,24 +38,37 @@ route
 	/** Add a new event item */
 	.post(function * (next) {
 		var params = this.request.query;
-		// Find of create event
-		var dbEvent = yield db
-			.findOrCreate(db.Event, {
-				name: params.name,
-			});
-		dbEvent.description = params.desc;
-		dbEvent.fontTextColor = params.fontTextColor;
-		dbEvent.fontBgColor = params.fontBgColor;
-		yield dbEvent.save();
-		
-		// Create new element for event
-		yield db
-			.findOrCreate(db.EventItem, {
-				startTime: params.st,
-				duration: params.td,
-				event: dbEvent,
-				allDay: false
-			});
+		if (!params.shortid) {
+			// Find of create event
+			var dbEvent = yield db
+				.findOrCreate(db.Event, {
+					name: params.name,
+				});
+			dbEvent.description = params.desc;
+			dbEvent.fontTextColor = params.fontTextColor;
+			dbEvent.fontBgColor = params.fontBgColor;
+			yield dbEvent.save();
+		} else {
+			console.log(params.shortid)
+			var item = yield db.EventItem.findOne({
+				})
+				.populate('event');
+			console.log(item)
+			item.duration = mm().diff(item.startTime);
+			yield item.save();
+		}
+		// Contains a start time?
+		if (params.st) {
+			// Create new element for event
+			var item = yield db
+				.findOrCreate(db.EventItem, {
+					startTime: params.st,
+					duration: params.td,
+					event: dbEvent,
+					allDay: false
+				});
+			console.log(item)
+		}
 		this.body = {status:'OK'};
 		this.status = 200;
 		yield next;

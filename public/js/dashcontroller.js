@@ -17,6 +17,7 @@
 		};
 		function eventItems() {
 			return $resource('/api/0/events', {
+					shortid:'@shortid',
 					name:'@name',
 					desc:'@desc',
 					type:'@type',
@@ -95,8 +96,6 @@
 			}
 		};
 		
-		console.log($scope.uiConfig.calendar);
-
 		function alertEventOnClick() {
 			console.log('alertEventOnClick');
 			console.log($scope)
@@ -120,9 +119,6 @@
 			$scope.startDate = new Date();
 			$scope.startDateFormat = moment($scope.startDate).format('MMM DD, HH:mm');
 		};
-		
-		// Do every 15 seconds
-		$interval($scope.updateStartDate, 1000 * 15);
 		
 		// Do immediately
 		$scope.updateStartDate();
@@ -174,6 +170,25 @@
 			$('#bgcolor').minicolors('value',item.fontBgColor);
 		};
 		
+		//
+		$scope.stopEvent = function(eventItemId) {
+			console.log(eventItemId)
+			dashService.eventItems().save({'shortid':eventItemId},function(r) {
+				if (r && r.status === 'OK') {
+					$scope.alertStyle = 'alert-success';
+					$scope.alertMessage = 'Successfully store new event!';
+					$('#success-alert').fadeTo(2000, 500).slideUp(500, function(){
+						$('#success-alert').alert('close');
+					});
+					// refetch events
+					$scope.getEventItems();
+				} else {
+					$scope.alertStyle = 'alert-danger';
+					$scope.alertMessage = 'Something when wrong submitting new event!';
+				}
+			});
+		};
+		
 		// Retrieve event types 
 		$scope.getEvents = function(val) {
 			return dashService.events().query({name: val}).$promise.then(function(r) {
@@ -186,6 +201,8 @@
 
 		//
 		$scope.setRunningEvents = function() {
+			$scope.updateStartDate();
+			
 			if ($scope.eventSources.length) {
 				var ref = $scope.eventSources[0].events;
 				// loop all running events
@@ -231,6 +248,8 @@
 						$scope.uiConfig.calendar.maxTime = newMaxTime;
 					}
 				}
+				// Update events
+				$scope.setRunningEvents();
 			});
 		};
 		

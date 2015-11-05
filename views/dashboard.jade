@@ -11,9 +11,13 @@ include includes/header
 			h1 To be completed events
 			ul.list-group
 				li.list-group-item(ng-repeat='e in eventSources[0].events')
-					span.badge {{e.duration}}
-					h4.list-group-item-heading(style='margin-top:5px')
-						span.bordered(style='color:{{e.textColor}};background-color:{{e.color}}') {{e.title}}
+					.row
+						.col-lg-10
+							h4.list-group-item-heading(style='margin-top:5px')
+								span.bordered(style='color:{{e.textColor}};background-color:{{e.color}};margin-right:10px') {{e.title}}
+								small Elapsed time: {{e.duration}}
+						.col-lg-2
+							button.btn.btn-block(type='button',ng-click='stopEvent(e.id)') Stop
 	.row
 		.col-sm-6
 			.well

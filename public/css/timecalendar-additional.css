@@ -20,6 +20,11 @@ form .minicolors-theme-bootstrap .minicolors-swatch {
 	border-radius:4px;
 }
 
+.bordered {
+    border-radius: 4px;
+	padding: 5px 15px;
+}
+
 .minicolors-position-left .minicolors-panel {
 	left: inherit;
 	top: 37px;
