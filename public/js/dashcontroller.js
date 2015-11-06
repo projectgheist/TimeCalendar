@@ -90,7 +90,11 @@
 				// End of the working day (@todo: to be overridden when a later event op the day is detected)
 				maxTime: '19:00:00',
 				// How much time a row occupies
-				slotDuration: '00:15:00',
+				slotDuration: '00:05:00',
+				//
+				slotLabelFormat: 'h(:mm) a',
+				//
+				slotLabelInterval: '00:15:00',
 				
 				dayClick: alertEventOnClick,
 				eventDrop: alertEventOnClick,
@@ -230,6 +234,13 @@
 			dashService.eventItems().query(function(r) {
 				// store the events to the calendar
 				$scope.eventSources = r.array;
+				//
+				$scope.eventGroups = r.groups;
+				//
+				for (var i in $scope.eventGroups) {
+					var ref = $scope.eventGroups[i];
+					ref.duration = moment(ref.duration).format('HH:mm');
+				}
 				// has current running events?
 				if ($scope.eventSources.length && $scope.eventSources[0].events.length) {
 					// set new day start time

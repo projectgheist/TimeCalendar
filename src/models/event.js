@@ -15,6 +15,8 @@ var Event = mg.Schema({
 	description: { type: String, trim: true },
 	// creator
 	user: ut.ref('User'),
+	// Array of EventItems associated with this event
+	items: [ut.ref('EventItem')],
 	// color of the text
 	fontTextColor: { type: String, default: '' },
 	// color of the text

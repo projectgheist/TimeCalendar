@@ -31,7 +31,41 @@ route
 				running.push(n);
 			}
 		}
-		this.body = {'array': [{'events':running},{'events':completed}]};
+		var grouped = yield db.EventItem
+			.aggregate([
+				{
+					$group: {
+						_id: '$event', // !required
+						count: {$sum: 1},
+						duration: {$sum: '$duration'},
+					}
+				},
+				{
+					$sort: {
+						duration: -1 // descending
+					}
+				}
+			], function(err,res) {
+				return res;
+			});
+		var populated = yield db.Event.find({
+			'_id': {
+				$in: grouped.map(function(val) { return val._id; })
+			}
+		}, function(err, res) {
+			return res;
+		});
+		for (var i in grouped) {
+			for (var j in populated) {
+				var ref = populated[j];
+				if (String(ref._id) === String(grouped[i]._id)) {
+					grouped[i].event = ref;
+					delete grouped[i]._id;
+					break;
+				}
+			}
+		}
+		this.body = {'array': [{'events':running},{'events':completed}], groups: grouped};
 		this.status = 200;
 		yield next;
 	})
@@ -39,7 +73,7 @@ route
 	.post(function * (next) {
 		var params = this.request.query;
 		if (!params.id) {
-			// Find of create event
+			// Find or create new event
 			var dbEvent = yield db
 				.findOrCreate(db.Event, {
 					name: params.name,
@@ -47,32 +81,38 @@ route
 			dbEvent.description = params.desc;
 			dbEvent.fontTextColor = params.fontTextColor;
 			dbEvent.fontBgColor = params.fontBgColor;
+			// Contains a start time?
+			if (params.st) {
+				// Create new element for event
+				var item = yield db
+					.findOrCreate(db.EventItem, {
+						startTime: mm(params.st).add(1, 'minute').startOf('minute'),
+						duration: params.td,
+						event: dbEvent,
+						allDay: false
+					});
+				// Add item to event
+				dbEvent.items.addToSet(item);
+				// Save needs to be called after creating new items
+				// else the defaults will be executed on every fetch
+				yield item.save();
+			}
+			// Save event
 			yield dbEvent.save();
 		} else {
+			// Find event item
 			var items = yield db.EventItem.find({
 					sid: params.id
 				})
 				.populate('event');
+			// Found event item?
 			if (items.length) {
 				var ref = items[0];
-				ref.duration = mm().diff(ref.startTime);
-				ref.endTime = mm(ref.startTime).add(ref.duration, 'ms');
+				// floor to the nearest minute
+				ref.endTime = mm().startOf('minute');
+				ref.duration = mm(ref.endTime).diff(ref.startTime);
 				yield ref.save();
 			}
-		}
-		// Contains a start time?
-		if (params.st) {
-			// Create new element for event
-			var item = yield db
-				.findOrCreate(db.EventItem, {
-					startTime: params.st,
-					duration: params.td,
-					event: dbEvent,
-					allDay: false
-				});
-			// Save needs to be called after creating new items
-			// else the defaults will be executed on every fetch
-			yield item.save();
 		}
 		this.body = {status:'OK'};
 		this.status = 200;

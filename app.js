@@ -7,7 +7,7 @@ var ko = require('koa'),
 
 /** turn off console.log
  */
-if (ap.env !== 'development') {
+if (ap.env === 'production') {
 	console.log = function() {};
 }
 
@@ -31,6 +31,7 @@ ap.use(require('koa-static')('./public', {}));
 /** Start the server on a specific port
  */
 ap.listen(cf.Port());
+console.log(['Server running at port ',cf.Port()].join(''));
 
 /** GET / POST Pages
  */

@@ -25,19 +25,25 @@ include includes/header
 			.well
 				h1
 					i.fa.fa-check.fa-fw
-					| Start event
+					| Start new event
 				hr
 				form
 					.row
 						.col-xs-12
 							.form-group
 								label.sr-only Event name
-								input.form-control(type='text',placeholder='Event name',ng-model='eventName',ng-required,uib-typeahead='event.name for event in getEvents($viewValue)',typeahead-loading='loadingEvents',typeahead-no-results='noEvents',typeahead-on-select='onTypeAheadSelect($item, $model, $label)')
-								p
-									i.fa.fa-refresh(ng-show='loadingEvents')
+								.input-group
+									span.input-group-btn
+										button.btn.btn-default
+											i.fa.fa-search.fa-fw
+									input.form-control(type='text',placeholder='Event name',ng-model='eventName',ng-required,uib-typeahead='event.name for event in getEvents($viewValue)',typeahead-loading='loadingEvents',typeahead-no-results='noEvents',typeahead-on-select='onTypeAheadSelect($item, $model, $label)')
+								.alert.alert-warning(ng-show='loadingEvents || noEvents')
+									span(ng-show='loadingEvents')
+										i.fa.fa-refresh
+										| &nbsp;Loading ...
 									span(ng-show='noEvents')
 										i.fa.fa-remove
-										| No events found!
+										| &nbsp;No events found!
 							.form-group
 								label.sr-only Start time
 								.input-group
@@ -59,6 +65,10 @@ include includes/header
 							.text-right
 								button.btn.btn-default(type='button',ng-click='changeEvent()',style='margin-right:5px') Change
 								button.btn.btn-primary(type='button',ng-click='submitEventItem()') Start
+		.col-sm-6
+			.calendar(ui-calendar='uiConfig.calendar',ng-model='eventSources')
+	.row
+		.col-sm-6
 			h1 Previous events
 			ul.list-group
 				li.list-group-item(ng-repeat='e in eventSources[1].events',style='background-color:{{e.color}};padding:0 15px')
@@ -70,5 +80,11 @@ include includes/header
 							span.badge.pull-right(style='margin:25px 0') {{e.duration}}
 							h4(style='color:{{e.textColor}};margin:25px 0') {{e.title}}
 		.col-sm-6
-			.calendar(ui-calendar='uiConfig.calendar',ng-model='eventSources')
+			h1 Statistics
+			ul.list-group
+				li.list-group-item(ng-repeat='e in eventGroups',style='background-color:{{e.event.fontBgColor}};padding:0 15px')
+					.row
+						.col-lg-12(ng-click='setNewEvent(e.event)')
+							span.badge.pull-right(style='margin:25px 0') {{e.duration}}
+							h4(style='color:{{e.event.fontTextColor}};margin:25px 0') {{e.event.name}}
 include includes/js
