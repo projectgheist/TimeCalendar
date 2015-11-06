@@ -50,7 +50,6 @@ Temporary Items
 *.bat
 
 # ignore specific config file
-config.js
 
 # ignore specific other file
 manifest.yml
