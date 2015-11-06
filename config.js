@@ -44,8 +44,8 @@ module.exports.Port = function() {
  */
 module.exports.Google = function() {
 	return {
-		ClientID: process.env.GOOGLE_CLIENT_ID || '',
-		ClientSecret: process.env.GOOGLE_CLIENT_SECRET || ''
+		ClientID: process.env.GOOGLE_CLIENT_ID || 'GOOGLE_CLIENT_ID',
+		ClientSecret: process.env.GOOGLE_CLIENT_SECRET || 'GOOGLE_CLIENT_SECRET'
 	};
 };
 
