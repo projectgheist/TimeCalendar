@@ -4,3 +4,5 @@ node_js:
   - "4.0"
 services:
   - mongodb
+install:
+  - npm install -g mocha
