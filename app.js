@@ -35,7 +35,6 @@ console.log(['Server running at port ',cf.Port()].join(''));
 
 /** GET / POST Pages
  */
-//ap.use(require('./src/auth')); 
 require('./src/routes'); 
 
 /** Include routes

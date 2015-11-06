@@ -32,7 +32,6 @@ if (!mg.connection || !mg.connection.db) {
 	});
 	// connection established event
 	db.once('open', function() {
-		console.log(['Open database connection to ',cf.db().hostname,'/',cf.db().port].join(''));
 	});
 }
 
