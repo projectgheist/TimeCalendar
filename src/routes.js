@@ -1,8 +1,7 @@
 /** Module dependencies
  */
-var ap = require('../app'),
-	cf = require('../config'),
-	ut = require('./utils');
+var ap = require('./app'),
+	cf = require('../config');
 	
 /** Sessions */
 ap.keys = ['your-session-secret']

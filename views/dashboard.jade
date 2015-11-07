@@ -6,25 +6,37 @@ include includes/header
 				button.close(type="button",data-dismiss="alert",aria-label="Close")
 					span(aria-hidden='true') &times;
 				p {{alertMessage}}
-	.row(ng-if='eventSources && eventSources.length && eventSources[0].events.length')
+	.row
 		.col-xs-12
-			h1 To be completed events
-			ul.list-group
-				li.list-group-item(ng-repeat='e in eventSources[0].events')
-					.row
-						.col-lg-10
-							h4.list-group-item-heading(style='margin-top:5px')
-								span.bordered(style='color:{{e.textColor}};background-color:{{e.color}};margin-right:10px') {{e.title}}
-								small
-									i.fa.fa-clock-o.fa-fw
-									| &nbsp;{{e.duration}}
-						.col-lg-2
-							button.btn.btn-block(type='button',ng-click='stopEvent(e.id)') Stop
+			h1 TimeCalendar
+			img(src='https://david-dm.org/projectgheist/TimeCalendar.svg',style='vertical-align:initial')
+			span &nbsp;
+			img(src='https://travis-ci.org/projectgheist/TimeCalendar.svg?branch=master',style='vertical-align:initial')
+			span &nbsp;
+			iframe(src='https://ghbtns.com/github-btn.html?user=projectgheist&repo=timecalendar&type=star&count=true',frameborder='0',scrolling='0',width='75px',height='20px')
+			span &nbsp;
+			iframe(src='https://ghbtns.com/github-btn.html?user=projectgheist&repo=timecalendar&type=fork&count=true',frameborder='0',scrolling='0',width='75px',height='20px')
+			hr
 	.row
 		.col-sm-6
+			.well(ng-if='eventSources && eventSources.length && eventSources[0].events.length')
+				h1 
+					i.fa.fa-cog.fa-spin.fa-fw
+					| &nbsp;In progress
+				ul.list-group
+					li.list-group-item(ng-repeat='e in eventSources[0].events')
+						.row
+							.col-lg-8
+								h4.list-group-item-heading(style='margin-top:5px')
+									span(style='margin-right:10px') {{e.title}}
+									small
+										i.fa.fa-clock-o.fa-fw
+										| &nbsp;{{e.duration}}
+							.col-lg-4
+								button.btn.btn-block(type='button',ng-click='stopEvent(e.id)') Stop
 			.well
 				h1
-					i.fa.fa-check.fa-fw
+					i.fa.fa-check-square-o.fa-fw
 					| Start new event
 				hr
 				form
@@ -68,9 +80,14 @@ include includes/header
 		.col-sm-6
 			.calendar(ui-calendar='uiConfig.calendar',ng-model='eventSources')
 	.row
+		.col-xs-12
+			hr
+	.row
 		.col-sm-6
-			h1 Previous events
-			ul.list-group
+			h1 
+				i.fa.fa-history.fa-fw
+				| &nbsp;Completed events
+			ul.list-group(ng-show='eventSources && eventSources[1].events')
 				li.list-group-item(ng-repeat='e in eventSources[1].events',style='background-color:{{e.color}};padding:0 15px')
 					.row
 						.col-lg-1
@@ -79,12 +96,22 @@ include includes/header
 						.col-lg-11(ng-click='setNewEvent(e)')
 							span.badge.pull-right(style='margin:25px 0') {{e.duration}}
 							h4(style='color:{{e.textColor}};margin:25px 0') {{e.title}}
+			.well(ng-hide='eventSources && eventSources[1].events.length')
+				h1
+					i.fa.fa-warning.fa-fw
+					| &nbsp;No previous events
 		.col-sm-6
-			h1 Statistics
-			ul.list-group
+			h1 
+				i.fa.fa-bar-chart.fa-fw
+				| &nbsp;Statistics
+			ul.list-group(ng-show='eventGroups')
 				li.list-group-item(ng-repeat='e in eventGroups',style='background-color:{{e.event.fontBgColor}};padding:0 15px')
 					.row
 						.col-lg-12(ng-click='setNewEvent(e.event)')
 							span.badge.pull-right(style='margin:25px 0') {{e.duration}}
 							h4(style='color:{{e.event.fontTextColor}};margin:25px 0') {{e.event.name}}
+			.well(ng-hide='eventGroups.length')
+				h1
+					i.fa.fa-warning.fa-fw
+					| &nbsp;No previous events
 include includes/js

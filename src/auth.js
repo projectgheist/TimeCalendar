@@ -1,6 +1,6 @@
 /** Module dependencies
  */
-var ap = require('../app'),
+var ap = require('./app'),
 	cf = require('../config'),
 	pp = require('koa-passport'),
 	gs = require('passport-google-oauth').OAuth2Strategy,

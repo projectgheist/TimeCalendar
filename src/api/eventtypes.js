@@ -1,6 +1,6 @@
 /** Module dependencies
  */
-var ap = require('../../app'),
+var ap = require('../app'),
 	db = require('../storage');
 
 /** Event route */

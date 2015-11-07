@@ -1,7 +1,6 @@
 /** Module dependencies
  */
-var ap = require('../../app'),
-	ut = require('../utils'),
+var ap = require('../app'),
 	db = require('../storage'),
 	mm = require('moment');
 
@@ -10,8 +9,24 @@ var route = ap.route(/\/api\/0\/events\/?/);
 route
 	/** Retrieve all event items */
 	.get(function * (next) {
-		var events = yield db.all(db.EventItem,{sort:{endTime:-1}}).populate('event'),
-			running = [],
+		var events = yield db.all(db.EventItem,{ 
+				sort: {
+					endTime: -1
+				}, 
+				query: {
+					$or: [ {
+						startTime: { // only todays items
+							$gt: mm().startOf('day')
+						}
+					}, {
+						duration: { // still running items
+							$lte: 0
+						}
+					} ]
+				} 
+			})
+			.populate('event');
+		var running = [],
 			completed = [];
 		for (var i in events) {
 			var ref = events[i],
@@ -33,6 +48,13 @@ route
 		}
 		var grouped = yield db.EventItem
 			.aggregate([
+				{
+					$match: {
+						startTime: {
+							$gt: mm().startOf('day')
+						}
+					}
+				},
 				{
 					$group: {
 						_id: '$event', // !required

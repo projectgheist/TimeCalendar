@@ -1,7 +1,7 @@
 /** Module dependencies
  */
 var ko = require('koa'),
-	cf = require('./config'),
+	cf = require('../config'),
 	kj = require('koa-jade'),
 	ap = module.exports = ko();
 
@@ -31,13 +31,3 @@ ap.use(require('koa-static')('./public', {}));
 /** Start the server on a specific port
  */
 ap.listen(cf.Port());
-console.log(['Server running at port ',cf.Port()].join(''));
-
-/** GET / POST Pages
- */
-require('./src/routes'); 
-
-/** Include routes
- */
-require('./src/api/events');
-require('./src/api/eventtypes');
