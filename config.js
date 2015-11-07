@@ -22,8 +22,8 @@ module.exports.Dir = function() {
 /** Application ip address
  */
 module.exports.IpAddr = function() {
+    // Openshift
 	if (process.env.OPENSHIFT_NODEJS_IP) {
-        // Openshift
 		return process.env.OPENSHIFT_NODEJS_IP;
 	}
 	return '127.0.0.1';

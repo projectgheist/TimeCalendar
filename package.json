@@ -1,7 +1,7 @@
 {
   "name": "timecalendar",
   "version": "0.1.0",
-  "description": "",
+  "description": "Keep track of your activities",
   "main": "index.js",
   "dependencies": {
     "grunt-cli": "^0.1.13",
@@ -42,7 +42,6 @@
     "type": "git",
     "url": "https://github.com/projectgheist/timecalendar.git"
   },
-  "description": "Keep track of your activities",
   "author": "projectgheist",
   "license": "MIT"
 }

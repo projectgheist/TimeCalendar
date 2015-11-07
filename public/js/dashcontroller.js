@@ -277,9 +277,11 @@
 						}
 					}
 				}
+			}, function(r) {
 			});
 		};
 		
+		//
 		$scope.changeEvent = function() {
 			dashService.eventItems().save({
 				name:$scope.eventName,
@@ -302,7 +304,9 @@
 			});
 		};
 		
-		// Immediately call function
-		$scope.getEventItems();
+		if (false) {
+			// Immediately call function
+			$scope.getEventItems();
+		}
 	}
 })();

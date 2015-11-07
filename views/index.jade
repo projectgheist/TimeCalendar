@@ -6,20 +6,14 @@ include includes/header
 				h1 TimeCalendar
 	.row
 		.col-xs-12.col-lg-offset-4.col-lg-4
-			form.card
+			.card
 				.card-height-indicator
 				.card-content
 					.card-image(style='background-color:grey')
 						h3.card-image-headline Login
 					.card-body
-						.form-group
-							label.sr-only User name
-							input.form-control(type='text',placeholder='User name')
-						.form-group
-							label.sr-only Password
-							input.form-control(type='text',placeholder='Password')
-					footer.card-footer
 						.row
 							.col-xs-12
-								button.btn.btn-block.btn-flat(type='submit') Submit
+								a.btn.btn-block.btn-flat(href='/auth/google',target='_self') Sign-in with Google
+					footer.card-footer
 include includes/js
