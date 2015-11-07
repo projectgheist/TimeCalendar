@@ -21,7 +21,13 @@ ap
 	.route('/')
 	.get(function * (next) {
 		if (this.req.isAuthenticated()) {
-			this.redirect('/dashboard');
+			this.render(	
+				'dashboard', 
+				{
+					'config': cf.site
+				}, 
+				true
+			);
 		} else {
 			this.render(	
 				'index', 
@@ -30,8 +36,8 @@ ap
 				}, 
 				true
 			);
-			yield next;
 		}
+		yield next;
 	});
 
 /** login route */
@@ -39,27 +45,15 @@ ap
 	.route(/\/login\/?/)
 	.get(function * (next) {
 		if (this.req.isAuthenticated()) {
-			this.redirect('/dashboard');
-		} else {
 			this.redirect('/');
-		}
-	});
-
-/** home route */
-ap
-	.route(/\/dashboard\/?/)
-	.get(function * (next) {
-		if (false && !this.req.isAuthenticated()) {
-			this.redirect('/login');
 		} else {
 			this.render(	
-				'dashboard', 
+				'login', 
 				{
 					'config': cf.site
 				}, 
 				true
 			);
-			yield next;
 		}
 	});
 

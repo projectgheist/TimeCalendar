@@ -32,4 +32,12 @@ form .minicolors-theme-bootstrap .minicolors-swatch {
 
 .form-inline .minicolors-position-left .minicolors-panel {
 	left: inherit;
-}}
+}
+
+.card .card-footer button.btn-block {
+	width: inherit;
+}
+
+.card .card-footer button.btn-block:first-child {
+	left: 0;
+}

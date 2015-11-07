@@ -19,6 +19,10 @@ module.exports = function(grunt) {
 					'./bower_components/angular-sanitize/angular-sanitize.js',
 					'./bower_components/angular-resource/angular-resource.js',
 					'./bower_components/bootstrap/dist/js/bootstrap.js', // needs to be included before ui-bootstrap and angular-bootstrap-calendar-tpls
+					
+					'./bower_components/bootstrap-material-design/dist/js/ripples.js',
+					'./bower_components/bootstrap-material-design/dist/js/material.js',
+
 					'./bower_components/angular-bootstrap/ui-bootstrap-tpls.js',
 					'./bower_components/moment/moment.js', // needs to be included before angular-bootstrap-calendar-tpls
 					
@@ -43,6 +47,11 @@ module.exports = function(grunt) {
 				src: [
 					'./bower_components/font-awesome/css/font-awesome.css', // needs to be included before bootstrap
 					'./bower_components/bootstrap/dist/css/bootstrap.css', // needs to be included before fullcalendar
+
+					'./bower_components/bootstrap-material-design/dist/css/roboto.css',
+					'./bower_components/bootstrap-material-design/dist/css/material.css',
+					'./bower_components/bootstrap-material-design/dist/css/ripples.css',
+
 					'./bower_components/fullcalendar/dist/fullcalendar.css',
 					'./private/css/jquery.minicolors.css',
 				],
