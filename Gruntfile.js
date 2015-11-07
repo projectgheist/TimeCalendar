@@ -32,8 +32,7 @@ module.exports = function(grunt) {
 
 					'./private/js/jquery.minicolors.js',
 					
-					'./bower_components/typeahead.js/dist/bloodhound.js',
-					'./bower_components/typeahead.js/dist/typeahead.jquery.js',
+					'./bower_components/Chart.js/Chart.js',
 					
 					'./bower_components/Flowtype.js/flowtype.js',
 					'./bower_components/angular-flowtype/angular-flowtype.js',
