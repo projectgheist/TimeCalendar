@@ -54,7 +54,7 @@ describe('Events API', function() {
 	
 	it('GET events (no user|no events)', function (done) {
 		rq([url,'/api/0/events'].join(''), function (error, response, body) {
-			if (!error && response.statusCode == 200) {
+			if (!error && response.statusCode == 401) {
 				done();
 			}
 		})
@@ -62,7 +62,7 @@ describe('Events API', function() {
 	
 	it('GET events by query (no user|no events)', function (done) {
 		rq([url,'/api/0/events/list'].join(''), function (error, response, body) {
-			if (!error && response.statusCode == 200) {
+			if (!error && response.statusCode == 401) {
 				done();
 			}
 		})
@@ -71,14 +71,14 @@ describe('Events API', function() {
 	it('POST event (no user|no events)', function (done) {
 		rq.post({ 
 			url: [url,'/api/0/events'].join(''), 
-			form: {
+			qs: {
 				name:'TestEvent',
 				fontTextColor: '#fff',
 				fontBgColor: '#009688',
 				st: mm()
 			} 
 		}, function (error, response, body) {
-			if (!error && response.statusCode == 200) {
+			if (!error && response.statusCode == 401) {
 				done();
 			}
 		})
