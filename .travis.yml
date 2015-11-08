@@ -16,5 +16,5 @@ before_script:
   - bower install
   - grunt
 script:
-  - istanbul cover ./node_modules/mocha/bin/_mocha --report lcovonly -- -R spec
+  - istanbul cover _mocha --report lcovonly -- -R spec
   - codecov
