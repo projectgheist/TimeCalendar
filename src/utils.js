@@ -74,18 +74,6 @@ exports.isUrl = function(url) {
     return vd.isURL(url);
 };
 
-// check if the string is a url
-exports.isRead = function(user,tag) {
-	if (!user || Object.keys(user).length === 0) {
-		return false;
-	}
-	var match = /^user\/(.+)\/(state|label)\/(.+)$/.exec(tag);
-	if (match && match[1] === user._id && match[3] === 'read') {
-		return true;
-	}
-	return false;
-};
-
 // checks if value is an array
 exports.isArray = function(val) {
 	return Array.isArray(val);
@@ -109,43 +97,6 @@ exports.getDBConnectionURL = function(obj,noPrefix) {
 	return r;
 };
 
-exports.parseParameters = function(obj,user) {
-	// if empty variable, return
-	if (!obj) {
-        return false;
-	}
-	
-	// remove '/' from start of string
-	if (typeof obj === "string" && obj.match('^\/')) {
-		obj = obj.substring(1,obj.length);
-	}
-	
-	// check if already an array, else make it an array
-    if (!Array.isArray(obj)) {
-        obj = [obj];
-	}
-		
-    for (var i = 0; i < obj.length; i++) {
-        var urls = exports.parseFeeds(obj[i]);
-        if (urls) {
-            obj[i] = {
-                type: 'feed',
-                value: urls[0]
-            };
-        } else {
-            var tags = exports.parseTags(obj[i], user);
-            if (!tags)
-                return null;
-			
-            obj[i] = {
-                type: 'tag',
-                value: tags[0]
-            }
-        }
-    }
-    return obj;
-};
-
 /**
 */
 exports.parseHtmlEntities = function(str) {
@@ -159,69 +110,3 @@ exports.parseHtmlEntities = function(str) {
 		})
 		.trim();
 }
-
-/**
-*/
-exports.parseFeeds = function(feeds) {
-    if (!feeds) {
-        return null;
-	}
-    if (!Array.isArray(feeds)) {
-        feeds = [feeds];
-	}
-    for (var i = 0; i < feeds.length; i++) {
-        if (!/^feed\//.test(feeds[i]))
-            return null;
-            
-        var url = feeds[i].slice(5);
-        if (!exports.isUrl(url))
-            return null;
-            
-        feeds[i] = url;
-    }
-    return feeds;
-};
-
-exports.parseItems = function(items) {
-    if (!items) {
-        return null;
-    }
-    if (!Array.isArray(items)) {
-        items = [items];
-    }
-	for (var i = 0; i < items.length; i++) {
-		// the long version has a prefix and the id in hex
-		var match = /^tag:reader\/item\/([0-9a-f]+)$/.exec(items[i]);
-		if (!match) {
-			return null;
-		}
-		// store post mongoDB ID
-		items[i] = match[1];
-	}
-	return items;
-};
-
-exports.parseTags = function(tags, user) {
- 	// if empty variable, return
-	if (!tags) {
-        return null;
-    }
-	// check if already an array, else make it an array
-    if (!Array.isArray(tags)) {
-        tags = [tags];
-    }
-    for (var i = 0; i < tags.length; i++) {
-        // match 'user/<userId>/state/foo' and also 'user/-/state/foo'
-        var match = /^user\/(.+)\/(state|label)\/(.+)$/.exec(tags[i]);
-        if (!match || (match[1] !== user.id && match[1] !== '-')) {
-			return null;
-        }
-        tags[i] = {
-            user: user._id,	// reference to user db object
-            type: match[2],	// string: state or label
-            name: match[3]	// string: url 
-        };
-    }
-    
-    return tags;
-};
