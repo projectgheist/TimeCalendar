@@ -101,9 +101,10 @@ route
 		if (this.req.isAuthenticated()) {
 			var params = this.request.query;
 			if (params) {
+				var dbEvent = undefined;
 				if (!params.id) {
 					// Find or create new event
-					var dbEvent = yield db
+					dbEvent = yield db
 						.findOrCreate(db.Event, {
 							name: params.name,
 						});
@@ -140,10 +141,10 @@ route
 						// floor to the nearest minute
 						ref.endTime = mm().startOf('minute');
 						ref.duration = mm(ref.endTime).diff(ref.startTime);
-						yield ref.save();
+						dbEvent = yield ref.save();
 					}
 				}
-				this.body = {status:'OK'};
+				this.body = {status:'OK',id:(dbEvent ? dbEvent.sid : '')};
 				this.status = 200;
 			} else {
 				this.body = {status:'No parameters found'};

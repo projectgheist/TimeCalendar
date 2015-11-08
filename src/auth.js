@@ -3,8 +3,11 @@
 var ap = require('./app'),
 	cf = require('../config'),
 	pp = require('koa-passport'),
-	gs = require('passport-google-oauth').OAuth2Strategy,
 	db = require('./storage');
+
+/** Sessions */
+ap.keys = ['your-session-secret']
+ap.use(require('koa-generic-session')());
 
 /** Setup of Passport.js */
 ap.use(pp.initialize());
@@ -24,32 +27,6 @@ pp.serializeUser(function(user, done) {
 pp.deserializeUser(function(obj, done) {
 	done(null, obj);
 });
-
-pp.use(new gs({
-		clientID: 		cf.Google().ClientID,
-		clientSecret: 	cf.Google().ClientSecret,
-		callbackURL: 	cf.Url() + '/auth/google/callback'
-	},
-	function(token, tokenSecret, profile, done) {
-		// asynchronous verification, for effect...
-		process.nextTick(function () {
-			return db.findOrCreate(db.User, {
-				openID: profile.id
-			})
-			.then(function(user) {
-				// store retrieved info
-				user.provider 	= profile.provider;
-				user.email		= profile.emails[0].value;
-				user.name		= profile.displayName;
-				// store in db
-				return user.save();
-			})
-			.then(function(user) {
-				return done(null, user);
-			});
-		});
-	}
-));
 
 /** Export as module */
 module.exports = pp;

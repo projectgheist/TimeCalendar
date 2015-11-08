@@ -28,6 +28,9 @@ ap.use(new kj({
  */
 ap.use(require('koa-static')('./public', {}));
 
+/** Bodyparser */
+ap.use(require('koa-bodyparser')());
+
 /** Start the server on a specific port
  */
 ap.listen(cf.Port());
