@@ -3,6 +3,7 @@
 [![Dependency Status](https://david-dm.org/projectgheist/timecalendar.svg)](https://david-dm.org/projectgheist/timecalendar)
 [![Build Status](https://travis-ci.org/projectgheist/TimeCalendar.svg?branch=master)](https://travis-ci.org/projectgheist/TimeCalendar)
 [![codecov.io](https://codecov.io/github/projectgheist/TimeCalendar/coverage.svg?branch=master)](https://codecov.io/github/projectgheist/TimeCalendar?branch=master)
+[![Coverage Status](https://coveralls.io/repos/projectgheist/TimeCalendar/badge.svg?branch=master&service=github)](https://coveralls.io/github/projectgheist/TimeCalendar?branch=master)
 
 Warning: This is work in progress and not usable/stable yet!
 

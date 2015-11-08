@@ -9,7 +9,7 @@ var route = ap.route(/\/api\/0\/events\/?/);
 route
 	/** Retrieve all event items */
 	.get(function * (next) {
-		if (this.request.user) {
+		if (this.req.isAuthenticated()) {
 			var events = yield db.all(db.EventItem,{ 
 					sort: {
 						endTime: -1
@@ -91,14 +91,14 @@ route
 			this.body = {'array': [{'events':running},{'events':completed}], groups: grouped};
 			this.status = 200;
 		} else {
-			this.body = {status:'Authentication is required'};
+			this.body = {status:'GET Events: Authentication is required'};
 			this.status = 401;
 		}
 		yield next;
 	})
 	/** Add a new event item */
 	.post(function * (next) {
-		if (this.request.user) {
+		if (this.req.isAuthenticated()) {
 			var params = this.request.query;
 			if (params) {
 				if (!params.id) {
@@ -150,14 +150,14 @@ route
 				this.status = 400;
 			}
 		} else {
-			this.body = {status:'Authentication is required'};
+			this.body = {status:'POST Events: Authentication is required'};
 			this.status = 401;
 		}
 		yield next;
 	});
 route.nested('/list')
 	.get(function * (next) {
-		if (this.request.user) {
+		if (this.req.isAuthenticated()) {
 			var params = this.request.query || {},
 				opts = {};
 			if (params.name) {
@@ -167,7 +167,7 @@ route.nested('/list')
 			this.body = {'status':200,'events':events};
 			this.status = 200;
 		} else {
-			this.body = {status:'Authentication is required'};
+			this.body = {status:'GET Events/List: Authentication is required'};
 			this.status = 401;
 		}
 		yield next;
