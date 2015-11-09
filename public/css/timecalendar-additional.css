@@ -1,3 +1,8 @@
+/** Full window height */
+html, body, .container-height, .container-height .row, .container-height .row .col-xs-12 {
+	height: 100%;
+}
+
 .form-inline .form-group, .form-inline button, .btn-group {
 	margin-right: 5px;
 }
@@ -43,6 +48,6 @@ form .minicolors-theme-bootstrap .minicolors-swatch {
 	width: inherit;
 }
 
-.card .card-footer button.btn-block:first-child {
+.card .card-footer button.btn-block:first-child, .card .text-center .card-footer button:first-child {
 	left: 0;
 }

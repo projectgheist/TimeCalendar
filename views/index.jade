@@ -1,33 +1,38 @@
 include includes/header
-.container(ng-controller='dashController')
+.container.container-height(ng-controller='dashController')
 	.row
-		.col-xs-12
-			.jumbotron 
-				h1 TimeCalendar
-				img(src='https://david-dm.org/projectgheist/TimeCalendar.svg',style='vertical-align:initial')
-				span &nbsp;
-				a(href='https://travis-ci.org/projectgheist/TimeCalendar',target='_blank')
-					img(src='https://travis-ci.org/projectgheist/TimeCalendar.svg?branch=master',style='vertical-align:initial')
-				span &nbsp;
-				a(href='https://codecov.io/github/projectgheist/TimeCalendar?branch=master',target='_blank')
-					img(src='https://codecov.io/github/projectgheist/TimeCalendar/coverage.svg?branch=master',alt="Coverage via Codecov",style='vertical-align:initial')
-				span &nbsp;
-				a(href='https://coveralls.io/github/projectgheist/TimeCalendar?branch=master',target='_blank')
-					img(src='https://coveralls.io/repos/projectgheist/TimeCalendar/badge.svg?branch=master&service=github',alt='Coverage Status',style='vertical-align:initial')
-				span &nbsp;
-				iframe(src='https://ghbtns.com/github-btn.html?user=projectgheist&repo=timecalendar&type=star&count=true',frameborder='0',scrolling='0',width='75px',height='20px')
-				span &nbsp;
-				iframe(src='https://ghbtns.com/github-btn.html?user=projectgheist&repo=timecalendar&type=fork&count=true',frameborder='0',scrolling='0',width='75px',height='20px')
-	.row
-		.col-xs-12.col-lg-offset-4.col-lg-4
-			.card
+		.col-xs-offset-3.col-xs-6.col-lg-offset-4.col-lg-4(style='top:25%')
+			.card(style='vertical-align:middle')
 				.card-height-indicator
-				.card-content
-					.card-image(style='background-color:grey')
-						h3.card-image-headline Login
+				.card-content.text-center
+					.card-image.alert-danger
+						h3.card-image-headline
+							span.fa-stack.fa-lg
+								i.fa.fa-circle.fa-stack-2x
+								i.fa.fa-calendar.fa-stack-1x.text-danger
 					.card-body
-						.row
-							.col-xs-12
-								a.btn.btn-block.btn-flat(href='/auth/google',target='_self') Sign-in with Google
+						h3 TimeCalendar
 					footer.card-footer
+						form(action='/auth/google',method="get")
+							button.btn.btn-material-red(type='submit') Sign-in with Google
+			.text-center(style='margin-top:30px')
+				p
+					iframe(src='https://ghbtns.com/github-btn.html?user=projectgheist&repo=timecalendar&type=star&count=true',frameborder='0',scrolling='0',width='75px',height='20px')
+					span &nbsp;
+					iframe(src='https://ghbtns.com/github-btn.html?user=projectgheist&repo=timecalendar&type=fork&count=true',frameborder='0',scrolling='0',width='75px',height='20px')
+				p
+					a(href='https://travis-ci.org/projectgheist/TimeCalendar',target='_blank')
+						img(src='https://david-dm.org/projectgheist/TimeCalendar.svg',style='vertical-align:initial')
+					span &nbsp;
+					a(href='https://travis-ci.org/projectgheist/TimeCalendar',target='_blank')
+						img(src='https://david-dm.org/projectgheist/TimeCalendar.svg',style='vertical-align:initial')
+					span &nbsp;
+					a(href='https://travis-ci.org/projectgheist/TimeCalendar',target='_blank')
+						img(src='https://travis-ci.org/projectgheist/TimeCalendar.svg?branch=master',style='vertical-align:initial')
+					span &nbsp;
+					a(href='https://codecov.io/github/projectgheist/TimeCalendar?branch=master',target='_blank')
+						img(src='https://codecov.io/github/projectgheist/TimeCalendar/coverage.svg?branch=master',alt="Coverage via Codecov",style='vertical-align:initial')
+					span &nbsp;
+					a(href='https://coveralls.io/github/projectgheist/TimeCalendar?branch=master',target='_blank')
+						img(src='https://coveralls.io/repos/projectgheist/TimeCalendar/badge.svg?branch=master&service=github',alt='Coverage Status',style='vertical-align:initial')
 include includes/js
