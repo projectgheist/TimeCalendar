@@ -39,10 +39,13 @@ if (!mg.connection || !mg.connection.db) {
 exports.all = function(model, options) {
 	// use parameter or create empty object
     options || (options = {});
+	// create query
 	var q = model.find(options.query || {});
+	// sort
 	if (options.sort) {
 		q.sort(options.sort); 
 	}
+	// limit
 	if (options.limit) {
 		q.limit(options.limit); 
 	}
