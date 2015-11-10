@@ -2,11 +2,18 @@
  */
 var ap = require('./src/app'); 
 
+/** turn off console.log
+ */
+if (ap.env === 'production') {
+	console.log = function() {};
+}
+
 /** GET / POST Pages
  */
 var pp = require('./src/auth'),
 	gs = require('passport-google-oauth').OAuth2Strategy,
-	cf = require('./config');
+	cf = require('./config'),
+	db = require('./src/storage');
 pp.use(new gs({
 		clientID: 		cf.Google().ClientID,
 		clientSecret: 	cf.Google().ClientSecret,
@@ -23,6 +30,7 @@ pp.use(new gs({
 				user.provider 	= profile.provider;
 				user.email		= profile.emails[0].value;
 				user.name		= profile.displayName;
+				user.lastLogin	= Date.now();
 				// store in db
 				return user.save();
 			})
@@ -54,14 +62,19 @@ ap
 // logged in.  Otherwise, authentication has failed.
 ap
 	.route('/auth/google/callback')
-	.get(
-		pp.authenticate(
-			'google', 
-			{ 
-				successRedirect: '/',
-				failureRedirect: '/' 
-			})
-	);
+	.get(function * (next) {
+		if (!this.req.isAuthenticated()) {
+			yield pp.authenticate(
+				'google', 
+				{ 
+					successRedirect: '/',
+					failureRedirect: '/' 
+				});
+			yield next;
+		} else {
+			this.redirect('/');
+		}
+	});
 
 /** Include routes
  */

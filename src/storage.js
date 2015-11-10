@@ -9,7 +9,6 @@ var mg = require('mongoose'),
  * export the models
  */
 exports.Event = require('./models/event');
-exports.EventType = require('./models/eventtype');
 exports.EventItem = require('./models/eventitem');
 exports.User = require('./models/user');
 

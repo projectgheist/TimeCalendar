@@ -304,9 +304,7 @@
 			});
 		};
 		
-		if (false) {
-			// Immediately call function
-			$scope.getEventItems();
-		}
+		// Immediately call function
+		$scope.getEventItems();
 	}
 })();

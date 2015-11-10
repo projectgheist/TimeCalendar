@@ -1,17 +1,18 @@
 /** Includes
  */
 var mg = require('mongoose'),
+	sc = mg.Schema,
     ut = require('../utils'),
 	sh = require('shortid'),
 	mm = require('moment');
 	
 /** declare Event Mongoose schema
  */
-var EventItem = mg.Schema({
+var EventItem = sc({
 	// unique identifier
 	sid: { type: String, default: sh.generate },
 	// event it belongs to
-	event: ut.ref('Event'),
+	event: { type: sc.Types.ObjectId, ref: ut.ref('Event'), required: true },
 	// creator
 	user: ut.ref('User'),
 	// date that this event was created

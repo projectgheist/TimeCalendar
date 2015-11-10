@@ -5,12 +5,6 @@ var ko = require('koa'),
 	kj = require('koa-jade'),
 	ap = module.exports = ko();
 
-/** turn off console.log
- */
-if (ap.env === 'production') {
-	console.log = function() {};
-}
-
 /** Enables Jade templating
  */
 ap.use(new kj({
