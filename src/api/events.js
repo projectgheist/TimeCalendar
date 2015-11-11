@@ -1,51 +1,50 @@
 /** Module dependencies
  */
-var ap = require('../app'),
-	db = require('../storage'),
-	mm = require('moment');
+var ap = require('../app');
+var db = require('../storage');
+var mm = require('moment');
 
 /** Event route */
 var route = ap.route(/\/api\/0\/events\/?/);
 route
 	/** Retrieve all event items */
 	.get(function * (next) {
-		console.log(this.session)
 		if (this.req.isAuthenticated()) {
-			var events = yield db.all(db.EventItem,{ 
-					sort: {
-						endTime: -1
-					}, 
-					query: {
-						$and: [ {
-							'user._id': this.req.user._id
+			var events = yield db.all(db.EventItem, {
+				sort: {
+					endTime: -1
+				},
+				query: {
+					$and: [ {
+						'user._id': this.req.user._id
+					}, {
+						$or: [ {
+							startTime: { // only todays items
+								$gt: mm().startOf('day')
+							}
 						}, {
-							$or: [ {
-								startTime: { // only todays items
-									$gt: mm().startOf('day')
-								}
-							}, {
-								duration: { // still running items
-									$lte: 0
-								}
-							} ]
+							duration: { // still running items
+								$lte: 0
+							}
 						} ]
-					}
-				})
+					} ]
+				}
+			})
 				.populate('event');
-			var running = [],
-				completed = [];
+			var running = [];
+			var completed = [];
 			for (var i in events) {
-				var ref = events[i],
-					n = {
-						id: ref.sid,
-						title: ref.event.name,
-						start: ref.startTime,
-						end: ref.endTime,
-						duration: ref.duration,
-						allDay: ref.allDay,
-						color: ref.event.fontBgColor || '#000',
-						textColor: ref.event.fontTextColor || '#fff'
-					};
+				var ref = events[i];
+				var n = {
+					id: ref.sid,
+					title: ref.event.name,
+					start: ref.startTime,
+					end: ref.endTime,
+					duration: ref.duration,
+					allDay: ref.allDay,
+					color: ref.event.fontBgColor || '#000',
+					textColor: ref.event.fontTextColor || '#fff'
+				};
 				if (ref.duration > 0) {
 					completed.push(n);
 				} else {
@@ -66,7 +65,7 @@ route
 						$group: {
 							_id: '$event', // !required
 							count: {$sum: 1},
-							duration: {$sum: '$duration'},
+							duration: {$sum: '$duration'}
 						}
 					},
 					{
@@ -74,30 +73,30 @@ route
 							duration: -1 // descending
 						}
 					}
-				], function(err,res) {
+				], function (ignore, res) {
 					return res;
 				});
 			var populated = yield db.Event.find({
 				'_id': {
-					$in: grouped.map(function(val) { return val._id; })
+					$in: grouped.map(function (val) { return val._id; })
 				}
-			}, function(err, res) {
+			}, function (ignore, res) {
 				return res;
 			});
-			for (var i in grouped) {
-				for (var j in populated) {
-					var ref = populated[j];
-					if (String(ref._id) === String(grouped[i]._id)) {
-						grouped[i].event = ref;
-						delete grouped[i]._id;
+			for (var j in grouped) {
+				for (var h in populated) {
+					var event = populated[h];
+					if (String(event._id) === String(grouped[j]._id)) {
+						grouped[j].event = event;
+						delete grouped[j]._id;
 						break;
 					}
 				}
 			}
-			this.body = {'array': [{'events':running},{'events':completed}], groups: grouped};
+			this.body = {'array': [{'events': running}, {'events': completed}], groups: grouped};
 			this.status = 200;
 		} else {
-			this.body = {message:'GET Events: Authentication is required'};
+			this.body = {message: 'GET Events: Authentication is required'};
 			this.status = 401;
 		}
 		yield next;
@@ -107,14 +106,14 @@ route
 		if (this.req.isAuthenticated()) {
 			var params = this.request.query;
 			if (params) {
-				var dbEvent = undefined;
+				var dbEvent;
 				// Need to find existing item?
 				if (!params.id) {
 					// Find or create new event
 					dbEvent = yield db
 						.findOrCreate(db.Event, {
 							name: params.name,
-							'user._id': this.req.user._id,
+							'user._id': this.req.user._id
 						});
 					dbEvent.description = params.desc;
 					dbEvent.fontTextColor = params.fontTextColor;
@@ -141,9 +140,9 @@ route
 				} else {
 					// Find event item
 					var items = yield db.EventItem.find({
-							user: this.req.user,
-							sid: params.id
-						})
+						user: this.req.user,
+						sid: params.id
+					})
 						.populate('event');
 					// Found event item?
 					if (items.length) {
@@ -154,14 +153,14 @@ route
 						dbEvent = yield ref.save();
 					}
 				}
-				this.body = {id:(dbEvent ? dbEvent.sid : '')};
+				this.body = {id: (dbEvent ? dbEvent.sid : '')};
 				this.status = 200;
 			} else {
-				this.body = {message:'No parameters found'};
+				this.body = {message: 'No parameters found'};
 				this.status = 400;
 			}
 		} else {
-			this.body = {message:'POST Events: Authentication is required'};
+			this.body = {message: 'POST Events: Authentication is required'};
 			this.status = 401;
 		}
 		yield next;
@@ -169,21 +168,21 @@ route
 route.nested('/list')
 	.get(function * (next) {
 		if (this.req.isAuthenticated()) {
-			var params = this.request.query || {},
-				opts = {
-					query: { 
-						'user._id': this.req.user._id,
-					}
-				};
+			var params = this.request.query || {};
+			var opts = {
+				query: {
+					'user._id': this.req.user._id
+				}
+			};
 			// Search for a specific name
 			if (params.name) {
-				opts.query.name = new RegExp('.*'+params.name+'.*','i');
+				opts.query.name = new RegExp('.*' + params.name + '.*', 'i');
 			}
-			var events = yield db.all(db.Event,opts);
-			this.body = {'events':events};
+			var events = yield db.all(db.Event, opts);
+			this.body = {'events': events};
 			this.status = 200;
 		} else {
-			this.body = {message:'GET Events/List: Authentication is required'};
+			this.body = {message: 'GET Events/List: Authentication is required'};
 			this.status = 401;
 		}
 		yield next;

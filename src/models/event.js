@@ -1,10 +1,10 @@
 /** Includes
  */
-var mg = require('mongoose'),
-	sc = mg.Schema,
-    ut = require('../utils'),
-	sh = require('shortid');
-	
+var mg = require('mongoose');
+var sc = mg.Schema;
+var ut = require('../utils');
+var sh = require('shortid');
+
 /** declare Event Mongoose schema
  */
 var Event = sc({
@@ -21,13 +21,13 @@ var Event = sc({
 	// color of the text
 	fontTextColor: { type: String, default: '' },
 	// color of the text
-	fontBgColor: { type: String, default: '' },
+	fontBgColor: { type: String, default: '' }
 });
 
-/**
+/** Create unique indices
  */
 Event.index({user: 1, name: 1}, {});
 
-/**
+/** Export
  */
 module.exports = mg.model('Event', Event);

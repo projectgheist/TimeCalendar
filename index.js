@@ -1,42 +1,43 @@
 /** Initialize
  */
-var ap = require('./src/app'); 
+var ap = require('./src/app');
 
 /** turn off console.log
  */
 if (ap.env === 'production') {
-	console.log = function() {};
+	console.log = function () {};
 }
 
 /** GET / POST Pages
  */
-var pp = require('./src/auth'),
-	gs = require('passport-google-oauth').OAuth2Strategy,
-	cf = require('./config'),
-	db = require('./src/storage');
-pp.use(new gs({
-		clientID: 		cf.Google().ClientID,
-		clientSecret: 	cf.Google().ClientSecret,
-		callbackURL: 	cf.Url() + '/auth/google/callback'
-	},
-	function(token, tokenSecret, profile, done) {
+var pp = require('./src/auth');
+var cf = require('./config');
+var db = require('./src/storage');
+
+var Strategy = require('passport-google-oauth').OAuth2Strategy;
+pp.use(new Strategy({
+	clientID: cf.Google().ClientID,
+	clientSecret: cf.Google().ClientSecret,
+	callbackURL: cf.Url() + '/auth/google/callback'
+},
+	function (token, tokenSecret, profile, done) {
 		// asynchronous verification, for effect...
 		process.nextTick(function () {
 			return db.findOrCreate(db.User, {
 				openID: profile.id
 			})
-			.then(function(user) {
-				// store retrieved info
-				user.provider 	= profile.provider;
-				user.email		= profile.emails[0].value;
-				user.name		= profile.displayName;
-				user.lastLogin	= Date.now();
-				// store in db
-				return user.save();
-			})
-			.then(function(user) {
-				return done(null, user);
-			});
+				.then(function (user) {
+					// store retrieved info
+					user.provider = profile.provider;
+					user.email = profile.emails[0].value;
+					user.name = profile.displayName;
+					user.lastLogin = Date.now();
+					// store in db
+					return user.save();
+				})
+				.then(function (user) {
+					return done(null, user);
+				});
 		});
 	}
 ));
@@ -51,11 +52,11 @@ ap
 	.route('/auth/google')
 	.get(
 		pp.authenticate(
-			'google', 
-			{ 
-				scope: 'https://www.googleapis.com/auth/plus.me https://www.googleapis.com/auth/userinfo.email' 
+			'google',
+			{
+				scope: 'https://www.googleapis.com/auth/plus.me https://www.googleapis.com/auth/userinfo.email'
 			})
-	);
+);
 
 // Google will redirect the user to this URL after authentication.  Finish
 // the process by verifying the assertion.  If valid, the user will be
@@ -65,10 +66,10 @@ ap
 	.get(function * (next) {
 		if (!this.req.isAuthenticated()) {
 			yield pp.authenticate(
-				'google', 
-				{ 
+				'google',
+				{
 					successRedirect: '/',
-					failureRedirect: '/' 
+					failureRedirect: '/'
 				});
 			yield next;
 		} else {

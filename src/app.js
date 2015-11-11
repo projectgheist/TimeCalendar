@@ -1,12 +1,12 @@
 /** Module dependencies
  */
-var cf = require('../config'),
-	kj = require('koa-jade'),
-	ap = require('koa')();
+var cf = require('../config');
+var ap = require('koa')();
 
 /** Enables Jade templating
  */
-ap.use(new kj({
+var Jade = require('koa-jade');
+ap.use(new Jade({
 	// where Jade templates be stored
 	viewPath: './views',
 	// identify paths when using extends

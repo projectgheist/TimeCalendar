@@ -1,10 +1,10 @@
 /** Module dependencies
  */
-var ap = require('./app'),
-	cf = require('../config');
-	
+var ap = require('./app');
+var cf = require('../config');
+
 /** Authentication (!Needs to be before Router/Routing and after session and bodyparser) */
-var pp = require('./auth');
+require('./auth');
 
 /** Routing (!Needs to be after Bodyparser) */
 ap.use(require('koa-routing')(ap));
@@ -14,19 +14,19 @@ ap
 	.route('/')
 	.get(function * (next) {
 		if (this.req.isAuthenticated()) {
-			this.render(	
-				'dashboard', 
+			this.render(
+				'dashboard',
 				{
 					'config': cf.site
-				}, 
+				},
 				true
 			);
 		} else {
-			this.render(	
-				'index', 
+			this.render(
+				'index',
 				{
 					'config': cf.site
-				}, 
+				},
 				true
 			);
 		}
@@ -40,11 +40,11 @@ ap
 		if (this.req.isAuthenticated()) {
 			this.redirect('/');
 		} else {
-			this.render(	
-				'login', 
+			this.render(
+				'login',
 				{
 					'config': cf.site
-				}, 
+				},
 				true
 			);
 			yield next;
@@ -58,5 +58,5 @@ ap
 		if (this.req.isAuthenticated()) {
 			this.logout();
 		}
-		this.redirect('/'); 
+		this.redirect('/');
 	});

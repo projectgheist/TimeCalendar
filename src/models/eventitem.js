@@ -1,11 +1,10 @@
 /** Includes
  */
-var mg = require('mongoose'),
-	sc = mg.Schema,
-    ut = require('../utils'),
-	sh = require('shortid'),
-	mm = require('moment');
-	
+var mg = require('mongoose');
+var sc = mg.Schema;
+var ut = require('../utils');
+var sh = require('shortid');
+
 /** declare Event Mongoose schema
  */
 var EventItem = sc({
@@ -16,21 +15,21 @@ var EventItem = sc({
 	// creator
 	user: ut.ref('User'),
 	// date that this event was created
-    creationTime: { type: Date, default: Date.now },
+	creationTime: { type: Date, default: Date.now },
 	// date that this event was created
-    startTime: { type: Date, default: Date.now },
+	startTime: { type: Date, default: Date.now },
 	// date that this event was created
-    endTime: { type: Date },
+	endTime: { type: Date },
 	// how long the event lasted
-    duration: { type: Number, min: 0, default: 0 },
+	duration: { type: Number, min: 0, default: 0 },
 	// Flag true if event takes up the entire day
-    allDay: { type: Boolean, default: false },
+	allDay: { type: Boolean, default: false }
 });
 
-/**
+/** Create unique indices
  */
 EventItem.index({user: 1, sid: 1}, {unique: true});
 
-/**
+/** Export
  */
 module.exports = mg.model('EventItem', EventItem);

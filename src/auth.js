@@ -1,16 +1,13 @@
 /** Module dependencies
  */
-var ap = require('./app'),
-	cf = require('../config'),
-	pp = require('koa-passport'),
-	db = require('./storage'),
-	mm = require('moment');
+var ap = require('./app');
+var pp = require('koa-passport');
 
 /** Bodyparser */
 ap.use(require('koa-bodyparser')());
 
 /** Sessions */
-ap.keys = ['your-session-secret']
+ap.keys = ['your-session-secret'];
 ap.use(require('koa-generic-session')({
 	cookie: {
 		maxage: null
@@ -24,20 +21,20 @@ ap.use(require('koa-generic-session')({
 //   the user by ID when deserializing.  However, since this example does not
 //   have a database of user records, the complete Google profile is serialized
 //   and deserialized.
-pp.serializeUser(function(user, done) {
+pp.serializeUser(function (user, done) {
 	done(null, user._id);
 });
 
-pp.deserializeUser(function(id, done) {
+pp.deserializeUser(function (id, done) {
 	done(null, id);
 });
 
 /** Create mock passportjs strategy
  */
-var ls = require('passport-local').Strategy;
+var Strategy = require('passport-local').Strategy;
 pp.use(
-	new ls(
-		function(username, password, done) {
+	new Strategy(
+		function (username, password, done) {
 			var user = {
 				_id: 1,
 				openID: '1',

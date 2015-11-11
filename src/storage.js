@@ -1,9 +1,9 @@
 /** Includes
  */
-var mg = require('mongoose'),
-	rs = require('rsvp'),
-	ut = require('./utils'),
-	cf = require('../config');
+var mg = require('mongoose');
+var rs = require('rsvp');
+var ut = require('./utils');
+var cf = require('../config');
 
 /** !Needs to be done before promisifyAll
  * export the models
@@ -15,9 +15,9 @@ exports.User = require('./models/user');
 // if database is already connected return
 if (!mg.connection || !mg.connection.db) {
 	// declare connection options
-	var options = { 
-		server: { socketOptions: { keepAlive: 1, connectTimeoutMS: 30000 } }, 
-		replset: { socketOptions: { keepAlive: 1, connectTimeoutMS : 30000 } } 
+	var options = {
+		server: { socketOptions: { keepAlive: 1, connectTimeoutMS: 30000 } },
+		replset: { socketOptions: { keepAlive: 1, connectTimeoutMS: 30000 } }
 	};
 	// try to connect to db
 	mg.connect(ut.getDBConnectionURL(cf.db()), options);
@@ -26,27 +26,25 @@ if (!mg.connection || !mg.connection.db) {
 	// Add promise support to Mongoose
 	require('mongoomise').promisifyAll(db, rs);
 	// error event
-	db.on('error', function(err) {
-	});
+	db.on('error', function (ignore) {});
 	// connection established event
-	db.once('open', function() {
-	});
+	db.once('open', function () {});
 }
 
 /** function all
  */
-exports.all = function(model, options) {
+exports.all = function (model, options) {
 	// use parameter or create empty object
-    options || (options = {});
+	options || (options = {});
 	// create query
 	var q = model.find(options.query || {});
 	// sort
 	if (options.sort) {
-		q.sort(options.sort); 
+		q.sort(options.sort);
 	}
 	// limit
 	if (options.limit) {
-		q.limit(options.limit); 
+		q.limit(options.limit);
 	}
 	return q;
 };
@@ -54,15 +52,15 @@ exports.all = function(model, options) {
 /** function findOrCreate
  * use an empty callback function as a fourth parameter
  */
-exports.findOrCreate = function(model, item, debug) {
-    return exports.updateOrCreate(model, item, item, debug); 
+exports.findOrCreate = function (model, item, debug) {
+	return exports.updateOrCreate(model, item, item, debug);
 };
 
 /** function updateOrCreate
  */
-exports.updateOrCreate = function(model, item, update, debug) {
+exports.updateOrCreate = function (model, item, update, debug) {
 	// upsert: bool - creates the object if it doesn't exist. Defaults to false.
 	var q = model.findOneAndUpdate(item, update, {upsert: true, 'new': true});
 	if (debug) console.log(q);
-    return q;
+	return q;
 };
