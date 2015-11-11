@@ -1,9 +1,10 @@
 var as = require('assert'),
-	rq = require('request'),
+	cf = require('../config'),
+	ap = require('../src/app'),
+	sr = ap.listen(),
+	rq = require('supertest'),
 	mm = require('moment'),
-	ap,
-	cf,
-	url;
+	url = ['http://',cf.IpAddr(),':',cf.Port()].join('');
 
 /** Make sure that the utilities code compiles
  */
@@ -17,18 +18,6 @@ describe('Utilities', function() {
 /** Start the server on a specific port
  */
 describe('Startup', function() {
-	it('Check config file', function (done) {
-		cf = require('../config');
-		done();
-	});
-	
-	it('Start server', function (done) {
-		ap = require('../src/app');
-		ap.listen(cf.Port());
-		url = ['http://localhost:',cf.Port()].join('');
-		done();
-	});
-	
 	it('Start database', function (done) {
 		require('../src/storage');
 		done();
@@ -46,43 +35,130 @@ describe('Routing', function() {
 
 /** Make sure that the routing code compiles
  */
-describe('Events API', function() {
-	it('Check compile', function (done) {
+describe('API', function() {
+	it('Check /api/0/events.js compile', function (done) {
 		require('../src/api/events');
 		done();
 	});
+});
 	
-	it('GET events (no user|no events)', function (done) {
-		rq([url,'/api/0/events'].join(''), function (error, response, body) {
-			if (!error && response.statusCode == 401) {
-				done();
-			}
-		})
+describe('Events API (no user|no events)', function() {
+	it('GET events', function(done) {
+		rq(sr)
+			.get('/api/0/events')
+			.expect(401)
+			.end(done);
 	});
 	
-	it('GET events by query (no user|no events)', function (done) {
-		rq([url,'/api/0/events/list'].join(''), function (error, response, body) {
-			if (!error && response.statusCode == 401) {
-				done();
-			}
-		})
+	it('GET events by query', function(done) {
+		rq(sr)
+			.get('/api/0/events/list')
+			.expect(401)
+			.end(done);
 	});
 
-	it('POST event (no user|no events)', function (done) {
-		rq.post({ 
-			url: [url,'/api/0/events'].join(''), 
-			qs: {
-				name:'TestEvent',
+	it('POST start event', function (done) {
+		rq(sr)
+			.post('/api/0/events')
+			.send({
+				name: 'TestEvent',
 				fontTextColor: '#fff',
 				fontBgColor: '#009688',
-				st: mm()
-			} 
-		}, function (error, response, body) {
-			if (!error && response.statusCode == 401) {
-				done();
-			}
-		})
+				st: mm(),
+				user: 'someting'
+			})
+			.expect(401)
+			.end(done);
+	});
+
+	it('POST stop event', function (done) {
+		rq(sr)
+			.post('/api/0/events')
+			.send({
+					id: 'sid'
+			})
+			.expect(401)
+			.end(done);
 	});
 });
 
-// start database
+/** Make sure that authentication code compiles
+ */
+describe('Auth', function() {
+	it('Create mock strategy', function (done) {
+		var pp = require('../src/auth');
+		ap
+			.route('/login')
+			.post(function * (next) {
+				var ctx = this;
+				yield pp.authenticate('local', function * (err, user, info) {
+					yield ctx.login(user);
+					ctx.session.user = user;
+					ctx.body = { success: true }
+					ctx.status = 200;
+					console.log(ctx.session)
+				})
+				.call(this, next);
+			});
+		done();
+	});
+
+	it('Mock sign in', function (done) {
+		rq(sr)
+			.post('/login')
+			.send({
+					// !Required
+					username: 'test', 
+					password: 'test'
+			})
+			.expect(200)
+			.end(done);
+	});
+
+/*	
+	var eventId;
+	it('POST start event', function (done) {
+		rq(sr)
+			.post('/api/0/events')
+			.send({
+					name: 'TestEvent',
+					fontTextColor: '#fff',
+					fontBgColor: '#009688',
+					st: mm()
+			})
+			.set('cookie', cookie)
+			.expect(200)
+			.end(done);
+	});
+
+	it('GET events', function (done) {
+		rq(sr)
+			.get('/api/0/events')
+			.set('cookie', cookie)
+			.expect(200)
+			.end(done);
+	});
+
+	it('POST stop event', function (done) {
+		this.timeout(5000);
+		rq.post({
+			url: [url,'/api/0/events'].join(''), 
+			qs: {
+				id: eventId
+			} 
+		}, function (error, response, body) {
+				console.log(body)
+			if (!error && response.statusCode == 200) {
+				done();
+			}
+		})
+	});
+*/
+
+	it('Mock sign out', function (done) {
+		rq(sr)
+			.get('/logout')
+			.expect(302)
+			.end(done);
+	});
+});

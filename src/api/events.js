@@ -9,6 +9,7 @@ var route = ap.route(/\/api\/0\/events\/?/);
 route
 	/** Retrieve all event items */
 	.get(function * (next) {
+		console.log(this.session)
 		if (this.req.isAuthenticated()) {
 			var events = yield db.all(db.EventItem,{ 
 					sort: {
@@ -51,7 +52,6 @@ route
 					running.push(n);
 				}
 			}
-			console.log(this.req.user._id)
 			var grouped = yield db.EventItem
 				.aggregate([
 					{
@@ -121,7 +121,6 @@ route
 					dbEvent.fontBgColor = params.fontBgColor;
 					// Contains a start time?
 					if (params.st) {
-						console.log(dbEvent)
 						// Create new element for event
 						var item = yield db
 							.findOrCreate(db.EventItem, {
@@ -135,10 +134,8 @@ route
 						dbEvent.items.addToSet(item);
 						// Save needs to be called after creating new items
 						// else the defaults will be executed on every fetch
-						console.log(item)
 						yield item.save();
 					}
-					console.log(dbEvent)
 					// Save event
 					yield dbEvent.save();
 				} else {

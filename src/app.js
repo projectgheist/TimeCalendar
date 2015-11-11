@@ -1,9 +1,8 @@
 /** Module dependencies
  */
-var ko = require('koa'),
-	cf = require('../config'),
+var cf = require('../config'),
 	kj = require('koa-jade'),
-	ap = module.exports = ko();
+	ap = require('koa')();
 
 /** Enables Jade templating
  */
@@ -22,9 +21,10 @@ ap.use(new kj({
  */
 ap.use(require('koa-static')('./public', {}));
 
-/** Bodyparser */
-ap.use(require('koa-bodyparser')());
-
 /** Start the server on a specific port
  */
 ap.listen(cf.Port());
+
+/** Export
+ */
+module.exports = ap;

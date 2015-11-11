@@ -55,6 +55,8 @@ ap
 ap
 	.route(/\/logout\/?/)
 	.get(function * (next) {
-		this.logout();
+		if (this.req.isAuthenticated()) {
+			this.logout();
+		}
 		this.redirect('/'); 
 	});
