@@ -103,8 +103,11 @@ describe('Auth', function () {
 		done();
 	});
 
+	// Create the agent
+	var agent = rq.agent(sr);
+
 	it('Mock sign in', function (done) {
-		rq(sr)
+		agent
 			.post('/login')
 			.send({
 				// !Required
@@ -115,33 +118,30 @@ describe('Auth', function () {
 			.end(done);
 	});
 
+	it('GET events', function (done) {
+		agent
+			.get('/api/0/events')
+			.expect(200)
+			.end(done);
+	});
+
+	it('POST start event', function (done) {
+		agent
+			.post('/api/0/events')
+			.send({
+				name: 'TestEvent',
+				fontTextColor: '#fff',
+				fontBgColor: '#009688',
+				st: mm()
+			})
+			.expect(200)
+			.end(done);
+	});
+
 	/* @todo
-		var eventId;
-		it('POST start event', function (done) {
-			rq(sr)
-				.post('/api/0/events')
-				.send({
-						name: 'TestEvent',
-						fontTextColor: '#fff',
-						fontBgColor: '#009688',
-						st: mm()
-				})
-				.set('cookie', cookie)
-				.expect(200)
-				.end(done);
-		});
-
-		it('GET events', function (done) {
-			rq(sr)
-				.get('/api/0/events')
-				.set('cookie', cookie)
-				.expect(200)
-				.end(done);
-		});
-
 		it('POST stop event', function (done) {
-			this.timeout(5000);
-			rq.post({
+			agent
+				.post({
 				url: [url,'/api/0/events'].join(''),
 				qs: {
 					id: eventId
