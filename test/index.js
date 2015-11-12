@@ -7,29 +7,19 @@ var sr = ap.listen();
 var rq = require('supertest');
 var mm = require('moment');
 
-/** Make sure that the utilities code compiles
- */
-describe('Utilities', function () {
-	it('Check compile', function (done) {
-		require('../src/utils');
+describe('Startup', function () {
+	/** Make sure that the routing code compiles
+	 */
+	it('Routing - Check compile', function (done) {
+		require('../src/routes');
+		console.log(ap);
 		done();
 	});
-});
 
-/** Start the server on a specific port
- */
-describe('Startup', function () {
+	/** Start the server on a specific port
+	 */
 	it('Start database', function (done) {
 		require('../src/storage');
-		done();
-	});
-});
-
-/** Make sure that the routing code compiles
- */
-describe('Routing', function () {
-	it('Check compile', function (done) {
-		require('../src/routes');
 		done();
 	});
 });
@@ -65,8 +55,7 @@ describe('Events API (no user|no events)', function () {
 				name: 'TestEvent',
 				fontTextColor: '#fff',
 				fontBgColor: '#009688',
-				st: mm(),
-				user: 'someting'
+				st: mm()
 			})
 			.expect(401)
 			.end(done);
@@ -91,6 +80,7 @@ describe('Auth', function () {
 		ap
 			.route('/login')
 			.post(function * (next) {
+				console.log(this.request.query);
 				var ctx = this;
 				yield pp.authenticate('local', function * (ignore, user, info) {
 					yield ctx.login(user);
@@ -114,6 +104,13 @@ describe('Auth', function () {
 				username: 'test',
 				password: 'test'
 			})
+			.expect(200)
+			.end(done);
+	});
+
+	it('GET events', function (done) {
+		agent
+			.get('/api/0/events')
 			.expect(200)
 			.end(done);
 	});

@@ -3,9 +3,6 @@
 var ap = require('./app');
 var pp = require('koa-passport');
 
-/** Bodyparser */
-ap.use(require('koa-bodyparser')());
-
 /** Sessions */
 ap.keys = ['your-session-secret'];
 ap.use(require('koa-generic-session')({

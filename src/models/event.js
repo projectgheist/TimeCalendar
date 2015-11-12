@@ -15,7 +15,7 @@ var Event = sc({
 	// description
 	description: { type: String, trim: true },
 	// creator
-	user: { type: sc.Types.ObjectId, ref: ut.ref('User'), required: true },
+	user: ut.refAndRequired('User'),
 	// Array of EventItems associated with this event
 	items: [ut.ref('EventItem')],
 	// color of the text

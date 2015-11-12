@@ -2,6 +2,7 @@
  */
 var ap = require('../app');
 var db = require('../storage');
+var mg = require('mongoose');
 var mm = require('moment');
 
 /** Event route */
@@ -16,7 +17,7 @@ route
 				},
 				query: {
 					$and: [ {
-						'user._id': this.req.user._id
+						user: mg.Types.ObjectId(this.req.user)
 					}, {
 						$or: [ {
 							startTime: { // only todays items
@@ -30,7 +31,7 @@ route
 					} ]
 				}
 			})
-				.populate('event');
+			.populate('event');
 			var running = [];
 			var completed = [];
 			for (var i in events) {
@@ -103,17 +104,18 @@ route
 	})
 	/** Add a new event item */
 	.post(function * (next) {
+		console.log(this.request.query);
 		if (this.req.isAuthenticated()) {
 			var params = this.request.query;
 			if (params) {
 				var dbEvent;
 				// Need to find existing item?
-				if (!params.id) {
+				if (!params.id && params.name) {
 					// Find or create new event
 					dbEvent = yield db
 						.findOrCreate(db.Event, {
 							name: params.name,
-							'user._id': this.req.user._id
+							user: mg.Types.ObjectId(this.req.user)
 						});
 					dbEvent.description = params.desc;
 					dbEvent.fontTextColor = params.fontTextColor;
@@ -123,38 +125,43 @@ route
 						// Create new element for event
 						var item = yield db
 							.findOrCreate(db.EventItem, {
-								'user._id': this.req.user._id,
+								user: mg.Types.ObjectId(this.req.user),
 								startTime: mm(params.st).add(1, 'minute').startOf('minute'),
 								duration: params.td,
 								event: dbEvent,
 								allDay: false
 							});
-						// Add item to event
-						dbEvent.items.addToSet(item);
 						// Save needs to be called after creating new items
 						// else the defaults will be executed on every fetch
 						yield item.save();
+						// Add item to event
+						dbEvent.items.addToSet(item);
 					}
+					console.log('before event save');
+					console.log(dbEvent);
 					// Save event
 					yield dbEvent.save();
-				} else {
+					console.log('after event save');
+					this.body = {id: dbEvent.sid};
+					this.status = 200;
+				} else if (params.id) {
 					// Find event item
-					var items = yield db.EventItem.find({
-						user: this.req.user,
+					var dbItem = yield db.findOrCreate(db.EventItem, {
+						user: mg.Types.ObjectId(this.req.user),
 						sid: params.id
 					})
-						.populate('event');
-					// Found event item?
-					if (items.length) {
-						var ref = items[0];
-						// floor to the nearest minute
-						ref.endTime = mm().startOf('minute');
-						ref.duration = mm(ref.endTime).diff(ref.startTime);
-						dbEvent = yield ref.save();
-					}
+					.populate('event');
+					// floor to the nearest minute
+					dbItem.endTime = mm().startOf('minute');
+					dbItem.duration = mm(dbItem.startTime).diff(dbItem.endTime);
+					// re-save
+					yield dbItem.save();
+					this.body = {id: dbItem.sid};
+					this.status = 200;
+				} else {
+					this.body = {message: 'No parameters found'};
+					this.status = 400;
 				}
-				this.body = {id: (dbEvent ? dbEvent.sid : '')};
-				this.status = 200;
 			} else {
 				this.body = {message: 'No parameters found'};
 				this.status = 400;
@@ -171,7 +178,7 @@ route.nested('/list')
 			var params = this.request.query || {};
 			var opts = {
 				query: {
-					'user._id': this.req.user._id
+					user: mg.Types.ObjectId(this.req.user)
 				}
 			};
 			// Search for a specific name

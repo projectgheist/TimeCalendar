@@ -80,4 +80,3 @@ ap
 /** Include routes
  */
 require('./src/api/events');
-require('./src/api/eventtypes');

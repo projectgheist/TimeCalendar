@@ -61,11 +61,12 @@ exports.ref = function (type) {
 	};
 };
 
-exports.refAndIndex = function (type) {
+// Creates a reference to the model and makes it a required input
+exports.refAndRequired = function (type) {
 	return {
 		type: mg.Schema.Types.ObjectId,
 		ref: type,
-		index: 1
+		required: true
 	};
 };
 
