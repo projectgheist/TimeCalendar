@@ -27,14 +27,20 @@
 					td:'@td', // time duration
 					et:'@et'
 				}, { 
-					query:{ method: 'GET', isArray: false } 
+					query:{ 
+						method: 'GET', 
+						isArray: false
+					}
 				});
 		}
 		function events() {
 			return $resource('/api/0/events/list', {
 					name: '@name'
 				}, { 
-					query:{ method: 'GET', isArray: false } 
+					query:{ 
+						method: 'GET', 
+						isArray: false
+					}
 				});
 		}
 	};
@@ -152,19 +158,17 @@
 				fontBgColor:$('#bgcolor').minicolors('value'),
 				st:$scope.startDate,
 				td:0
-			},function(r) {
-				if (r && r.status === 'OK') {
-					$scope.alertStyle = 'alert-success';
-					$scope.alertMessage = 'Successfully store new event!';
-					$('#success-alert').fadeTo(2000, 500).slideUp(500, function(){
-						$('#success-alert').alert('close');
-					});
-					// refetch events
-					$scope.getEventItems();
-				} else {
-					$scope.alertStyle = 'alert-danger';
-					$scope.alertMessage = 'Something when wrong submitting new event!';
-				}
+			}, function (res) {
+				$scope.alertStyle = 'alert-success';
+				$scope.alertMessage = 'Successfully store new event!';
+				$('#success-alert').fadeTo(2000, 500).slideUp(500, function(){
+					$('#success-alert').alert('close');
+				});
+				// refetch events
+				$scope.getEventItems();
+			}, function (ignore) {
+				$scope.alertStyle = 'alert-danger';
+				$scope.alertMessage = 'Something when wrong submitting new event!';
 			});
 		};
 
@@ -176,29 +180,24 @@
 		
 		//
 		$scope.stopEvent = function(eventItemId) {
-			dashService.eventItems().save({'id':eventItemId},function(r) {
-				if (r && r.status === 'OK') {
-					$scope.alertStyle = 'alert-success';
-					$scope.alertMessage = 'Successfully store new event!';
-					$('#success-alert').fadeTo(2000, 500).slideUp(500, function(){
-						$('#success-alert').alert('close');
-					});
-					// refetch events
-					$scope.getEventItems();
-				} else {
-					$scope.alertStyle = 'alert-danger';
-					$scope.alertMessage = 'Something when wrong submitting new event!';
-				}
+			dashService.eventItems().save({'id':eventItemId}, function (res) {
+				$scope.alertStyle = 'alert-success';
+				$scope.alertMessage = 'Successfully store new event!';
+				$('#success-alert').fadeTo(2000, 500).slideUp(500, function (){
+					$('#success-alert').alert('close');
+				});
+				// refetch events
+				$scope.getEventItems();
+			}, function (ignore) {
+				$scope.alertStyle = 'alert-danger';
+				$scope.alertMessage = 'Something when wrong submitting new event!';
 			});
 		};
 		
 		// Retrieve event types 
 		$scope.getEvents = function(val) {
-			return dashService.events().query({name: val}).$promise.then(function(r) {
-				if (r.status === 200) {
-					return r.events;
-				}
-				return false;
+			return dashService.events().query({name: val}).$promise.then(function(res) {
+				return res.events;
 			});
 		};
 		
@@ -231,11 +230,11 @@
 		
 		// Retrieve event types 
 		$scope.getEventItems = function() {
-			dashService.eventItems().query(function(r) {
+			dashService.eventItems().query(function(res) {
 				// store the events to the calendar
-				$scope.eventSources = r.array;
+				$scope.eventSources = res.array;
 				//
-				$scope.eventGroups = r.groups;
+				$scope.eventGroups = res.groups;
 				//
 				for (var i in $scope.eventGroups) {
 					var ref = $scope.eventGroups[i];
@@ -277,7 +276,7 @@
 						}
 					}
 				}
-			}, function(r) {
+			}, function(ignore) {
 			});
 		};
 		
@@ -288,19 +287,17 @@
 				desc:$scope.eventDesc,
 				fontTextColor:$('#textcolor').minicolors('value'),
 				fontBgColor:$('#bgcolor').minicolors('value'),
-			},function(r) {
-				if (r && r.status === 'OK') {
-					$scope.alertStyle = 'alert-success';
-					$scope.alertMessage = 'Successfully store new event!';
-					$('#success-alert').fadeTo(2000, 500).slideUp(500, function(){
-						$('#success-alert').alert('close');
-					});
-					// refetch events
-					$scope.getEventItems();
-				} else {
-					$scope.alertStyle = 'alert-danger';
-					$scope.alertMessage = 'Something when wrong submitting new event!';
-				}
+			}, function(res) {
+				$scope.alertStyle = 'alert-success';
+				$scope.alertMessage = 'Successfully store new event!';
+				$('#success-alert').fadeTo(2000, 500).slideUp(500, function(){
+					$('#success-alert').alert('close');
+				});
+				// refetch events
+				$scope.getEventItems();
+			}, function(ignore) {
+				$scope.alertStyle = 'alert-danger';
+				$scope.alertMessage = 'Something when wrong submitting new event!';
 			});
 		};
 		

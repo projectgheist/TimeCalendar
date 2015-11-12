@@ -3,9 +3,6 @@
 var ap = require('./app');
 var cf = require('../config');
 
-/** Authentication (!Needs to be before Router/Routing and after session and bodyparser) */
-require('./auth');
-
 /** Routing (!Needs to be after Bodyparser) */
 ap.use(require('koa-routing')(ap));
 

@@ -3,53 +3,30 @@
 /** Includes
  */
 var ap = require('../src/app');
-var sr = ap.listen();
-var rq = require('supertest');
+var rq = require('supertest').agent(ap.listen());
+var pp = require('../src/auth');
+require('../src/routes');
+require('../src/storage');
+require('../src/api/events');
 var mm = require('moment');
 
-describe('Startup', function () {
-	/** Make sure that the routing code compiles
-	 */
-	it('Routing - Check compile', function (done) {
-		require('../src/routes');
-		console.log(ap);
-		done();
-	});
-
-	/** Start the server on a specific port
-	 */
-	it('Start database', function (done) {
-		require('../src/storage');
-		done();
-	});
-});
-
-/** Make sure that the routing code compiles
- */
-describe('API', function () {
-	it('Check /api/0/events.js compile', function (done) {
-		require('../src/api/events');
-		done();
-	});
-});
-
-describe('Events API (no user|no events)', function () {
+describe('Events API (no user)', function () {
 	it('GET events', function (done) {
-		rq(sr)
+		rq
 			.get('/api/0/events')
 			.expect(401)
 			.end(done);
 	});
 
 	it('GET events by query', function (done) {
-		rq(sr)
+		rq
 			.get('/api/0/events/list')
 			.expect(401)
 			.end(done);
 	});
 
 	it('POST start event', function (done) {
-		rq(sr)
+		rq
 			.post('/api/0/events')
 			.send({
 				name: 'TestEvent',
@@ -62,7 +39,7 @@ describe('Events API (no user|no events)', function () {
 	});
 
 	it('POST stop event', function (done) {
-		rq(sr)
+		rq
 			.post('/api/0/events')
 			.send({
 				id: 'sid'
@@ -74,19 +51,23 @@ describe('Events API (no user|no events)', function () {
 
 /** Make sure that authentication code compiles
  */
-describe('Auth', function () {
+describe('Events API (user)', function () {
 	it('Create mock strategy', function (done) {
-		var pp = require('../src/auth');
 		ap
 			.route('/login')
 			.post(function * (next) {
-				console.log(this.request.query);
+				console.log(this.request);
 				var ctx = this;
 				yield pp.authenticate('local', function * (ignore, user, info) {
-					yield ctx.login(user);
-					ctx.session.user = user;
-					ctx.body = { success: true };
-					ctx.status = 200;
+					if (user) {
+						yield ctx.login(user);
+						ctx.session.user = user;
+						ctx.body = { success: true };
+						ctx.status = 200;
+					} else {
+						ctx.body = { success: false };
+						ctx.status = 400;
+					}
 				})
 				.call(this, next);
 			});
@@ -94,10 +75,10 @@ describe('Auth', function () {
 	});
 
 	// Create the agent
-	var agent = rq.agent(sr);
+	// var agent = rq.agent(sr);
 
 	it('Mock sign in', function (done) {
-		agent
+		rq
 			.post('/login')
 			.send({
 				// !Required
@@ -109,21 +90,14 @@ describe('Auth', function () {
 	});
 
 	it('GET events', function (done) {
-		agent
-			.get('/api/0/events')
-			.expect(200)
-			.end(done);
-	});
-
-	it('GET events', function (done) {
-		agent
+		rq
 			.get('/api/0/events')
 			.expect(200)
 			.end(done);
 	});
 
 	it('POST start event', function (done) {
-		agent
+		rq
 			.post('/api/0/events')
 			.send({
 				name: 'TestEvent',
@@ -153,7 +127,7 @@ describe('Auth', function () {
 	*/
 
 	it('Mock sign out', function (done) {
-		rq(sr)
+		rq
 			.get('/logout')
 			.expect(302)
 			.end(done);

@@ -1,6 +1,10 @@
 /** Initialize
  */
 var ap = require('./src/app');
+var cf = require('./config');
+var db = require('./src/storage');
+/** Authentication (!Needs to be after session and bodyparser AND before Router/Routing) */
+var pp = require('./src/auth');
 
 /** turn off console.log
  */
@@ -10,16 +14,13 @@ if (ap.env === 'production') {
 
 /** GET / POST Pages
  */
-var pp = require('./src/auth');
-var cf = require('./config');
-var db = require('./src/storage');
-
 var Strategy = require('passport-google-oauth').OAuth2Strategy;
-pp.use(new Strategy({
-	clientID: cf.Google().ClientID,
-	clientSecret: cf.Google().ClientSecret,
-	callbackURL: cf.Url() + '/auth/google/callback'
-},
+pp.use(
+	new Strategy({
+		clientID: cf.Google().ClientID,
+		clientSecret: cf.Google().ClientSecret,
+		callbackURL: cf.Url() + '/auth/google/callback'
+	},
 	function (token, tokenSecret, profile, done) {
 		// asynchronous verification, for effect...
 		process.nextTick(function () {
@@ -39,8 +40,8 @@ pp.use(new Strategy({
 					return done(null, user);
 				});
 		});
-	}
-));
+	})
+);
 
 /** GET / POST Pages
  */

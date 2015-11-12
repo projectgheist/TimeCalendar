@@ -13,7 +13,7 @@ var EventItem = sc({
 	// event it belongs to
 	event: ut.ref('Event'),
 	// creator
-	user: ut.ref('User'),
+	user: ut.refAndRequired('User'),
 	// date that this event was created
 	creationTime: { type: Date, default: Date.now },
 	// date that this event was created
@@ -25,10 +25,6 @@ var EventItem = sc({
 	// Flag true if event takes up the entire day
 	allDay: { type: Boolean, default: false }
 });
-
-/** Create unique indices
- */
-EventItem.index({user: 1, sid: 1}, {unique: true});
 
 /** Export
  */

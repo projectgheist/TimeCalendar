@@ -104,7 +104,6 @@ route
 	})
 	/** Add a new event item */
 	.post(function * (next) {
-		console.log(this.request.query);
 		if (this.req.isAuthenticated()) {
 			var params = this.request.query;
 			if (params) {
@@ -137,11 +136,8 @@ route
 						// Add item to event
 						dbEvent.items.addToSet(item);
 					}
-					console.log('before event save');
-					console.log(dbEvent);
 					// Save event
 					yield dbEvent.save();
-					console.log('after event save');
 					this.body = {id: dbEvent.sid};
 					this.status = 200;
 				} else if (params.id) {
@@ -149,8 +145,7 @@ route
 					var dbItem = yield db.findOrCreate(db.EventItem, {
 						user: mg.Types.ObjectId(this.req.user),
 						sid: params.id
-					})
-					.populate('event');
+					});
 					// floor to the nearest minute
 					dbItem.endTime = mm().startOf('minute');
 					dbItem.duration = mm(dbItem.startTime).diff(dbItem.endTime);

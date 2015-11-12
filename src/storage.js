@@ -1,7 +1,6 @@
 /** Includes
  */
 var mg = require('mongoose');
-var rs = require('rsvp');
 var ut = require('./utils');
 var cf = require('../config');
 
@@ -14,17 +13,12 @@ exports.User = require('./models/user');
 
 // if database is already connected return
 if (!mg.connection || !mg.connection.db) {
-	// declare connection options
-	var options = {
-		server: { socketOptions: { keepAlive: 1, connectTimeoutMS: 30000 } },
-		replset: { socketOptions: { keepAlive: 1, connectTimeoutMS: 30000 } }
-	};
 	// try to connect to db
-	mg.connect(ut.getDBConnectionURL(cf.db()), options);
+	mg.connect(ut.getDBConnectionURL(cf.db()), {});
 	// declare connection variable
 	var db = mg.connection;
 	// Add promise support to Mongoose
-	require('mongoomise').promisifyAll(db, rs);
+	require('mongoomise').promisifyAll(db, require('rsvp'));
 	// error event
 	db.on('error', function (ignore) {});
 	// connection established event

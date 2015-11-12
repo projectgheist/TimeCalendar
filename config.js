@@ -51,9 +51,9 @@ module.exports.Google = function () {
 
 /** Mongo DB Credentials
  */
-module.exports.db = function () {
+module.exports.db = function (dbName) {
 	// default database name
-	var defaultDbName = 'db_timecalendar';
+	dbName || (dbName = 'db_timecalendar');
 	// Appfog
 	if (process.env.VCAP_SERVICES) {
 		var env = JSON.parse(process.env.VCAP_SERVICES);
@@ -67,7 +67,7 @@ module.exports.db = function () {
 		return {
 			hostname: process.env.OPENSHIFT_MONGODB_DB_HOST || 'localhost',
 			port: process.env.OPENSHIFT_MONGODB_DB_PORT || '27017',
-			dbname: process.env.OPENSHIFT_APP_NAME || defaultDbName,
+			dbname: process.env.OPENSHIFT_APP_NAME || dbName,
 			username: process.env.OPENSHIFT_MONGODB_DB_USERNAME || '',
 			password: process.env.OPENSHIFT_MONGODB_DB_PASSWORD || ''
 		};

@@ -5,11 +5,14 @@ var pp = require('koa-passport');
 
 /** Sessions */
 ap.keys = ['your-session-secret'];
-ap.use(require('koa-generic-session')({
-	cookie: {
-		maxage: null
-	}
-}));
+ap.use(require('koa-session')(ap));
+
+/** Enable body parsing */
+ap.use(require('koa-bodyparser')());
+
+/** Setup of Passport.js */
+ap.use(pp.initialize());
+ap.use(pp.session());
 
 // Passport session setup.
 //   To support persistent login sessions, Passport needs to be able to
@@ -41,10 +44,6 @@ pp.use(
 		}
 	)
 );
-
-/** Setup of Passport.js */
-ap.use(pp.initialize());
-ap.use(pp.session());
 
 /** Export as module */
 module.exports = pp;
