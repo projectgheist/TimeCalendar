@@ -37,9 +37,7 @@ exports.all = function (model, options) {
 		q.sort(options.sort);
 	}
 	// limit
-	if (options.limit) {
-		q.limit(options.limit);
-	}
+	q.limit(options.limit || false);
 	return q;
 };
 
