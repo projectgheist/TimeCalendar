@@ -19,8 +19,7 @@
     "passport": "^0.3.0",
     "passport-google-oauth": "^0.2.0",
     "rsvp": "^3.1.0",
-    "shortid": "^2.2.4",
-    "validator": "^4.2.1"
+    "shortid": "^2.2.4"
   },
   "devDependencies": {
     "codecov.io": "^0.1.6",
