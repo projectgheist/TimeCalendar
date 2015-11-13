@@ -3,6 +3,17 @@
 var mg = require('mongoose');
 var vd = require('validator');
 
+/** function isEmpty
+*/
+exports.isEmpty = function (obj) {
+	for (var key in obj) {
+		if (obj.hasOwnProperty(key)) {
+			return false;
+		}
+	}
+	return true;
+};
+
 /** function startsWith
  * Checks if a string starts with a certain char/string
  * @param val: char or string to search for in the input string

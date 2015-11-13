@@ -126,6 +126,14 @@ describe('Events API (user)', function () {
 			.end(done);
 	});
 
+	it('POST start event (no params)', function (done) {
+		rq
+			.post('/api/0/events')
+			.send({})
+			.expect(400)
+			.end(done);
+	});
+
 	var itemId;
 	it('POST start event', function (done) {
 		rq

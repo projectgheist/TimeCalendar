@@ -2,6 +2,7 @@
  */
 var ap = require('../app');
 var db = require('../storage');
+var ut = require('../utils');
 var mg = require('mongoose');
 var mm = require('moment');
 
@@ -106,7 +107,7 @@ route
 	.post(function * (next) {
 		if (this.req.isAuthenticated()) {
 			var params = this.request.body;
-			if (params) {
+			if (params && !ut.isEmpty(params)) {
 				var dbEvent;
 				// Need to find existing item?
 				if (!params.id && params.name) {
@@ -153,12 +154,10 @@ route
 					yield dbItem.save();
 					this.body = {id: dbItem.sid};
 					this.status = 200;
-				} else {
-					this.body = {message: 'No parameters found'};
-					this.status = 400;
 				}
-			} else {
-				this.body = {message: 'No parameters found'};
+			}
+			if (this.status !== 200) {
+				this.body = {message: 'No valid parameters found'};
 				this.status = 400;
 			}
 		} else {
@@ -173,13 +172,11 @@ route.nested('/list')
 			var params = this.request.body || {};
 			var opts = {
 				query: {
-					user: mg.Types.ObjectId(this.req.user)
+					user: mg.Types.ObjectId(this.req.user),
+					// Search for a specific name
+					name: params.name ? new RegExp('.*' + params.name + '.*', 'i') : ''
 				}
 			};
-			// Search for a specific name
-			if (params.name) {
-				opts.query.name = new RegExp('.*' + params.name + '.*', 'i');
-			}
 			var events = yield db.all(db.Event, opts);
 			this.body = {'events': events};
 			this.status = 200;
