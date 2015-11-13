@@ -42,7 +42,7 @@ route
 					title: ref.event.name,
 					start: ref.startTime,
 					end: ref.endTime,
-					duration: ref.duration,
+					duration: ref.duration || mm(ref.startTime).add(1, 'minute').diff(ref.startTime),
 					allDay: ref.allDay,
 					color: ref.event.fontBgColor || '#000',
 					textColor: ref.event.fontTextColor || '#fff'
