@@ -34,18 +34,7 @@ ap
 ap
 	.route(/\/login\/?/)
 	.get(function * (next) {
-		if (this.req.isAuthenticated()) {
-			this.redirect('/');
-		} else {
-			this.render(
-				'login',
-				{
-					'config': cf.site
-				},
-				true
-			);
-			yield next;
-		}
+		this.redirect('/');
 	});
 
 /** logout route */

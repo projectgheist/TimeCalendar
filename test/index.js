@@ -11,6 +11,20 @@ var rq = require('supertest').agent(ap.listen());
 var mm = require('moment');
 
 describe('Events API (no user)', function () {
+	it('Route - Home', function (done) {
+		rq
+			.get('/')
+			.expect(200)
+			.end(done);
+	});
+
+	it('Route - Login', function (done) {
+		rq
+			.get('/login')
+			.expect(302)
+			.end(done);
+	});
+
 	it('GET events', function (done) {
 		rq
 			.get('/api/0/events')
@@ -91,13 +105,25 @@ describe('Events API (user)', function () {
 			.end(done);
 	});
 
-	it('GET events', function (done) {
+	it('Route - Home', function (done) {
+		rq
+			.get('/')
+			.expect(200)
+			.end(done);
+	});
+
+	it('GET events (no events)', function (done) {
 		rq
 			.get('/api/0/events')
 			.expect(200)
-			.end(function (ignore, res) {
-				done();
-			});
+			.end(done);
+	});
+
+	it('GET events by query', function (done) {
+		rq
+			.get('/api/0/events/list')
+			.expect(200)
+			.end(done);
 	});
 
 	var itemId;
@@ -117,12 +143,35 @@ describe('Events API (user)', function () {
 			});
 	});
 
+	it('GET events (running events)', function (done) {
+		rq
+			.get('/api/0/events')
+			.expect(200)
+			.end(done);
+	});
+
+	it('GET events by query', function (done) {
+		rq
+			.get('/api/0/events/list')
+			.expect(200)
+			.end(done);
+	});
+
 	it('POST stop event', function (done) {
 		rq
 			.post('/api/0/events')
 			.send(itemId)
 			.expect(200)
 			.end(done);
+	});
+
+	it('GET events (completed events)', function (done) {
+		rq
+			.get('/api/0/events')
+			.expect(200)
+			.end(function (ignore, res) {
+				done();
+			});
 	});
 
 	it('Mock sign out', function (done) {
