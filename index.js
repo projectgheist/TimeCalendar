@@ -25,8 +25,8 @@ pp.use(
 		// asynchronous verification, for effect...
 		process.nextTick(function () {
 			return db.findOrCreate(db.User, {
-				openID: profile.id
-			})
+					openID: profile.id
+				})
 				.then(function (user) {
 					// store retrieved info
 					user.provider = profile.provider;

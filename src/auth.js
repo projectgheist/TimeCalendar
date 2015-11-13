@@ -2,6 +2,7 @@
  */
 var ap = require('./app');
 var pp = require('koa-passport');
+var db = require('./storage');
 
 /** Sessions */
 ap.keys = ['your-session-secret'];
@@ -35,12 +36,9 @@ var Strategy = require('passport-local').Strategy;
 pp.use(
 	new Strategy(
 		function (username, password, done) {
-			var user = {
-				_id: 1,
-				openID: '1',
-				name: 'test'
-			};
-			done(null, user);
+			return db.findOrCreate(db.User, { openID: 1, provider: 'local', name: 'test' }).then(function (user) {
+				return done(null, user);
+			});
 		}
 	)
 );

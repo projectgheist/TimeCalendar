@@ -3,11 +3,11 @@
 /** Includes
  */
 var ap = require('../src/app');
-var rq = require('supertest').agent(ap.listen());
 var pp = require('../src/auth');
 require('../src/routes');
 require('../src/storage');
 require('../src/api/events');
+var rq = require('supertest').agent(ap.listen());
 var mm = require('moment');
 
 describe('Events API (no user)', function () {
@@ -56,26 +56,28 @@ describe('Events API (user)', function () {
 		ap
 			.route('/login')
 			.post(function * (next) {
-				console.log(this.request);
 				var ctx = this;
-				yield pp.authenticate('local', function * (ignore, user, info) {
-					if (user) {
-						yield ctx.login(user);
-						ctx.session.user = user;
-						ctx.body = { success: true };
-						ctx.status = 200;
-					} else {
-						ctx.body = { success: false };
-						ctx.status = 400;
-					}
-				})
-				.call(this, next);
+				if (this.request.body) {
+					yield pp.authenticate('local', function * (ignore, user, info) {
+						if (user) {
+							yield ctx.login(user);
+							ctx.session.user = user;
+							ctx.body = { success: true };
+							ctx.status = 200;
+						} else {
+							ctx.body = { success: false };
+							ctx.status = 400;
+						}
+					})
+					.call(this, next);
+				} else {
+					ctx.body = { success: false };
+					ctx.status = 400;
+					yield next;
+				}
 			});
 		done();
 	});
-
-	// Create the agent
-	// var agent = rq.agent(sr);
 
 	it('Mock sign in', function (done) {
 		rq
@@ -93,9 +95,12 @@ describe('Events API (user)', function () {
 		rq
 			.get('/api/0/events')
 			.expect(200)
-			.end(done);
+			.end(function (ignore, res) {
+				done();
+			});
 	});
 
+	var itemId;
 	it('POST start event', function (done) {
 		rq
 			.post('/api/0/events')
@@ -106,25 +111,19 @@ describe('Events API (user)', function () {
 				st: mm()
 			})
 			.expect(200)
-			.end(done);
+			.end(function (ignore, res) {
+				itemId = res.body;
+				done();
+			});
 	});
 
-	/* @todo
-		it('POST stop event', function (done) {
-			agent
-				.post({
-				url: [url,'/api/0/events'].join(''),
-				qs: {
-					id: eventId
-				}
-			}, function (error, response, body) {
-					console.log(body)
-				if (!error && response.statusCode == 200) {
-					done();
-				}
-			})
-		});
-	*/
+	it('POST stop event', function (done) {
+		rq
+			.post('/api/0/events')
+			.send(itemId)
+			.expect(200)
+			.end(done);
+	});
 
 	it('Mock sign out', function (done) {
 		rq

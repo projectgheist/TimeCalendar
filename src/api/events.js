@@ -105,7 +105,7 @@ route
 	/** Add a new event item */
 	.post(function * (next) {
 		if (this.req.isAuthenticated()) {
-			var params = this.request.query;
+			var params = this.request.body;
 			if (params) {
 				var dbEvent;
 				// Need to find existing item?
@@ -122,23 +122,23 @@ route
 					// Contains a start time?
 					if (params.st) {
 						// Create new element for event
-						var item = yield db
-							.findOrCreate(db.EventItem, {
-								user: mg.Types.ObjectId(this.req.user),
-								startTime: mm(params.st).add(1, 'minute').startOf('minute'),
-								duration: params.td,
-								event: dbEvent,
-								allDay: false
-							});
+						var item = new db.EventItem({
+							event: dbEvent,
+							user: mg.Types.ObjectId(this.req.user),
+							startTime: mm(params.st).add(1, 'minute').startOf('minute'),
+							duration: params.td,
+							allDay: false
+						});
 						// Save needs to be called after creating new items
 						// else the defaults will be executed on every fetch
 						yield item.save();
 						// Add item to event
 						dbEvent.items.addToSet(item);
+						// Return item id
+						this.body = {id: item.sid};
 					}
 					// Save event
 					yield dbEvent.save();
-					this.body = {id: dbEvent.sid};
 					this.status = 200;
 				} else if (params.id) {
 					// Find event item
@@ -170,7 +170,7 @@ route
 route.nested('/list')
 	.get(function * (next) {
 		if (this.req.isAuthenticated()) {
-			var params = this.request.query || {};
+			var params = this.request.body || {};
 			var opts = {
 				query: {
 					user: mg.Types.ObjectId(this.req.user)

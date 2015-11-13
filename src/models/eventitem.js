@@ -11,7 +11,7 @@ var EventItem = sc({
 	// unique identifier
 	sid: { type: String, default: sh.generate },
 	// event it belongs to
-	event: ut.ref('Event'),
+	event: ut.refAndRequired('Event'),
 	// creator
 	user: ut.refAndRequired('User'),
 	// date that this event was created
