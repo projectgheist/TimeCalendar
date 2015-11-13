@@ -21,8 +21,8 @@ route
 						user: mg.Types.ObjectId(this.req.user)
 					}, {
 						$or: [ {
-							startTime: { // only todays items
-								$gt: mm().startOf('day')
+							startTime: { // only today's items
+								$gt: mm().startOf('day').toDate()
 							}
 						}, {
 							duration: { // still running items
@@ -57,10 +57,10 @@ route
 				.aggregate([
 					{
 						$match: {
-							startTime: {
-								$gt: mm().startOf('day')
+							startTime: { // only today's items
+								$gte: mm().startOf('day').toDate()
 							},
-							'user._id': this.req.user._id
+							user: mg.Types.ObjectId(this.req.user)
 						}
 					},
 					{
@@ -80,7 +80,9 @@ route
 				});
 			var populated = yield db.Event.find({
 				'_id': {
-					$in: grouped.map(function (val) { return val._id; })
+					$in: grouped.map(function (val) {
+						return val._id;
+					})
 				}
 			}, function (ignore, res) {
 				return res;
