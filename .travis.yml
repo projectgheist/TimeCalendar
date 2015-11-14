@@ -8,6 +8,7 @@ services:
 install:
   - npm install -g grunt-cli
   - npm install -g bower
+  - npm install -g happiness
   - npm install -g istanbul
   - npm install
 before_script:
