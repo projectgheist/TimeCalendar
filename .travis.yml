@@ -9,7 +9,6 @@ install:
   - npm install -g grunt-cli
   - npm install -g bower
   - npm install -g mocha
-  - npm install -g codecov
   - npm install -g coveralls
   - npm install -g istanbul
   - npm install
@@ -18,4 +17,4 @@ before_script:
   - grunt
 script:
   - istanbul cover _mocha --report lcovonly -- -R spec && cat ./coverage/lcov.info | coveralls && rm -rf ./coverage
-  - codecov
+  - istanbul cover _mocha -- -R spec && cat ./coverage/coverage.json | ./node_modules/codecov.io/bin/codecov.io.js
