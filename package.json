@@ -31,6 +31,7 @@
     "grunt-contrib-uglify": "^0.10.0",
     "grunt-contrib-watch": "~0.6.1",
     "jshint": "^2.8.0",
+    "mocha": "^2.3.3",
     "passport-local": "^1.0.0",
     "superagent": "^1.4.0",
     "supertest": "^1.1.0"
