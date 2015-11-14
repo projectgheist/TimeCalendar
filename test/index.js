@@ -2,6 +2,7 @@
 
 /** Includes
  */
+var cf = require('../config');
 var ap = require('../src/app');
 var pp = require('../src/auth');
 require('../src/routes');
@@ -9,6 +10,12 @@ require('../src/storage');
 require('../src/api/events');
 var rq = require('supertest').agent(ap.listen());
 var mm = require('moment');
+
+describe('Initialize', function () {
+	it('Server started at ' + cf.Url(), function (done) {
+		done();
+	});
+});
 
 describe('Events API (no user)', function () {
 	it('Route - Home', function (done) {

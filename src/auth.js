@@ -36,9 +36,11 @@ var Strategy = require('passport-local').Strategy;
 pp.use(
 	new Strategy(
 		function (username, password, done) {
-			return db.findOrCreate(db.User, { openID: 1, provider: 'local', name: 'test' }).then(function (user) {
-				return done(null, user);
-			});
+			return db
+				.findOrCreate(db.User, { openID: 1, provider: 'local', name: 'test' })
+				.then(function (user) {
+					return done(null, user);
+				});
 		}
 	)
 );
