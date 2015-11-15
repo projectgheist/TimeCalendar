@@ -2,7 +2,6 @@
  */
 var ap = require('./app');
 var pp = require('koa-passport');
-var db = require('./storage');
 
 /** Sessions */
 ap.keys = ['your-session-secret'];
@@ -29,21 +28,6 @@ pp.serializeUser(function (user, done) {
 pp.deserializeUser(function (id, done) {
 	done(null, id);
 });
-
-/** Create mock passportjs strategy
- */
-var Strategy = require('passport-local').Strategy;
-pp.use(
-	new Strategy(
-		function (username, password, done) {
-			return db
-				.findOrCreate(db.User, { openID: 1, provider: 'local', name: 'test' })
-				.then(function (user) {
-					return done(null, user);
-				});
-		}
-	)
-);
 
 /** Export as module */
 module.exports = pp;

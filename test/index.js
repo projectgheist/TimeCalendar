@@ -5,11 +5,26 @@
 var cf = require('../config');
 var ap = require('../src/app');
 var pp = require('../src/auth');
+var db = require('../src/storage');
 require('../src/routes');
-require('../src/storage');
 require('../src/api/events');
 var rq = require('supertest').agent(ap.listen());
 var mm = require('moment');
+
+/** Create mock passportjs strategy
+ */
+var Strategy = require('passport-local').Strategy;
+pp.use(
+	new Strategy(
+		function (username, password, done) {
+			return db
+				.findOrCreate(db.User, { openID: 1, provider: 'local', name: 'test' })
+				.then(function (user) {
+					return done(null, user);
+				});
+		}
+	)
+);
 
 describe('Initialize', function () {
 	it('Server started at ' + cf.Url(), function (done) {
