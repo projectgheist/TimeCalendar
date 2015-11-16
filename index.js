@@ -19,7 +19,7 @@ pp.use(
 	new Strategy({
 		clientID: process.env.GOOGLE_CLIENT_ID || 'GOOGLE_CLIENT_ID',
 		clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'GOOGLE_CLIENT_SECRET',
-		callbackURL: cf.Url() + '/auth/google/callback'
+		callbackURL: ['http://', cf.Url(), '/auth/google/callback'].join('')
 	},
 	function (token, tokenSecret, profile, done) {
 		// asynchronous verification, for effect...
