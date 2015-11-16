@@ -1,18 +1,29 @@
 sudo: false
 language: node_js
 node_js:
-  - "4.1"
-  - "4.0"
+- '4.1'
+- '4.0'
 services:
-  - mongodb
+- mongodb
 install:
-  - npm install -g grunt-cli
-  - npm install -g bower
-  - npm install -g happiness
-  - npm install -g istanbul
-  - npm install
+- npm install -g grunt-cli
+- npm install -g bower
+- npm install -g happiness
+- npm install -g istanbul
+- npm install
 before_script:
-  - bower install
-  - grunt
+- bower install
+- grunt
 script:
-  - istanbul cover ./node_modules/mocha/bin/_mocha --report lcovonly -- -R spec && cat ./coverage/lcov.info | ./node_modules/codecov.io/bin/codecov.io.js && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js && rm -rf ./coverage
+- istanbul cover ./node_modules/mocha/bin/_mocha --report lcovonly -- -R spec && cat
+  ./coverage/lcov.info | ./node_modules/codecov.io/bin/codecov.io.js && cat ./coverage/lcov.info
+  | ./node_modules/coveralls/bin/coveralls.js && rm -rf ./coverage
+deploy:
+  provider: openshift
+  user: projectgheist@gmail.com
+  password:
+    secure: oyoZT7SyfCBq5IKD7RxYvsq38Zy1cQlNKKdW4BOPCFGZl4NOOROP5h3hgTbyIZVGsIVRv7GykNPm8RgN56dTXaSlHXrAm0W9y1q45rEUpop+Yyua4aMOGk4LYwRs3+JNjg5cR6/8XaD6oFH5BniZwE3o3AtE92mKifIe0rdAQP6RNtzRWI1t+TPckWzU9dQ4o/ludV6Oi58wjmaVB+45Ud5XkJ1d1yNHqO8s+1qzKhL7IYIwzpXzI9hCTY83Bcyq0tVACc9PhRk2YNEnrYB3LtP+s2sbA2kjlXBTLxjwzbQ39Xrrdc170Iei9/BO8CGMBSyJ0JSwmQe8XlGNkAVop4E8NVSIhNduBx2eNm6YDfQEQ34V/ZMvg197aTcVV5KIt8TYGmTkKxTOiGTxfc62nLX8hy5HrKnNk5lUN/NKItULMQ5d6/qaWFxTW8G+PQ5cYaoH0RzaGXppg27NwkOkU4TnzY9MdENo/AY5ESQZ1U14AdA7979jWCfYPIIMYJd8NUOZKrRfPcwuosflQWVAiz1OYAMe2Gy5V6xkD9lNXpk/F+AAStVSdSqH9BQaqzHjLgvlj0I3Cwhf6Ofxvbq2l8AYwvU8e01kQ8W0/GzpNCXFlD9d89fRfldcl8j/NsSogsEaRIFf+pE1axHv7q6UhY+9hnCEUfWU7tReh3CQ+Wo=
+  app: TimeCalendar
+  domain: bapple
+  on:
+    repo: projectgheist/TimeCalendar
