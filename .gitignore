@@ -46,7 +46,7 @@ Temporary Items
 /node_modules
 /bower_components
 /coverage
-
+ 
 # ignore custom application launcher in Windows
 *.bat
 
@@ -54,3 +54,6 @@ Temporary Items
 
 # ignore specific other file
 manifest.yml
+
+# ignore travis ci folder
+.dpl/
