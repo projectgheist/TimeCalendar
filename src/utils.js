@@ -31,7 +31,7 @@ exports.refAndRequired = function (type) {
 
 // returns a string that points to the database url
 exports.getDBConnectionURL = function (obj, noPrefix) {
-	var r = process.env.OPENSHIFT_MONGODB_DB_URL ? [process.env.OPENSHIFT_MONGODB_DB_URL, obj.dbname].join('') : obj.url;
+	var r = process.env.MONGODB_URL ? [process.env.MONGODB_URL, obj.dbname].join('') : obj.url;
 	if (!r) {
 		r = (obj.username && obj.password) ? [obj.username, ':', obj.password, '@'].join('') : '';
 		r = [r, obj.hostname, ':', obj.port, '/', obj.dbname].join('');
