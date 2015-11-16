@@ -6,14 +6,10 @@ node_js:
 services:
 - mongodb
 install:
-- npm install -g grunt-cli
-- npm install -g bower
 - npm install -g happiness
 - npm install -g istanbul
 - npm install
 before_script:
-- bower install
-- grunt
 script:
 - istanbul cover ./node_modules/mocha/bin/_mocha --report lcovonly -- -R spec && cat
   ./coverage/lcov.info | ./node_modules/codecov.io/bin/codecov.io.js && cat ./coverage/lcov.info
