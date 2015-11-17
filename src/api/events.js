@@ -128,7 +128,7 @@ route
 						var item = new db.EventItem({
 							event: dbEvent,
 							user: mg.Types.ObjectId(this.req.user),
-							startTime: mm(params.st).add(1, 'minute').startOf('minute'),
+							startTime: mm(params.st).startOf('minute'),
 							duration: params.td,
 							allDay: false
 						});
@@ -144,14 +144,15 @@ route
 					yield dbEvent.save();
 					this.status = 200;
 				} else if (params.id) {
-					// Find event item
+					// Find event item to stop
 					var dbItem = yield db.findOrCreate(db.EventItem, {
 						user: mg.Types.ObjectId(this.req.user),
 						sid: params.id
 					});
 					// floor to the nearest minute
-					dbItem.endTime = mm().startOf('minute');
-					dbItem.duration = mm(dbItem.startTime).diff(dbItem.endTime);
+					dbItem.endTime = mm().add(1, 'minute').startOf('minute');
+					// ! duration needs to be a value larger then 0
+					dbItem.duration = mm(dbItem.endTime).diff(dbItem.startTime);
 					// re-save
 					yield dbItem.save();
 					this.body = {id: dbItem.sid};
@@ -171,12 +172,12 @@ route
 route.nested('/list')
 	.get(function * (next) {
 		if (this.req.isAuthenticated()) {
-			var params = this.request.body || {};
+			var params = this.request.query;
 			var opts = {
 				query: {
 					user: mg.Types.ObjectId(this.req.user),
 					// Search for a specific name
-					name: params.name ? new RegExp('.*' + params.name + '.*', 'i') : ''
+					name: new RegExp(['.*', (params.name || ''), '.*'].join(''), 'i')
 				}
 			};
 			var events = yield db.all(db.Event, opts);

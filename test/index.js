@@ -168,8 +168,10 @@ describe('Events API (user)', function () {
 			})
 			.expect(200)
 			.end(function (ignore, res) {
-				itemId = res.body;
-				done();
+				if (res.body && res.body.id) {
+					itemId = res.body;
+					done();
+				}
 			});
 	});
 
@@ -177,14 +179,22 @@ describe('Events API (user)', function () {
 		rq
 			.get('/api/0/events')
 			.expect(200)
-			.end(done);
+			.end(function (ignore, res) {
+				if (res.body.array && res.body.array[0].events.length) {
+					done();
+				}
+			});
 	});
 
 	it('GET events by query', function (done) {
 		rq
 			.get('/api/0/events/list')
 			.expect(200)
-			.end(done);
+			.end(function (ignore, res) {
+				if (res.body.events && res.body.events.length) {
+					done();
+				}
+			});
 	});
 
 	it('POST stop event', function (done) {
@@ -192,7 +202,11 @@ describe('Events API (user)', function () {
 			.post('/api/0/events')
 			.send(itemId)
 			.expect(200)
-			.end(done);
+			.end(function (ignore, res) {
+				if (res.body && res.body.id) {
+					done();
+				}
+			});
 	});
 
 	it('GET events (completed events)', function (done) {
@@ -200,7 +214,9 @@ describe('Events API (user)', function () {
 			.get('/api/0/events')
 			.expect(200)
 			.end(function (ignore, res) {
-				done();
+				if (res.body.array && res.body.array[1].events.length) {
+					done();
+				}
 			});
 	});
 
