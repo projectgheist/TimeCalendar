@@ -36,13 +36,14 @@ route
 			var running = [];
 			var completed = [];
 			for (var i in events) {
-				var ref = events[i];
+				var ref = events[i],
+					d = ref.duration || mm().diff(ref.startTime);
 				var n = {
 					id: ref.sid,
 					title: ref.event.name,
 					start: ref.startTime,
-					end: ref.endTime,
-					duration: ref.duration || mm(ref.startTime).add(1, 'minute').diff(ref.startTime),
+					end: ref.endTime || mm(ref.startTime).add(d).startOf('minute'),
+					duration: d,
 					allDay: ref.allDay,
 					color: ref.event.fontBgColor || '#000',
 					textColor: ref.event.fontTextColor || '#fff'
@@ -97,7 +98,7 @@ route
 					}
 				}
 			}
-			this.body = {'array': [{'events': running}, {'events': completed}], groups: grouped};
+			this.body = {'array': [running, completed], groups: grouped};
 			this.status = 200;
 		} else {
 			this.body = {message: 'GET Events: Authentication is required'};

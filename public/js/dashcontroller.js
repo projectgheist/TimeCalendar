@@ -67,6 +67,7 @@
 			$(this).tab('show');
 		});
 
+		// declare events variable
 		$scope.eventSources = [];
 
 		// config object for calendar
@@ -164,7 +165,7 @@
 				$('#success-alert').fadeTo(2000, 500).slideUp(500, function () {
 					$('#success-alert').alert('close');
 				});
-				// refetch events
+				// re fetch events
 				$scope.getEventItems();
 			}, function (ignore) {
 				$scope.alertStyle = 'alert-danger';
@@ -176,6 +177,12 @@
 		$scope.onTypeAheadSelect = function (item, model, label) {
 			$('#textcolor').minicolors('value', item.fontTextColor);
 			$('#bgcolor').minicolors('value', item.fontBgColor);
+		};
+
+		//
+		$scope.stopAllEvents = function () {
+			dashService.eventItems().save({'e': 'a'}, function (res) {
+			});
 		};
 
 		//
@@ -235,13 +242,13 @@
 				$scope.eventSources = res.array;
 				//
 				$scope.eventGroups = res.groups;
-				//
+				// format duration of grouped events
 				for (var i in $scope.eventGroups) {
 					var ref = $scope.eventGroups[i];
 					ref.duration = moment(ref.duration).format('HH:mm');
 				}
 				// has current running events?
-				if ($scope.eventSources.length && $scope.eventSources[0].events.length) {
+				if ($scope.eventSources.length && $scope.eventSources[0].length) {
 					// set new day start time
 					var minDate = moment($scope.uiConfig.calendar.minTime, 'HH:mm');
 					if (moment(minDate).diff(moment(), 'minutes') > 0) {
@@ -266,8 +273,9 @@
 				// Update events
 				$scope.setRunningEvents();
 
+				// format duration of todays previous events
 				if ($scope.eventSources.length) {
-					var ref = $scope.eventSources[1].events;
+					var ref = $scope.eventSources[1];
 					// loop all running events
 					for (var i in ref) {
 						if (typeof ref[i] === 'object') {

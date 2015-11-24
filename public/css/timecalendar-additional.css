@@ -13,6 +13,24 @@ html, body, .container-height, .container-height .row, .container-height .row .c
 	left: inherit;
 }
 
+.navbar-form .minicolors-theme-bootstrap {
+	display: inline-block;
+	margin: 0 5px;
+}
+
+.navbar-form .minicolors-theme-bootstrap .minicolors-swatch {
+	width: 100% !important;
+	background-image: inherit;
+    border: inherit;
+}
+
+.navbar-form .minicolors-theme-bootstrap .minicolors-swatch-color {
+	position: relative;
+	margin: 0;
+	width: 128px;
+	display: block;
+}
+
 form .minicolors-theme-bootstrap .minicolors-swatch {
 	left: 18px;
 }

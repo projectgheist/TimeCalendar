@@ -1,4 +1,5 @@
 include includes/header
+include includes/nav
 .container(ng-controller='dashController')
 	.row
 		.col-xs-12
@@ -6,9 +7,6 @@ include includes/header
 				button.close(type="button",data-dismiss="alert",aria-label="Close")
 					span(aria-hidden='true') &times;
 				p {{alertMessage}}
-	.row
-		.col-xs-12
-			h1 TimeCalendar
 	.row
 		.col-sm-6
 			.well(ng-if='eventSources && eventSources.length && eventSources[0].events.length')
@@ -28,7 +26,7 @@ include includes/header
 								button.btn.btn-block(type='button',ng-click='stopEvent(e.id)')
 									i.fa.fa-times.fa-fw
 				hr
-				button.btn(type='button') Stop all
+				button.btn(type='button',ng-click='stopAllEvents()') Stop all
 			.well
 				h1
 					i.fa.fa-check-square-o.fa-fw
@@ -82,8 +80,8 @@ include includes/header
 			h1 
 				i.fa.fa-history.fa-fw
 				| &nbsp;Completed events
-			ul.list-group(ng-show='eventSources && eventSources[1].events')
-				li.list-group-item(ng-repeat='e in eventSources[1].events',style='background-color:{{e.color}};padding:0 15px')
+			ul.list-group(ng-show='eventSources && eventSources[1]')
+				li.list-group-item(ng-repeat='e in eventSources[1]',style='background-color:{{e.color}};padding:0 15px')
 					.row
 						.col-lg-1
 							button.close.pull-left(type='button',style='margin:25px 0')
@@ -91,7 +89,7 @@ include includes/header
 						.col-lg-11(ng-click='setNewEvent(e)')
 							span.badge.pull-right(style='margin:25px 0') {{e.duration}}
 							h4(style='color:{{e.textColor}};margin:25px 0') {{e.title}}
-			.well(ng-hide='eventSources && eventSources[1].events.length')
+			.well(ng-hide='eventSources && eventSources[1].length')
 				h1
 					i.fa.fa-warning.fa-fw
 					| &nbsp;No previous events
