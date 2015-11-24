@@ -36,8 +36,8 @@ route
 			var running = [];
 			var completed = [];
 			for (var i in events) {
-				var ref = events[i],
-					d = ref.duration || mm().diff(ref.startTime);
+				var ref = events[i];
+				var d = ref.duration || mm().diff(ref.startTime);
 				var n = {
 					id: ref.sid,
 					title: ref.event.name,
