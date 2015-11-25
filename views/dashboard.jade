@@ -9,12 +9,12 @@ include includes/nav
 				p {{alertMessage}}
 	.row
 		.col-sm-6
-			.well(ng-if='eventSources && eventSources.length && eventSources[0].events.length')
+			.well(ng-if='eventSources && eventSources.length && eventSources[0].length')
 				h1 
 					i.fa.fa-cog.fa-spin.fa-fw
 					| &nbsp;In progress
 				ul.list-group
-					li.list-group-item(ng-repeat='e in eventSources[0].events')
+					li.list-group-item(ng-repeat='e in eventSources[0]')
 						.row
 							.col-lg-8
 								h4.list-group-item-heading(style='margin-top:5px')

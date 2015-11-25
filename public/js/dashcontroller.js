@@ -219,7 +219,7 @@
 			$scope.updateStartDate();
 
 			if ($scope.eventSources.length) {
-				var ref = $scope.eventSources[0].events;
+				var ref = $scope.eventSources[0];
 				// loop all running events
 				for (var i in ref) {
 					if (typeof ref[i] === 'object') {
