@@ -1,0 +1,27 @@
+include includes/header
+include includes/nav
+.container(ng-controller='dashController')
+	.row
+		.col-xs-12
+			ol.breadcrumb
+				li
+					a(href='/',target='_self') Home
+				li.active Overview
+			.calendar(ui-calendar='uiConfig.calendar',ng-model='eventSources')
+	.row
+		.col-xs-12
+			hr
+			h1 
+				i.fa.fa-bar-chart.fa-fw
+				| &nbsp;Statistics
+			ul.list-group(ng-show='eventGroups')
+				li.list-group-item(ng-repeat='e in eventGroups',style='background-color:{{e.event.fontBgColor}};padding:0 15px')
+					.row
+						.col-lg-12(ng-click='setNewEvent(e.event)')
+							span.badge.pull-right(style='margin:25px 0') {{e.duration}}
+							h4(style='color:{{e.event.fontTextColor}};margin:25px 0') {{e.event.name}}
+			.well(ng-hide='eventGroups.length')
+				h1
+					i.fa.fa-warning.fa-fw
+					| &nbsp;No previous events
+include includes/js

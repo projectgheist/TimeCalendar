@@ -23,7 +23,7 @@
 				type: '@type',
 				fontTextColor: '@fontTextColor',
 				fontBgColor: '@fontBgColor',
-				st: '@st',
+				st: '@st', // start time
 				td: '@td', // time duration
 				et: '@et'
 			}, {
@@ -80,7 +80,7 @@
 				// how far down the scroll pane is initially scrolled down
 				scrollTime: moment().format('HH') + ':00:00',
 				// initial view when the calendar loads
-				defaultView: 'agendaDay',
+				defaultView: 'agendaWeek',//'agendaDay',
 				header: {
 					left: '', // 'month basicWeek basicDay agendaWeek agendaDay',
 					center: 'title',
@@ -185,7 +185,7 @@
 			});
 		};
 
-		//
+		// Stop a single event with an unique identifier
 		$scope.stopEvent = function (eventItemId) {
 			dashService.eventItems().save({'id': eventItemId}, function (res) {
 				$scope.alertStyle = 'alert-success';
@@ -237,7 +237,11 @@
 
 		// Retrieve event types 
 		$scope.getEventItems = function () {
-			dashService.eventItems().query(function (res) {
+			var params = {
+				name: 'something',
+				st: moment().startOf('week').toString() 
+			};
+			dashService.eventItems().query(params, function (res) {
 				// store the events to the calendar
 				$scope.eventSources = res.array;
 				//

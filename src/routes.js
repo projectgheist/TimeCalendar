@@ -46,3 +46,17 @@ ap
 		}
 		this.redirect('/');
 	});
+
+/** login route */
+ap
+	.route(/\/overview\/?/)
+	.get(function * (next) {
+		this.render(
+			'overview',
+			{
+				'config': cf.site
+			},
+			true
+		);
+		yield next;
+	});

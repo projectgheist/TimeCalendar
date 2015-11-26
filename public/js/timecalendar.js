@@ -40461,7 +40461,7 @@ angular.module('ngResource', ['ng']).
 
 })(window, window.angular);
 ;/*!
- * Bootstrap v3.3.5 (http://getbootstrap.com)
+ * Bootstrap v3.3.6 (http://getbootstrap.com)
  * Copyright 2011-2015 Twitter, Inc.
  * Licensed under the MIT license
  */
@@ -40473,13 +40473,13 @@ if (typeof jQuery === 'undefined') {
 +function ($) {
   'use strict';
   var version = $.fn.jquery.split(' ')[0].split('.')
-  if ((version[0] < 2 && version[1] < 9) || (version[0] == 1 && version[1] == 9 && version[2] < 1)) {
-    throw new Error('Bootstrap\'s JavaScript requires jQuery version 1.9.1 or higher')
+  if ((version[0] < 2 && version[1] < 9) || (version[0] == 1 && version[1] == 9 && version[2] < 1) || (version[0] > 2)) {
+    throw new Error('Bootstrap\'s JavaScript requires jQuery version 1.9.1 or higher, but lower than version 3')
   }
 }(jQuery);
 
 /* ========================================================================
- * Bootstrap: transition.js v3.3.5
+ * Bootstrap: transition.js v3.3.6
  * http://getbootstrap.com/javascript/#transitions
  * ========================================================================
  * Copyright 2011-2015 Twitter, Inc.
@@ -40539,7 +40539,7 @@ if (typeof jQuery === 'undefined') {
 }(jQuery);
 
 /* ========================================================================
- * Bootstrap: alert.js v3.3.5
+ * Bootstrap: alert.js v3.3.6
  * http://getbootstrap.com/javascript/#alerts
  * ========================================================================
  * Copyright 2011-2015 Twitter, Inc.
@@ -40558,7 +40558,7 @@ if (typeof jQuery === 'undefined') {
     $(el).on('click', dismiss, this.close)
   }
 
-  Alert.VERSION = '3.3.5'
+  Alert.VERSION = '3.3.6'
 
   Alert.TRANSITION_DURATION = 150
 
@@ -40634,7 +40634,7 @@ if (typeof jQuery === 'undefined') {
 }(jQuery);
 
 /* ========================================================================
- * Bootstrap: button.js v3.3.5
+ * Bootstrap: button.js v3.3.6
  * http://getbootstrap.com/javascript/#buttons
  * ========================================================================
  * Copyright 2011-2015 Twitter, Inc.
@@ -40654,7 +40654,7 @@ if (typeof jQuery === 'undefined') {
     this.isLoading = false
   }
 
-  Button.VERSION  = '3.3.5'
+  Button.VERSION  = '3.3.6'
 
   Button.DEFAULTS = {
     loadingText: 'loading...'
@@ -40755,7 +40755,7 @@ if (typeof jQuery === 'undefined') {
 }(jQuery);
 
 /* ========================================================================
- * Bootstrap: carousel.js v3.3.5
+ * Bootstrap: carousel.js v3.3.6
  * http://getbootstrap.com/javascript/#carousel
  * ========================================================================
  * Copyright 2011-2015 Twitter, Inc.
@@ -40786,7 +40786,7 @@ if (typeof jQuery === 'undefined') {
       .on('mouseleave.bs.carousel', $.proxy(this.cycle, this))
   }
 
-  Carousel.VERSION  = '3.3.5'
+  Carousel.VERSION  = '3.3.6'
 
   Carousel.TRANSITION_DURATION = 600
 
@@ -40993,7 +40993,7 @@ if (typeof jQuery === 'undefined') {
 }(jQuery);
 
 /* ========================================================================
- * Bootstrap: collapse.js v3.3.5
+ * Bootstrap: collapse.js v3.3.6
  * http://getbootstrap.com/javascript/#collapse
  * ========================================================================
  * Copyright 2011-2015 Twitter, Inc.
@@ -41023,7 +41023,7 @@ if (typeof jQuery === 'undefined') {
     if (this.options.toggle) this.toggle()
   }
 
-  Collapse.VERSION  = '3.3.5'
+  Collapse.VERSION  = '3.3.6'
 
   Collapse.TRANSITION_DURATION = 350
 
@@ -41205,7 +41205,7 @@ if (typeof jQuery === 'undefined') {
 }(jQuery);
 
 /* ========================================================================
- * Bootstrap: dropdown.js v3.3.5
+ * Bootstrap: dropdown.js v3.3.6
  * http://getbootstrap.com/javascript/#dropdowns
  * ========================================================================
  * Copyright 2011-2015 Twitter, Inc.
@@ -41225,7 +41225,7 @@ if (typeof jQuery === 'undefined') {
     $(element).on('click.bs.dropdown', this.toggle)
   }
 
-  Dropdown.VERSION = '3.3.5'
+  Dropdown.VERSION = '3.3.6'
 
   function getParent($this) {
     var selector = $this.attr('data-target')
@@ -41257,7 +41257,7 @@ if (typeof jQuery === 'undefined') {
       if (e.isDefaultPrevented()) return
 
       $this.attr('aria-expanded', 'false')
-      $parent.removeClass('open').trigger('hidden.bs.dropdown', relatedTarget)
+      $parent.removeClass('open').trigger($.Event('hidden.bs.dropdown', relatedTarget))
     })
   }
 
@@ -41291,7 +41291,7 @@ if (typeof jQuery === 'undefined') {
 
       $parent
         .toggleClass('open')
-        .trigger('shown.bs.dropdown', relatedTarget)
+        .trigger($.Event('shown.bs.dropdown', relatedTarget))
     }
 
     return false
@@ -41371,7 +41371,7 @@ if (typeof jQuery === 'undefined') {
 }(jQuery);
 
 /* ========================================================================
- * Bootstrap: modal.js v3.3.5
+ * Bootstrap: modal.js v3.3.6
  * http://getbootstrap.com/javascript/#modals
  * ========================================================================
  * Copyright 2011-2015 Twitter, Inc.
@@ -41405,7 +41405,7 @@ if (typeof jQuery === 'undefined') {
     }
   }
 
-  Modal.VERSION  = '3.3.5'
+  Modal.VERSION  = '3.3.6'
 
   Modal.TRANSITION_DURATION = 300
   Modal.BACKDROP_TRANSITION_DURATION = 150
@@ -41709,7 +41709,7 @@ if (typeof jQuery === 'undefined') {
 }(jQuery);
 
 /* ========================================================================
- * Bootstrap: tooltip.js v3.3.5
+ * Bootstrap: tooltip.js v3.3.6
  * http://getbootstrap.com/javascript/#tooltip
  * Inspired by the original jQuery.tipsy by Jason Frame
  * ========================================================================
@@ -41736,7 +41736,7 @@ if (typeof jQuery === 'undefined') {
     this.init('tooltip', element, options)
   }
 
-  Tooltip.VERSION  = '3.3.5'
+  Tooltip.VERSION  = '3.3.6'
 
   Tooltip.TRANSITION_DURATION = 150
 
@@ -42224,7 +42224,7 @@ if (typeof jQuery === 'undefined') {
 }(jQuery);
 
 /* ========================================================================
- * Bootstrap: popover.js v3.3.5
+ * Bootstrap: popover.js v3.3.6
  * http://getbootstrap.com/javascript/#popovers
  * ========================================================================
  * Copyright 2011-2015 Twitter, Inc.
@@ -42244,7 +42244,7 @@ if (typeof jQuery === 'undefined') {
 
   if (!$.fn.tooltip) throw new Error('Popover requires tooltip.js')
 
-  Popover.VERSION  = '3.3.5'
+  Popover.VERSION  = '3.3.6'
 
   Popover.DEFAULTS = $.extend({}, $.fn.tooltip.Constructor.DEFAULTS, {
     placement: 'right',
@@ -42333,7 +42333,7 @@ if (typeof jQuery === 'undefined') {
 }(jQuery);
 
 /* ========================================================================
- * Bootstrap: scrollspy.js v3.3.5
+ * Bootstrap: scrollspy.js v3.3.6
  * http://getbootstrap.com/javascript/#scrollspy
  * ========================================================================
  * Copyright 2011-2015 Twitter, Inc.
@@ -42362,7 +42362,7 @@ if (typeof jQuery === 'undefined') {
     this.process()
   }
 
-  ScrollSpy.VERSION  = '3.3.5'
+  ScrollSpy.VERSION  = '3.3.6'
 
   ScrollSpy.DEFAULTS = {
     offset: 10
@@ -42506,7 +42506,7 @@ if (typeof jQuery === 'undefined') {
 }(jQuery);
 
 /* ========================================================================
- * Bootstrap: tab.js v3.3.5
+ * Bootstrap: tab.js v3.3.6
  * http://getbootstrap.com/javascript/#tabs
  * ========================================================================
  * Copyright 2011-2015 Twitter, Inc.
@@ -42526,7 +42526,7 @@ if (typeof jQuery === 'undefined') {
     // jscs:enable requireDollarBeforejQueryAssignment
   }
 
-  Tab.VERSION = '3.3.5'
+  Tab.VERSION = '3.3.6'
 
   Tab.TRANSITION_DURATION = 150
 
@@ -42662,7 +42662,7 @@ if (typeof jQuery === 'undefined') {
 }(jQuery);
 
 /* ========================================================================
- * Bootstrap: affix.js v3.3.5
+ * Bootstrap: affix.js v3.3.6
  * http://getbootstrap.com/javascript/#affix
  * ========================================================================
  * Copyright 2011-2015 Twitter, Inc.
@@ -42691,7 +42691,7 @@ if (typeof jQuery === 'undefined') {
     this.checkPosition()
   }
 
-  Affix.VERSION  = '3.3.5'
+  Affix.VERSION  = '3.3.6'
 
   Affix.RESET    = 'affix affix-top affix-bottom'
 
@@ -42884,15 +42884,15 @@ if (typeof jQuery === 'undefined') {
        * Verify if the current element already has a ripple wrapper element and
        * creates if it doesn't
        */
-      if(!($element.find(".ripple-wrapper").length)) {
-        $element.append("<div class=\"ripple-wrapper\"></div>");
+      if(!($element.find(".ripple-container").length)) {
+        $element.append("<div class=\"ripple-container\"></div>");
       }
 
 
       /**
        * Find the ripple wrapper
        */
-      var $wrapper = $element.children(".ripple-wrapper");
+      var $wrapper = $element.children(".ripple-container");
 
 
       /**
@@ -42998,7 +42998,7 @@ if (typeof jQuery === 'undefined') {
        */
       event = event.originalEvent;
 
-      if(event.touches.length !== 1) {
+      if(event.touches.length === 1) {
         return event.touches[0].pageX - wrapperOffset.left;
       }
 
@@ -43025,7 +43025,7 @@ if (typeof jQuery === 'undefined') {
        */
       event = event.originalEvent;
 
-      if(event.touches.length !== 1) {
+      if(event.touches.length === 1) {
         return event.touches[0].pageY - wrapperOffset.top;
       }
 
@@ -43167,6 +43167,14 @@ if (typeof jQuery === 'undefined') {
     }
     return false;
   }
+  
+  function _addFormGroupFocus(element){
+    $(element).closest(".form-group").addClass("is-focused");
+  }
+  
+  function _removeFormGroupFocus(element){
+    $(element).closest(".form-group").removeClass("is-focused"); // remove class from form-group
+  }
 
   $.material =  {
     "options": {
@@ -43185,7 +43193,8 @@ if (typeof jQuery === 'undefined') {
         ".navbar a:not(.withoutripple)",
         ".dropdown-menu a",
         ".nav-tabs a:not(.withoutripple)",
-        ".withripple"
+        ".withripple",
+        ".pagination li:not(.active):not(.disabled) a:not(.withoutripple)"
       ].join(","),
       "inputElements": "input.form-control, textarea.form-control, select.form-control",
       "checkboxElements": ".checkbox > label > input[type=checkbox]",
@@ -43197,105 +43206,171 @@ if (typeof jQuery === 'undefined') {
       $((selector) ? selector : this.options.checkboxElements)
       .filter(":notmdproc")
       .data("mdproc", true)
-      .after("<span class=checkbox-material><span class=check></span></span>");
+      .after("<span class='checkbox-material'><span class='check'></span></span>");
     },
     "togglebutton": function(selector) {
       // Add fake-checkbox to material checkboxes
       $((selector) ? selector : this.options.togglebuttonElements)
       .filter(":notmdproc")
       .data("mdproc", true)
-      .after("<span class=toggle></span>");
+      .after("<span class='toggle'></span>");
     },
     "radio": function(selector) {
       // Add fake-radio to material radios
       $((selector) ? selector : this.options.radioElements)
       .filter(":notmdproc")
       .data("mdproc", true)
-      .after("<span class=circle></span><span class=check></span>");
+      .after("<span class='circle'></span><span class='check'></span>");
     },
     "input": function(selector) {
       $((selector) ? selector : this.options.inputElements)
       .filter(":notmdproc")
       .data("mdproc", true)
       .each( function() {
-        var $this = $(this);
+        var $input = $(this);
 
-        if (!$(this).attr("data-hint") && !$this.hasClass("floating-label")) {
-          return;
-        }
-        $this.wrap("<div class=form-control-wrapper></div>");
-        $this.after("<span class=material-input></span>");
-
-        // Add floating label if required
-        if ($this.hasClass("floating-label")) {
-          var placeholder = $this.attr("placeholder");
-          $this.attr("placeholder", null).removeClass("floating-label");
-          $this.after("<div class=floating-label>" + placeholder + "</div>");
+        // Requires form-group standard markup (will add it if necessary)
+        var $formGroup = $input.closest(".form-group"); // note that form-group may be grandparent in the case of an input-group
+        if($formGroup.length === 0){
+          $input.wrap("<div class='form-group'></div>");
+          $formGroup = $input.closest(".form-group"); // find node after attached (otherwise additional attachments don't work)
         }
 
-        // Add hint label if required
-        if ($this.attr("data-hint")) {
-          $this.after("<div class=hint>" + $this.attr("data-hint") + "</div>");
+        // Legacy - Add hint label if using the old shorthand data-hint attribute on the input
+        if ($input.attr("data-hint")) {
+          $input.after("<p class='help-block'>" + $input.attr("data-hint") + "</p>");
+          $input.removeAttr("data-hint");
+        }
+
+        // Legacy - Change input-sm/lg to form-group-sm/lg instead (preferred standard and simpler css/less variants)
+        var legacySizes = {
+          "input-lg": "form-group-lg",
+          "input-sm": "form-group-sm"
+        };
+        $.each( legacySizes, function( legacySize, standardSize ) {
+          if ($input.hasClass(legacySize)) {
+            $input.removeClass(legacySize);
+            $formGroup.addClass(standardSize);
+          }
+        });
+
+        // Legacy - Add label-floating if using old shorthand <input class="floating-label" placeholder="foo">
+        if ($input.hasClass("floating-label")) {
+          var placeholder = $input.attr("placeholder");
+          $input.attr("placeholder", null).removeClass("floating-label");
+          var id = $input.attr("id");
+          var forAttribute = "";
+          if(id) {
+            forAttribute = "for='" + id + "'";
+          }
+          $formGroup.addClass("label-floating");
+          $input.after("<label " + forAttribute + "class='control-label'>" + placeholder + "</label>");
         }
 
         // Set as empty if is empty (damn I must improve this...)
-        if ($this.val() === null || $this.val() == "undefined" || $this.val() === "") {
-          $this.addClass("empty");
+        if ($input.val() === null || $input.val() == "undefined" || $input.val() === "") {
+          $formGroup.addClass("is-empty");
         }
 
+          // Add at the end of the form-group
+        $formGroup.append("<span class='material-input'></span>");
+
         // Support for file input
-        if ($this.parent().next().is("[type=file]")) {
-          $this.parent().addClass("fileinput");
-          var $input = $this.parent().next().detach();
-          $this.after($input);
+        if ($formGroup.find("input[type=file]").length > 0) {
+          $formGroup.addClass("is-fileinput");
         }
+      });
+    },
+    "attachInputEventHandlers": function() {
+
+      // checkboxes didn't appear to bubble to the document, so we'll bind these directly
+      $(".form-group .checkbox label").hover(function() {
+        _addFormGroupFocus(this);
+      }, function() {
+        _removeFormGroupFocus(this);
       });
 
       $(document)
       .on("change", ".checkbox input[type=checkbox]", function() { $(this).blur(); })
       .on("keydown paste", ".form-control", function(e) {
         if(_isChar(e)) {
-          $(this).removeClass("empty");
+          $(this).closest(".form-group").removeClass("is-empty");
         }
       })
       .on("keyup change", ".form-control", function() {
-        var $this = $(this);
-        if ($this.val() === "" && (typeof $this[0].checkValidity != "undefined" && $this[0].checkValidity())) {
-          $this.addClass("empty");
-        } else {
-          $this.removeClass("empty");
+        var $input = $(this);
+        var $formGroup = $input.closest(".form-group");
+        var isValid = (typeof $input[0].checkValidity === "undefined" || $input[0].checkValidity());
+
+        if ($input.val() === "" && isValid) {
+          $formGroup.addClass("is-empty");
+        }
+        else {
+          $formGroup.removeClass("is-empty");
+        }
+
+        // Validation events do not bubble, so they must be attached directly to the input: http://jsfiddle.net/PEpRM/1/
+        //  Further, even the bind method is being caught, but since we are already calling #checkValidity here, just alter
+        //  the form-group on change.
+        //
+        // NOTE: I'm not sure we should be intervening regarding validation, this seems better as a README and snippet of code.
+        //        BUT, I've left it here for backwards compatibility.
+        if(isValid){
+          $formGroup.removeClass("has-error");
+        }
+        else{
+          $formGroup.addClass("has-error");
         }
       })
-      .on("focus", ".form-control-wrapper.fileinput", function() {
-        $(this).find("input").addClass("focus");
+      .on("focus", ".form-control, .form-group.is-fileinput", function() {
+        _addFormGroupFocus(this);
       })
-      .on("blur", ".form-control-wrapper.fileinput", function() {
-        $(this).find("input").removeClass("focus");
+      .on("blur", ".form-control, .form-group.is-fileinput", function() {
+        _removeFormGroupFocus(this);
       })
-      .on("change", ".form-control-wrapper.fileinput [type=file]", function() {
+      // make sure empty is added back when there is a programmatic value change.
+      //  NOTE: programmatic changing of value using $.val() must trigger the change event i.e. $.val('x').trigger('change')
+      .on("change", ".form-group input", function() {
+        var $input = $(this);
+        if($input.attr("type") == "file") {
+          return;
+        }
+
+        var $formGroup = $input.closest(".form-group");
+        var value = $input.val();
+        if (value) {
+          $formGroup.removeClass("is-empty");
+        } else {
+          $formGroup.addClass("is-empty");
+        }
+      })
+      // set the fileinput readonly field with the name of the file
+      .on("change", ".form-group.is-fileinput input[type='file']", function() {
+        var $input = $(this);
+        var $formGroup = $input.closest(".form-group");
         var value = "";
-        $.each($(this)[0].files, function(i, file) {
+        $.each(this.files, function(i, file) {
           value += file.name + ", ";
         });
         value = value.substring(0, value.length - 2);
         if (value) {
-          $(this).prev().removeClass("empty");
+          $formGroup.removeClass("is-empty");
         } else {
-          $(this).prev().addClass("empty");
+          $formGroup.addClass("is-empty");
         }
-        $(this).prev().val(value);
+        $formGroup.find("input.form-control[readonly]").val(value);
       });
     },
     "ripples": function(selector) {
       $((selector) ? selector : this.options.withRipples).ripples();
     },
     "autofill": function() {
-
       // This part of code will detect autofill when the page is loading (username and password inputs for example)
       var loading = setInterval(function() {
         $("input[type!=checkbox]").each(function() {
-          if ($(this).val() && $(this).val() !== $(this).attr("value")) {
-            $(this).trigger("change");
+          var $this = $(this);
+          if ($this.val() && $this.val() !== $this.attr("value")) {
+            $this.trigger("change");
           }
         });
       }, 100);
@@ -43304,29 +43379,35 @@ if (typeof jQuery === 'undefined') {
       setTimeout(function() {
         clearInterval(loading);
       }, 10000);
-      // Now we just listen on inputs of the focused form (because user can select from the autofill dropdown only when the input has focus)
+    },
+    "attachAutofillEventHandlers": function() {
+      // Listen on inputs of the focused form (because user can select from the autofill dropdown only when the input has focus)
       var focused;
       $(document)
       .on("focus", "input", function() {
         var $inputs = $(this).parents("form").find("input").not("[type=file]");
         focused = setInterval(function() {
           $inputs.each(function() {
-            if ($(this).val() !== $(this).attr("value")) {
-              $(this).trigger("change");
+            var $this = $(this);
+            if ($this.val() !== $this.attr("value")) {
+              $this.trigger("change");
             }
           });
         }, 100);
       })
-      .on("blur", "input", function() {
+      .on("blur", ".form-group input", function() {
         clearInterval(focused);
       });
     },
     "init": function() {
+      var $document = $(document);
+
       if ($.fn.ripples && this.options.ripples) {
         this.ripples();
       }
       if (this.options.input) {
         this.input();
+        this.attachInputEventHandlers();
       }
       if (this.options.checkbox) {
         this.checkbox();
@@ -43339,31 +43420,32 @@ if (typeof jQuery === 'undefined') {
       }
       if (this.options.autofill) {
         this.autofill();
+        this.attachAutofillEventHandlers();
       }
 
       if (document.arrive && this.options.arrive) {
         if ($.fn.ripples && this.options.ripples) {
-          $(document).arrive(this.options.withRipples, function() {
+          $document.arrive(this.options.withRipples, function() {
             $.material.ripples($(this));
           });
         }
         if (this.options.input) {
-          $(document).arrive(this.options.inputElements, function() {
+          $document.arrive(this.options.inputElements, function() {
             $.material.input($(this));
           });
         }
         if (this.options.checkbox) {
-          $(document).arrive(this.options.checkboxElements, function() {
+          $document.arrive(this.options.checkboxElements, function() {
             $.material.checkbox($(this));
           });
         }
         if (this.options.radio) {
-          $(document).arrive(this.options.radioElements, function() {
+          $document.arrive(this.options.radioElements, function() {
             $.material.radio($(this));
           });
         }
         if (this.options.togglebutton) {
-          $(document).arrive(this.options.togglebuttonElements, function() {
+          $document.arrive(this.options.togglebuttonElements, function() {
             $.material.togglebutton($(this));
           });
         }
@@ -55092,7 +55174,6 @@ angular.module('ui.calendar', [])
           wrapFunctionWithScopeApply = function(functionToWrap){
               return function(){
                   // This may happen outside of angular context, so create one if outside.
-
                   if ($scope.$root.$$phase) {
                       return functionToWrap.apply(this, arguments);
                   } else {
@@ -55111,14 +55192,9 @@ angular.module('ui.calendar', [])
         if (!e._id) {
           e._id = eventSerialId++;
         }
-        
-        var extraSignature = extraEventSignature({event: e}) || '';
-        var start = moment.isMoment(e.start) ? e.start.unix() : (e.start ? moment(e.start).unix() : '');
-        var end =   moment.isMoment(e.end)   ? e.end.unix()   : (e.end   ? moment(e.end).unix()   : '');
-        
         // This extracts all the information we need from the event. http://jsperf.com/angular-calendar-events-fingerprint/3
-        return "" + e._id + (e.id || '') + (e.title || '') + (e.url || '') + start + end +
-          (e.allDay || '') + (e.className || '') + extraSignature;
+        return "" + e._id + (e.id || '') + (e.title || '') + (e.url || '') + (+e.start || '') + (+e.end || '') +
+          (e.allDay || '') + (e.className || '') + extraEventSignature({event: e}) || '';
       };
 
       var sourceSerialId = 1, sourceEventsSerialId = 1;
@@ -55245,7 +55321,7 @@ angular.module('ui.calendar', [])
       };
 
       this.getFullCalendarConfig = function(calendarSettings, uiCalendarConfig){
-          var config = {};
+         var config = {};
 
           angular.extend(config, uiCalendarConfig);
           angular.extend(config, calendarSettings);
@@ -55282,15 +55358,17 @@ angular.module('ui.calendar', [])
       return {};
     };
   }])
-  .directive('uiCalendar', ['uiCalendarConfig', function(uiCalendarConfig) {
+  .directive('uiCalendar', ['uiCalendarConfig',function(uiCalendarConfig) {
     return {
       restrict: 'A',
       scope: {eventSources:'=ngModel',calendarWatchEvent: '&'},
       controller: 'uiCalendarCtrl',
       link: function(scope, elm, attrs, controller) {
-        var sourcesChanged = false,
+
+        var sources = scope.eventSources,
+            sourcesChanged = false,
             calendar,
-            eventSourcesWatcher = controller.changeWatcher(scope.eventSources, controller.sourceFingerprint),
+            eventSourcesWatcher = controller.changeWatcher(sources, controller.sourceFingerprint),
             eventsWatcher = controller.changeWatcher(controller.allEvents, controller.eventFingerprint),
             options = null;
 
@@ -55302,7 +55380,7 @@ angular.module('ui.calendar', [])
 
           var localeFullCalendarConfig = controller.getLocaleConfig(fullCalendarConfig);
           angular.extend(localeFullCalendarConfig, fullCalendarConfig);
-          options = { eventSources: scope.eventSources };
+          options = { eventSources: sources };
           angular.extend(options, localeFullCalendarConfig);
           //remove calendars from options
           options.calendars = null;
@@ -55316,7 +55394,7 @@ angular.module('ui.calendar', [])
           return JSON.stringify(options2);
         }
 
-        scope.destroyCalendar = function(){
+        scope.destroy = function(){
           if(calendar && calendar.fullCalendar){
             calendar.fullCalendar('destroy');
           }
@@ -55327,65 +55405,42 @@ angular.module('ui.calendar', [])
           }
         };
 
-        scope.initCalendar = function(){
-          if (!calendar) {
-            calendar = angular.element(elm).html('');
-          }
+        scope.init = function(){
           calendar.fullCalendar(options);
           if(attrs.calendar) {
             uiCalendarConfig.calendars[attrs.calendar] = calendar;
           }          
         };
-        scope.$on('$destroy', function() {
-          scope.destroyCalendar();
-        });
 
         eventSourcesWatcher.onAdded = function(source) {
-          if (calendar && calendar.fullCalendar) {
-            calendar.fullCalendar(options);
-            if (attrs.calendar) {
-                uiCalendarConfig.calendars[attrs.calendar] = calendar;
-            }
-            calendar.fullCalendar('addEventSource', source);
-            sourcesChanged = true;
-          }
+          calendar.fullCalendar('addEventSource', source);
+          sourcesChanged = true;
         };
 
         eventSourcesWatcher.onRemoved = function(source) {
-          if (calendar && calendar.fullCalendar) {
-            calendar.fullCalendar('removeEventSource', source);
-            sourcesChanged = true;
-          }
+          calendar.fullCalendar('removeEventSource', source);
+          sourcesChanged = true;
         };
 
-        eventSourcesWatcher.onChanged = function() {
-          if (calendar && calendar.fullCalendar) {
-            calendar.fullCalendar('refetchEvents');
-            sourcesChanged = true;
-          }
-
+        eventSourcesWatcher.onChanged = function(source) {
+          calendar.fullCalendar('refetchEvents');
+          sourcesChanged = true;
         };
 
         eventsWatcher.onAdded = function(event) {
-          if (calendar && calendar.fullCalendar) {
-            calendar.fullCalendar('renderEvent', event, (event.stick ? true : false));
-          }
+          calendar.fullCalendar('renderEvent', event, (event.stick ? true : false));
         };
 
         eventsWatcher.onRemoved = function(event) {
-          if (calendar && calendar.fullCalendar) {
-            calendar.fullCalendar('removeEvents', event._id);
-          }
+          calendar.fullCalendar('removeEvents', event._id);
         };
 
         eventsWatcher.onChanged = function(event) {
-          if (calendar && calendar.fullCalendar) {
-            var clientEvents = calendar.fullCalendar('clientEvents', event._id);
-            for (var i = 0; i < clientEvents.length; i++) {
-              var clientEvent = clientEvents[i];
-              clientEvent = angular.extend(clientEvent, event);
-              calendar.fullCalendar('updateEvent', clientEvent);
-            }
+          var clientEvents = calendar.fullCalendar('clientEvents', event._id);
+          for (var i = 0; i < clientEvents.length; i++) {
+            var clientEvent = clientEvents[i];
+            clientEvent = angular.extend(clientEvent, event);
+            calendar.fullCalendar('updateEvent', clientEvent);
           }
         };
 
@@ -55398,13 +55453,9 @@ angular.module('ui.calendar', [])
           }
         });
 
-        scope.$watch(getOptions, function(newValue, oldValue) {
-          if(newValue !== oldValue) {
-            scope.destroyCalendar();
-            scope.initCalendar();
-          } else if((newValue && angular.isUndefined(calendar))) {
-            scope.initCalendar();
-          }
+        scope.$watch(getOptions, function(newO,oldO){
+            scope.destroy();
+            scope.init();
         });
       }
     };

@@ -7,11 +7,12 @@ var mg = require('mongoose');
 var mm = require('moment');
 
 /** Event route */
-var route = ap.route(/\/api\/0\/events\/?/);
+var route = ap.route('/api/0/events');
 route
 	/** Retrieve all event items */
 	.get(function * (next) {
 		if (this.req.isAuthenticated()) {
+			var params = this.request.body;
 			var events = yield db.all(db.EventItem, {
 				sort: {
 					endTime: -1
@@ -22,7 +23,7 @@ route
 					}, {
 						$or: [ {
 							startTime: { // only today's items
-								$gt: mm().startOf('day').toDate()
+								$gt: (params.st ? mm(params.st) : mm()).startOf('day').toDate()
 							}
 						}, {
 							duration: { // still running items
@@ -105,7 +106,8 @@ route
 			this.status = 401;
 		}
 		yield next;
-	})
+	});
+route
 	/** Add a new event item */
 	.post(function * (next) {
 		if (this.req.isAuthenticated()) {
@@ -170,7 +172,7 @@ route
 		}
 		yield next;
 	});
-route.nested('/list')
+route.nested(/\/list\/?/)
 	.get(function * (next) {
 		if (this.req.isAuthenticated()) {
 			var params = this.request.query;

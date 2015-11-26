@@ -47,8 +47,7 @@ module.exports = function(grunt) {
 					'./bower_components/font-awesome/css/font-awesome.css', // needs to be included before bootstrap
 					'./bower_components/bootstrap/dist/css/bootstrap.css', // needs to be included before fullcalendar
 
-					'./bower_components/bootstrap-material-design/dist/css/roboto.css',
-					'./bower_components/bootstrap-material-design/dist/css/material.css',
+					'./bower_components/bootstrap-material-design/dist/css/bootstrap-material-design.css',
 					'./bower_components/bootstrap-material-design/dist/css/ripples.css',
 
 					'./bower_components/fullcalendar/dist/fullcalendar.css',
@@ -89,7 +88,6 @@ module.exports = function(grunt) {
 						src: [
 							'./bower_components/font-awesome/fonts/*',
 							'./bower_components/bootstrap/dist/fonts/*',
-							'./bower_components/bootstrap-material-design/dist/fonts/*'
 						], 
 						dest: './public/fonts'
 					},
