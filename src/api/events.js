@@ -7,12 +7,12 @@ var mg = require('mongoose');
 var mm = require('moment');
 
 /** Event route */
-var route = ap.route('/api/0/events');
+var route = ap.route(/\/api\/0\/events\/?/);
 route
 	/** Retrieve all event items */
 	.get(function * (next) {
 		if (this.req.isAuthenticated()) {
-			var params = this.request.body;
+			var params = this.request.query;
 			var events = yield db.all(db.EventItem, {
 				sort: {
 					endTime: -1
@@ -60,7 +60,7 @@ route
 					{
 						$match: {
 							startTime: { // only today's items
-								$gte: mm().startOf('day').toDate()
+								$gte: (params.st ? mm(params.st) : mm()).startOf('day').toDate()
 							},
 							user: mg.Types.ObjectId(this.req.user)
 						}

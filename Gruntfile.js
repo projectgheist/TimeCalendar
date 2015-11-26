@@ -51,6 +51,7 @@ module.exports = function(grunt) {
 					'./bower_components/bootstrap-material-design/dist/css/ripples.css',
 
 					'./bower_components/fullcalendar/dist/fullcalendar.css',
+					'./private/css/_materialFullCalendar.scss',
 					'./private/css/jquery.minicolors.css',
 				],
 				dest: './public/css/<%= pkg.name %>.css'

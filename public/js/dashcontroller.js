@@ -69,6 +69,9 @@
 
 		// declare events variable
 		$scope.eventSources = [];
+		
+		// day or week calendar view
+		$scope.isWeekView = ($location.$$path === '/overview' ? true : false);
 
 		// config object for calendar
 		$scope.uiConfig = {
@@ -80,7 +83,7 @@
 				// how far down the scroll pane is initially scrolled down
 				scrollTime: moment().format('HH') + ':00:00',
 				// initial view when the calendar loads
-				defaultView: 'agendaWeek',//'agendaDay',
+				defaultView: ($scope.isWeekView ? 'agendaWeek' : 'agendaDay'),
 				header: {
 					left: '', // 'month basicWeek basicDay agendaWeek agendaDay',
 					center: 'title',
@@ -93,33 +96,36 @@
 					day: 'Day'
 				},
 				// Start of the working day (@todo: to be overridden when an earlier event op the day is detected)
-				minTime: '08:00:00',
+				minTime: ($scope.isWeekView ? '00:00:00' : '08:00:00'),
 				// End of the working day (@todo: to be overridden when a later event op the day is detected)
-				maxTime: '19:00:00',
+				maxTime: ($scope.isWeekView ? '23:59:59' : '19:00:00'),
 				// How much time a row occupies
-				slotDuration: '00:05:00',
-				//
+				slotDuration: ($scope.isWeekView ? '01:00:00' : '00:30:00'),
+				// Intervals between labels on the left side
+				slotLabelInterval: ($scope.isWeekView ? '03:00:00' : '01:00:00'),
+				// Format of the label on the left side
 				slotLabelFormat: 'h(:mm) a',
-				//
-				slotLabelInterval: '00:15:00',
-
-				dayClick: alertEventOnClick,
-				eventDrop: alertEventOnClick,
-				eventResize: alertEventOnClick
+				/*
+				// Hide buttons/titles
+				header: false,
+				*/
+				columnFormat: {
+					week: 'ddd' // Only show day of the week names
+				},
+				// When an event is selected
+				eventClick: onEventClick,
+				eventDrop: onEventModify,
+				eventResize: onEventModify
 			}
 		};
 
-		function alertEventOnClick () {
-			console.log('alertEventOnClick');
-			console.log($scope);
+		function onEventClick (event, jsEvent, view) {
+			console.log('onEventClick');
+			console.log(event);
 		}
 
-		$scope.alertOnDrop = function () {
-			console.log('alertOnDrop');
-		};
-
-		$scope.alertOnResize = function (event, delta, revertFunc) {
-			console.log('alertOnResize');
+		function onEventModify (event, delta, revertFunc, jsEvent, ui, vie) {
+			// Modify the event
 			console.log(event);
 		};
 
@@ -179,9 +185,10 @@
 			$('#bgcolor').minicolors('value', item.fontBgColor);
 		};
 
-		//
+		// Post a stop all current running events
 		$scope.stopAllEvents = function () {
 			dashService.eventItems().save({'e': 'a'}, function (res) {
+				
 			});
 		};
 
@@ -193,7 +200,7 @@
 				$('#success-alert').fadeTo(2000, 500).slideUp(500, function () {
 					$('#success-alert').alert('close');
 				});
-				// refetch events
+				// re fetch events
 				$scope.getEventItems();
 			}, function (ignore) {
 				$scope.alertStyle = 'alert-danger';
@@ -208,6 +215,7 @@
 			});
 		};
 
+		//
 		$scope.setNewEvent = function (val) {
 			$scope.eventName = val.title;
 			$('#textcolor').minicolors('value', val.textColor);
@@ -216,8 +224,9 @@
 
 		//
 		$scope.setRunningEvents = function () {
+			//
 			$scope.updateStartDate();
-
+			//
 			if ($scope.eventSources.length) {
 				var ref = $scope.eventSources[0];
 				// loop all running events
@@ -237,11 +246,11 @@
 
 		// Retrieve event types 
 		$scope.getEventItems = function () {
-			var params = {
-				name: 'something',
-				st: moment().startOf('week').toString() 
-			};
-			dashService.eventItems().query(params, function (res) {
+			var params = {};
+			if ($scope.isWeekView) {
+				params.st = moment().startOf('week').toString();
+			}
+			dashService.eventItems().get(params, function (res) {
 				// store the events to the calendar
 				$scope.eventSources = res.array;
 				//
@@ -304,14 +313,14 @@
 				$('#success-alert').fadeTo(2000, 500).slideUp(500, function () {
 					$('#success-alert').alert('close');
 				});
-				// refetch events
+				// re fetch events
 				$scope.getEventItems();
 			}, function (ignore) {
 				$scope.alertStyle = 'alert-danger';
 				$scope.alertMessage = 'Something when wrong submitting new event!';
 			});
 		};
-
+		
 		// Immediately call function
 		$scope.getEventItems();
 	}
