@@ -40,6 +40,13 @@ describe('Events API (no user)', function () {
 			.end(done);
 	});
 
+	it('Route - Overview', function (done) {
+		rq
+			.get('/overview')
+			.expect(302)
+			.end(done);
+	});
+
 	it('Route - Login', function (done) {
 		rq
 			.get('/login')
@@ -130,6 +137,13 @@ describe('Events API (user)', function () {
 	it('Route - Home', function (done) {
 		rq
 			.get('/')
+			.expect(200)
+			.end(done);
+	});
+
+	it('Route - Overview', function (done) {
+		rq
+			.get('/overview')
 			.expect(200)
 			.end(done);
 	});

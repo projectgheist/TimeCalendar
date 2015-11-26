@@ -60,6 +60,7 @@ ap
 				true
 			);
 			yield next;
+		} else {
+			this.redirect('/');
 		}
-		this.redirect('/');
 	});
