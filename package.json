@@ -1,8 +1,8 @@
 {
   "name": "timecalendar",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Keep track of your activities",
-  "main": "index.js",
+  "main": "start.js",
   "dependencies": {
     "grunt-cli": "^0.1.13",
     "jade": "^1.11.0",
