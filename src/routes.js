@@ -51,12 +51,15 @@ ap
 ap
 	.route(/\/overview\/?/)
 	.get(function * (next) {
-		this.render(
-			'overview',
-			{
-				'config': cf.site
-			},
-			true
-		);
-		yield next;
+		if (this.req.isAuthenticated()) {
+			this.render(
+				'overview',
+				{
+					'config': cf.site
+				},
+				true
+			);
+			yield next;
+		}
+		this.redirect('/');
 	});
