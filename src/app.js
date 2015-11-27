@@ -23,7 +23,7 @@ ap.use(require('koa-static')('./public', {}));
 
 /** Start the server on a specific port
  */
-ap.listen(cf.Port());
+ap.listen(cf.Port(), cf.IpAddr());
 
 /** Export
  */
