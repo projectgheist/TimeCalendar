@@ -1,7 +1,8 @@
 /** Application port
  */
 module.exports.Port = function () {
-	return process.env.OPENSHIFT_NODEJS_PORT || // Openshift
+	// !OPENSHIFT_NODEJS_PORT causes an EADDRINUSE error
+	return process.env.OPENSHIFT_INTERNAL_IP || // Openshift
 		process.env.VCAP_APP_PORT || // Appfog
 		(process.env.PORT || 3000); // Local
 };
