@@ -1,8 +1,7 @@
 /** Application port
  */
 module.exports.Port = function () {
-	// !OPENSHIFT_NODEJS_PORT causes an EADDRINUSE error
-	return process.env.OPENSHIFT_INTERNAL_PORT || // Openshift
+	return process.env.OPENSHIFT_NODEJS_PORT || // Openshift
 		process.env.VCAP_APP_PORT || // Appfog
 		(process.env.PORT || 3000); // Local
 };
@@ -10,8 +9,7 @@ module.exports.Port = function () {
 /** Application ip address
  */
 module.exports.IpAddr = function () {
-	// !OPENSHIFT_NODEJS_IP causes an EADDRINUSE error
-	return process.env.OPENSHIFT_INTERNAL_IP || '127.0.0.1';
+	return process.env.OPENSHIFT_NODEJS_IP || '127.0.0.1';
 };
 
 /** Application dns location/url

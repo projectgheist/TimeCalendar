@@ -24,3 +24,4 @@ deploy:
   domain: bapple
   on:
     repo: projectgheist/TimeCalendar
+	node: '5.0'
