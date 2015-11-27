@@ -10,7 +10,8 @@ module.exports.Port = function () {
 /** Application ip address
  */
 module.exports.IpAddr = function () {
-	return process.env.OPENSHIFT_NODEJS_IP || '127.0.0.1';
+	// !OPENSHIFT_NODEJS_IP causes an EADDRINUSE error
+	return process.env.OPENSHIFT_INTERNAL_IP || '127.0.0.1';
 };
 
 /** Application dns location/url
