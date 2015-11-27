@@ -15,7 +15,7 @@ module.exports.IpAddr = function () {
 /** Application dns location/url
  */
 module.exports.Url = function () {
-	return (process.env.OPENSHIFT_APP_DNS ? ['http://', process.env.OPENSHIFT_APP_DNS].join('') : false) || // Openshift
+	return process.env.OPENSHIFT_APP_DNS || // Openshift
 		process.env.AF_APP_URL || // Appfog
 		[exports.IpAddr(), ':', exports.Port()].join(''); // Local
 };
