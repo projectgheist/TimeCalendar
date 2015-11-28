@@ -24,13 +24,10 @@
 			'ngRoute',
 			'ngSanitize',
 			'ngResource',
-			// Include Angular Flowtype
-			'ngFlowtype',
 			// Include Angular Bootstrap UI
 			'ui.bootstrap',
 			// Include Angular UI Calendar
-			'ui.calendar',
-			'AppService'
+			'ui.calendar'
 		])
 		.config(appConfig)
 		.directive('withripple', ['$rootScope', '$window', '$location', withripple]);
@@ -39,32 +36,25 @@
 	 */
 	function appConfig ($routeProvider, $locationProvider) {
 		$locationProvider.html5Mode(true);
-	/*
-	$routeProvider
-	.when('/manage', {
-		templateUrl: function(urlattr) {
-			return 'views/pages/manage';
-		},
-		controller: 'overviewController'
-	})
-	.when('/:type/:value', {
-		templateUrl: function(urlattr) {
-			if (urlattr.type === 'feed') {
-				return 'views/pages/posts';
-			} else if (urlattr.type === 'post') {
-				return 'views/pages/single';
-			} else {
-				return 'views/pages/dashboard';
-			}
-		}
-	})
-	.otherwise({
-		templateUrl: function(urlattr) {
-			return 'views/pages/dashboard';
-		},
-		controller: 'dashboardController'
-	});
-	*/
+		$routeProvider
+		.when('/overview', {
+			templateUrl: function(urlattr) {
+				return 'views/overview';
+			},
+			controller: 'dashboardController'
+		})
+		.when('/edit/:type', {
+			templateUrl: function(urlattr) {
+				return 'views/' + urlattr.type;
+			},
+			controller: 'editController'
+		})
+		.otherwise({
+			templateUrl: function(urlattr) {
+				return 'views/dashboard';
+			},
+			controller: 'dashboardController'
+		});
 	}
 
 	/**
@@ -116,34 +106,6 @@
 			}
 		};
 	}
-
-	/**
-	*/
-	function ngTextfit () {
-		return {
-			restrict: 'A', // attribute
-			link: function (scope, element, attrs) {
-				scope.$watch(function () {
-					return scope.isNavVisible();
-				}, function () {
-					setTimeout(function () { // requires a 1ms delay for some reason
-						var b = ((attrs.ngTextfit.length === 0) || (attrs.ngTextfit === 'true'));
-						element.textTailor({
-							fit: b, // fit the text to the parent's height and width
-							ellipsis: true,
-							minFont: 16,
-							justify: b 	// adds css -> text-align: justify
-						});
-					}, 1);
-				});
-			}
-		};
-	}
-
-	/**
-	 * Other
-	 */
-	var AppService = angular.module('AppService', []);
 
 /**
  * App configuration

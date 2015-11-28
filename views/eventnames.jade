@@ -1,0 +1,25 @@
+include includes/header
+include includes/nav
+.container(ng-controller='editController')
+	.row
+		.col-xs-12
+			ol.breadcrumb
+				li
+					a(href='/',target='_self') Home
+				li.active
+					a(href='#') Edit - Event names
+	.row
+		.col-xs-12
+			h1 
+				i.fa.fa-list.fa-fw
+				| &nbsp;Event names
+			.list-group
+				.list-group-item(ng-repeat='e in events',style='background-color:{{e.fontBgColor}}')
+					h4.list-group-item-heading(style='color:{{e.fontTextColor}}') {{e.name}}
+					p.list-group-item-text Number of occurrences: {{e.items.length}}
+			.well(ng-hide='events.length')
+				h1
+					i.fa.fa-warning.fa-fw
+					| &nbsp;No events found
+include includes/js
+script(type='text/javascript', src='/js/editcontroller.js')
