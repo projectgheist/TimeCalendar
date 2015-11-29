@@ -68,6 +68,21 @@ describe('Events API (no user)', function () {
 			.end(done);
 	});
 
+	it('Route - Views (no params)', function (done) {
+		rq
+			.get('/views')
+			.expect(401)
+			.end(done);
+	});
+
+	it('Route - Views', function (done) {
+		rq
+			.get('/views')
+			.send('overview')
+			.expect(200)
+			.end(done);
+	});
+
 	it('GET events', function (done) {
 		rq
 			.get('/api/0/events')
@@ -188,6 +203,18 @@ describe('Events API (user)', function () {
 			.post('/api/0/events')
 			.send({})
 			.expect(400)
+			.end(done);
+	});
+
+	it('POST create event', function (done) {
+		rq
+			.post('/api/0/events')
+			.send({
+				name: 'CreateEvent',
+				fontTextColor: '#fff',
+				fontBgColor: '#009688',
+			})
+			.expect(200)
 			.end(done);
 	});
 
