@@ -69,7 +69,7 @@ ap
 ap
 	.route(/\/views\/?(\w+)?\/?/)
 	.get(function * (next) {
-		if (this.request.params.length) {
+		if (this.request.params.length && this.request.params[0]) {
 			this.render(
 				this.request.params[0],
 				{
@@ -102,7 +102,7 @@ edit
 			this.redirect('/');
 		}
 	});
-	
+
 /** edit events route */
 edit
 	.nested(/\/events\/?/)

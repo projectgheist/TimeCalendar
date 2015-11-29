@@ -77,8 +77,7 @@ describe('Events API (no user)', function () {
 
 	it('Route - Views', function (done) {
 		rq
-			.get('/views')
-			.send('overview')
+			.get('/views/overview')
 			.expect(200)
 			.end(done);
 	});
@@ -212,7 +211,7 @@ describe('Events API (user)', function () {
 			.send({
 				name: 'CreateEvent',
 				fontTextColor: '#fff',
-				fontBgColor: '#009688',
+				fontBgColor: '#009688'
 			})
 			.expect(200)
 			.end(done);
@@ -285,7 +284,7 @@ describe('Events API (user)', function () {
 			.expect(200)
 			.end(done);
 	});
-	
+
 	it('GET events by query', function (done) {
 		rq
 			.get('/api/0/events/list')
