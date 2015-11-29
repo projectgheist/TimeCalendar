@@ -12,7 +12,7 @@ route
 	/** Retrieve all event items */
 	.get(function * (next) {
 		if (this.req.isAuthenticated()) {
-			var params = this.request.query;
+			var params = this.request.query || this.request.body;
 			var events = yield db.all(db.EventItem, {
 				sort: {
 					endTime: -1
@@ -190,7 +190,7 @@ route
 route.nested(/\/list\/?/)
 	.get(function * (next) {
 		if (this.req.isAuthenticated()) {
-			var params = this.request.query;
+			var params = this.request.query || this.request.body;
 			// find all event items with a start time of supplied
 			var grouped = yield db.EventItem
 				.aggregate([
