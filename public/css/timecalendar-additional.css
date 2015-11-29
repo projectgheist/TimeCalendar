@@ -67,3 +67,7 @@ form .minicolors-theme-bootstrap .minicolors-swatch {
 .card .card-footer button.btn-block:first-child, .card .text-center .card-footer button:first-child {
 	left: 0;
 }
+
+.list-group-item-heading .checkbox.pull-right {
+	margin-top: 0;
+}

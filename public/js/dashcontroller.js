@@ -70,6 +70,9 @@
 		// declare events variable
 		$scope.eventSources = [];
 		
+		//
+		var alphabet = 'abcdefghijklmnopqrst';
+		
 		// day or week calendar view
 		$scope.isWeekView = ($location.$$path === '/overview' ? true : false);
 
@@ -131,12 +134,13 @@
 
 		// Set default colors
 		$scope.textcolor = '#fff';
-		$scope.bgcolor = '#009688';
+		$scope.materialColors = ['#F44336', '#009688', '#9C27B0', '#673AB7', '#3F51B5', '#2196F3', '#03A9F4', '#00BCD4', '#E91E63'];
+		$scope.bgcolor = $scope.materialColors[Math.floor(Math.random() * $scope.materialColors.length)];
 
 		//
 		$scope.updateStartDate = function () {
-			$scope.startDate = new Date();
-			$scope.startDateFormat = moment($scope.startDate).format('MMM DD, HH:mm');
+			$scope.startDate = moment();
+			$scope.startDateFormat = $scope.startDate.format('MMM DD, HH:mm');
 		};
 
 		// Do immediately
@@ -163,7 +167,7 @@
 				desc: $scope.eventDesc,
 				fontTextColor: $('#textcolor').minicolors('value'),
 				fontBgColor: $('#bgcolor').minicolors('value'),
-				st: $scope.startDate,
+				st: moment($scope.startDate).valueOf(),
 				td: 0
 			}, function (res) {
 				$scope.alertStyle = 'alert-success';
@@ -171,6 +175,8 @@
 				$('#success-alert').fadeTo(2000, 500).slideUp(500, function () {
 					$('#success-alert').alert('close');
 				});
+				// change to a different color
+				$scope.bgcolor = $scope.materialColors[Math.floor(Math.random() * $scope.materialColors.length)];
 				// re fetch events
 				$scope.getEventItems();
 			}, function (ignore) {
@@ -243,22 +249,55 @@
 
 		// Do every 15 seconds
 		$interval($scope.setRunningEvents, 1000 * 15);
+		
+		//
+		var sum = function(a, b) { return a + b };
 
 		// Retrieve event types 
 		$scope.getEventItems = function () {
 			var params = {};
 			if ($scope.isWeekView) {
-				params.st = moment().startOf('week').toString();
+				params.st = moment().isoWeekday(7).startOf('week').valueOf();
 			}
 			dashService.eventItems().get(params, function (res) {
 				// store the events to the calendar
 				$scope.eventSources = res.array;
-				//
+				// store event group data
 				$scope.eventGroups = res.groups;
 				// format duration of grouped events
 				for (var i in $scope.eventGroups) {
 					var ref = $scope.eventGroups[i];
 					ref.duration = moment(ref.duration).format('HH:mm');
+					ref.durationInMin = moment.duration(ref.duration).minutes();
+				}
+				// declare chart data when in overview mode
+				if ($scope.isWeekView) {
+					$scope.chartist = {
+						data: {
+							series: $scope.eventGroups.map(function (val) {
+								return val.durationInMin;
+							})
+						},
+						options: {
+							labelInterpolationFnc: function (value) {
+								return Math.round(value / $scope.chartist.data.series.reduce(sum) * 100) + '%';
+							}
+						},
+						responsiveOptions: [ [
+							'screen and (min-width: 640px)', {
+								chartPadding: 30,
+								labelOffset: 100,
+								labelDirection: 'explode',
+								labelInterpolationFnc: function(value) {
+									return value;
+								}
+							} ], [
+								'screen and (min-width: 1024px)', {
+								labelOffset: 80,
+								chartPadding: 20
+							} ]
+						]
+					};
 				}
 				// has current running events?
 				if ($scope.eventSources.length && $scope.eventSources[0].length) {
@@ -285,7 +324,6 @@
 				}
 				// Update events
 				$scope.setRunningEvents();
-
 				// format duration of todays previous events
 				if ($scope.eventSources.length) {
 					var ref = $scope.eventSources[1];
@@ -297,30 +335,18 @@
 						}
 					}
 				}
+				$timeout($scope.changeChartColors, 100);
 			}, function (ignore) {});
 		};
-
-		//
-		$scope.changeEvent = function () {
-			dashService.eventItems().save({
-				name: $scope.eventName,
-				desc: $scope.eventDesc,
-				fontTextColor: $('#textcolor').minicolors('value'),
-				fontBgColor: $('#bgcolor').minicolors('value'),
-			}, function (res) {
-				$scope.alertStyle = 'alert-success';
-				$scope.alertMessage = 'Successfully store new event!';
-				$('#success-alert').fadeTo(2000, 500).slideUp(500, function () {
-					$('#success-alert').alert('close');
-				});
-				// re fetch events
-				$scope.getEventItems();
-			}, function (ignore) {
-				$scope.alertStyle = 'alert-danger';
-				$scope.alertMessage = 'Something when wrong submitting new event!';
-			});
-		};
 		
+		//
+		$scope.changeChartColors = function () {
+			for (var i in $scope.eventGroups) {
+				var className = ['.ct-series-', alphabet.charAt(i), ' .ct-slice-pie'].join('');
+				$(className).css('fill', $scope.eventGroups[i].event.fontBgColor);
+			}
+		};
+
 		// Immediately call function
 		$scope.getEventItems();
 	}

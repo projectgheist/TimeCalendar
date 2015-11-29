@@ -27,7 +27,9 @@
 			// Include Angular Bootstrap UI
 			'ui.bootstrap',
 			// Include Angular UI Calendar
-			'ui.calendar'
+			'ui.calendar',
+			// Include Angular Chartist.js
+			'angular-chartist'
 		])
 		.config(appConfig)
 		.directive('withripple', ['$rootScope', '$window', '$location', withripple]);
