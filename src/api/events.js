@@ -190,7 +190,7 @@ route
 route.nested(/\/list\/?/)
 	.get(function * (next) {
 		if (this.req.isAuthenticated()) {
-			var params = this.request.query || this.request.body;
+			var params = ut.isEmpty(this.request.query) ? this.request.body : this.request.query;
 			// find all event items with a start time of supplied
 			var grouped = yield db.EventItem
 				.aggregate([
