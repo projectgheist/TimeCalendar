@@ -54,6 +54,20 @@ describe('Events API (no user)', function () {
 			.end(done);
 	});
 
+	it('Route - Edit event names', function (done) {
+		rq
+			.get('/edit/eventnames')
+			.expect(302)
+			.end(done);
+	});
+
+	it('Route - Edit events', function (done) {
+		rq
+			.get('/edit/events')
+			.expect(302)
+			.end(done);
+	});
+
 	it('GET events', function (done) {
 		rq
 			.get('/api/0/events')
@@ -141,6 +155,13 @@ describe('Events API (user)', function () {
 			.end(done);
 	});
 
+	it('Route - Edit event names', function (done) {
+		rq
+			.get('/edit/eventnames')
+			.expect(200)
+			.end(done);
+	});
+
 	it('Route - Overview', function (done) {
 		rq
 			.get('/overview')
@@ -170,7 +191,7 @@ describe('Events API (user)', function () {
 			.end(done);
 	});
 
-	var itemId;
+	var item;
 	it('POST start event', function (done) {
 		rq
 			.post('/api/0/events')
@@ -182,8 +203,8 @@ describe('Events API (user)', function () {
 			})
 			.expect(200)
 			.end(function (ignore, res) {
-				if (res.body && res.body.id) {
-					itemId = res.body;
+				if (res.body && res.body.sid) {
+					item = res.body;
 					done();
 				}
 			});
@@ -214,13 +235,38 @@ describe('Events API (user)', function () {
 	it('POST stop event', function (done) {
 		rq
 			.post('/api/0/events')
-			.send(itemId)
+			.send({
+				id: item.sid
+			})
 			.expect(200)
 			.end(function (ignore, res) {
-				if (res.body && res.body.id) {
+				if (res.body && res.body.sid) {
 					done();
 				}
 			});
+	});
+
+	it('POST edit event name', function (done) {
+		rq
+			.post('/api/0/events')
+			.send({
+				id: item.event.sid,
+				name: 'EditTestEvent',
+				fontTextColor: '#000',
+				fontBgColor: '#009688'
+			})
+			.expect(200)
+			.end(done);
+	});
+	
+	it('GET events by query', function (done) {
+		rq
+			.get('/api/0/events/list')
+			.send({
+				name: 'DontSelectAnyEvents'
+			})
+			.expect(200)
+			.end(done);
 	});
 
 	it('GET events (completed events)', function (done) {

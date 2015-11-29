@@ -133,9 +133,6 @@ route
 					if (params.name) {
 						dbEvent.name = params.name;
 					}
-					if (params.desc) {
-						dbEvent.description = params.desc;
-					}
 					if (params.fontTextColor) {
 						dbEvent.fontTextColor = params.fontTextColor;
 					}
@@ -159,7 +156,7 @@ route
 						// Add item to event
 						dbEvent.items.addToSet(item);
 						// Return item id
-						this.body = {id: item.sid};
+						this.body = item;
 					}
 					// Save event
 					yield dbEvent.save();
@@ -176,7 +173,7 @@ route
 					dbItem.duration = mm(dbItem.endTime).diff(dbItem.startTime);
 					// re-save
 					yield dbItem.save();
-					this.body = {id: dbItem.sid};
+					this.body = dbItem;
 					this.status = 200;
 				}
 			}
@@ -244,9 +241,9 @@ route.nested(/\/list\/?/)
 			}
 			// remove non-relevant entries
 			if (params.name) {
-				for (var j in grouped) {
-					if (grouped[j]._id) {
-						grouped.splice(j, 1);
+				for (var i in grouped) {
+					if (grouped[i]._id) {
+						grouped.splice(i, 1);
 					}
 				}
 			}
