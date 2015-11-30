@@ -8,9 +8,11 @@ include includes/nav
 					a(href='/',target='_self') Home
 				li.active Overview
 			.calendar(ui-calendar='uiConfig.calendar',ng-model='eventSources')
-	.row
-		.col-xs-12
 			hr
+	.row
+		.col-xs-6
+			chartist.ct-chart(chartist-data='chartist.data', chartist-chart-type='Pie', chartist-chart-options='chartist.options', chartist-responsive-options='chartist.responsiveOptions')
+		.col-xs-6
 			h1 
 				i.fa.fa-bar-chart.fa-fw
 				| &nbsp;Statistics
@@ -25,3 +27,4 @@ include includes/nav
 					i.fa.fa-warning.fa-fw
 					| &nbsp;No previous events
 include includes/js
+script(type='text/javascript', src='/js/dashcontroller.js')

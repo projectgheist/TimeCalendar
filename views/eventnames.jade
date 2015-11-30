@@ -1,0 +1,61 @@
+include includes/header
+include includes/nav
+.container(ng-controller='editController')
+	.row
+		.col-xs-12
+			ol.breadcrumb
+				li
+					a(href='/',target='_self') Home
+				li.active
+					a(href='#') Edit - Event names
+	.row
+		div(ng-class="{'col-xs-12':!isEventSelected, 'col-xs-4':isEventSelected}")
+			h1
+				i.fa.fa-list.fa-fw
+				| &nbsp;Event names
+			.list-group
+				div(ng-repeat='e in events')
+					.list-group-item
+						.row-action-primary
+							i.fa.fa-warning.fa-fw(style='color:{{e.event.fontTextColor}}; background-color:{{e.event.fontBgColor}}')
+						.row-content
+							h4.list-group-item-heading
+								| {{e.event.name}}
+								.checkbox.pull-right
+									label
+										input(type='checkbox', ng-model='e.selected', ng-change='eventSelected(e.event.sid)')
+										span.checkbox-material
+											span.check
+							p.list-group-item-text
+								| Occurrences: {{e.count}}
+								br
+								| Time: {{e.duration}}
+					.list-group-separator
+			.well(ng-hide='events.length')
+				h1
+					i.fa.fa-warning.fa-fw
+					| &nbsp;No events found
+		div(ng-class="{'hidden':!isEventSelected, 'col-xs-8':isEventSelected}")
+			h1
+				i.fa.fa-pencil.fa-fw
+				| &nbsp;Modify event
+			form.form-horizontal
+				.form-group
+					label.col-xs-3.control-label Event name
+					.col-xs-9
+						input.form-control(type='text',placeholder='Event name',ng-model='eventName',ng-required)
+				.form-group
+					label.col-xs-3.control-label Text color
+					.col-xs-9
+						input.form-control.minicolors#textcolor(type='hidden',data-control='saturation',placeholder='Font color')
+				.form-group
+					label.col-xs-3.control-label Background color
+					.col-xs-9
+						input.form-control.minicolors#bgcolor(type='hidden',data-control='saturation',placeholder='Background color')
+				.row
+					.col-xs-12
+						.form-group
+							button.btn(type='button', ng-click='eventSelected()') Cancel
+							button.btn.btn-primary(type='button', ng-click='submitEvent()') Change
+include includes/js
+script(type='text/javascript', src='/js/editcontroller.js')

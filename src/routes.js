@@ -47,7 +47,7 @@ ap
 		this.redirect('/');
 	});
 
-/** login route */
+/** users overview route */
 ap
 	.route(/\/overview\/?/)
 	.get(function * (next) {
@@ -63,4 +63,49 @@ ap
 		} else {
 			this.redirect('/');
 		}
+	});
+
+/** views route */
+ap
+	.route(/\/views\/?(\w+)?\/?/)
+	.get(function * (next) {
+		if (this.request.params.length && this.request.params[0]) {
+			this.render(
+				this.request.params[0],
+				{
+					'config': cf.site
+				},
+				true
+			);
+		} else {
+			this.status = 401;
+		}
+		yield next;
+	});
+
+var edit = ap.route(/\/edit\/?/);
+
+/** edit event names route */
+edit
+	.nested(/\/eventnames\/?/)
+	.get(function * (next) {
+		if (this.req.isAuthenticated()) {
+			this.render(
+				'eventnames',
+				{
+					'config': cf.site
+				},
+				true
+			);
+			yield next;
+		} else {
+			this.redirect('/');
+		}
+	});
+
+/** edit events route */
+edit
+	.nested(/\/events\/?/)
+	.get(function * (next) {
+		this.redirect('/');
 	});

@@ -32,7 +32,8 @@ module.exports = function(grunt) {
 
 					'./private/js/jquery.minicolors.js',
 					
-					'./bower_components/Chart.js/Chart.js',
+					'./bower_components/chartist/dist/chartist.js',
+					'./bower_components/angular-chartist.js/dist/angular-chartist.js',
 					
 					'./bower_components/Flowtype.js/flowtype.js',
 					'./bower_components/angular-flowtype/angular-flowtype.js',
@@ -53,6 +54,7 @@ module.exports = function(grunt) {
 					'./bower_components/fullcalendar/dist/fullcalendar.css',
 					'./private/css/_materialFullCalendar.scss',
 					'./private/css/jquery.minicolors.css',
+					'./bower_components/chartist/dist/chartist.min.css',
 				],
 				dest: './public/css/<%= pkg.name %>.css'
 			}

@@ -12,7 +12,7 @@ route
 	/** Retrieve all event items */
 	.get(function * (next) {
 		if (this.req.isAuthenticated()) {
-			var params = this.request.query;
+			var params = this.request.query || this.request.body;
 			var events = yield db.all(db.EventItem, {
 				sort: {
 					endTime: -1
@@ -23,7 +23,7 @@ route
 					}, {
 						$or: [ {
 							startTime: { // only today's items
-								$gt: (params.st ? mm(params.st) : mm()).startOf('day').toDate()
+								$gt: mm().utc(params.st).startOf('day').toDate()
 							}
 						}, {
 							duration: { // still running items
@@ -55,13 +55,15 @@ route
 					running.push(n);
 				}
 			}
+			// find all event items with a start time of supplied
 			var grouped = yield db.EventItem
 				.aggregate([
 					{
 						$match: {
 							startTime: { // only today's items
-								$gte: (params.st ? mm(params.st) : mm()).startOf('day').toDate()
+								$gt: mm().utc(params.st).startOf('day').toDate()
 							},
+							// All events from a specific user
 							user: mg.Types.ObjectId(this.req.user)
 						}
 					},
@@ -80,8 +82,9 @@ route
 				], function (ignore, res) {
 					return res;
 				});
+			// find all events associated with the found event items
 			var populated = yield db.Event.find({
-				'_id': {
+				_id: {
 					$in: grouped.map(function (val) {
 						return val._id;
 					})
@@ -89,6 +92,7 @@ route
 			}, function (ignore, res) {
 				return res;
 			});
+			// populate the event items' event with events
 			for (var j in grouped) {
 				for (var h in populated) {
 					var event = populated[h];
@@ -113,23 +117,34 @@ route
 		if (this.req.isAuthenticated()) {
 			var params = this.request.body;
 			if (params && !ut.isEmpty(params)) {
-				var dbEvent;
 				// Need to find existing item?
-				if (!params.id && params.name) {
+				if (params.name) {
+					var opts = {
+						// All events from a specific user
+						user: mg.Types.ObjectId(this.req.user)
+					};
+					if (params.id) {
+						opts.sid = params.id;
+					} else {
+						opts.name = params.name;
+					}
 					// Find or create new event
-					dbEvent = yield db
-						.findOrCreate(db.Event, {
-							name: params.name,
-							user: mg.Types.ObjectId(this.req.user)
-						});
-					dbEvent.description = params.desc;
-					dbEvent.fontTextColor = params.fontTextColor;
-					dbEvent.fontBgColor = params.fontBgColor;
+					var dbEvent = yield db.findOrCreate(db.Event, opts);
+					if (params.name) {
+						dbEvent.name = params.name;
+					}
+					if (params.fontTextColor) {
+						dbEvent.fontTextColor = params.fontTextColor;
+					}
+					if (params.fontBgColor) {
+						dbEvent.fontBgColor = params.fontBgColor;
+					}
 					// Contains a start time?
 					if (params.st) {
 						// Create new element for event
 						var item = new db.EventItem({
 							event: dbEvent,
+							// All event items from a specific user
 							user: mg.Types.ObjectId(this.req.user),
 							startTime: mm(params.st).startOf('minute'),
 							duration: params.td,
@@ -141,12 +156,12 @@ route
 						// Add item to event
 						dbEvent.items.addToSet(item);
 						// Return item id
-						this.body = {id: item.sid};
+						this.body = item;
 					}
 					// Save event
 					yield dbEvent.save();
 					this.status = 200;
-				} else if (params.id) {
+				} else if (params.id) { // Stop event item
 					// Find event item to stop
 					var dbItem = yield db.findOrCreate(db.EventItem, {
 						user: mg.Types.ObjectId(this.req.user),
@@ -158,7 +173,7 @@ route
 					dbItem.duration = mm(dbItem.endTime).diff(dbItem.startTime);
 					// re-save
 					yield dbItem.save();
-					this.body = {id: dbItem.sid};
+					this.body = dbItem;
 					this.status = 200;
 				}
 			}
@@ -175,16 +190,64 @@ route
 route.nested(/\/list\/?/)
 	.get(function * (next) {
 		if (this.req.isAuthenticated()) {
-			var params = this.request.query;
-			var opts = {
-				query: {
-					user: mg.Types.ObjectId(this.req.user),
-					// Search for a specific name
-					name: new RegExp(['.*', (params.name || ''), '.*'].join(''), 'i')
+			var params = ut.isEmpty(this.request.query) ? this.request.body : this.request.query;
+			// find all event items with a start time of supplied
+			var grouped = yield db.EventItem
+				.aggregate([
+					{
+						$match: {
+							// All events from a specific user
+							user: mg.Types.ObjectId(this.req.user)
+						}
+					},
+					{
+						$group: {
+							_id: '$event', // !required
+							count: {$sum: 1},
+							duration: {$sum: '$duration'}
+						}
+					},
+					{
+						$sort: {
+							duration: -1 // descending
+						}
+					}
+				], function (ignore, res) {
+					return res;
+				});
+			// find all events associated with the found event items
+			var populated = yield db.Event.find({
+				// find all events according to event items id's
+				_id: {
+					$in: grouped.map(function (val) {
+						return val._id;
+					})
+				},
+				// Search for a specific name
+				name: new RegExp(['.*', (params.name || ''), '.*'].join(''), 'i')
+			}, function (ignore, res) {
+				return res;
+			});
+			// populate the event items' event with events
+			for (var j in grouped) {
+				for (var h in populated) {
+					var event = populated[h];
+					if (String(event._id) === String(grouped[j]._id)) {
+						grouped[j].event = event;
+						delete grouped[j]._id;
+						break;
+					}
 				}
-			};
-			var events = yield db.all(db.Event, opts);
-			this.body = {'events': events};
+			}
+			// remove non-relevant entries
+			if (params.name) {
+				for (var i in grouped) {
+					if (grouped[i]._id) {
+						grouped.splice(i, 1);
+					}
+				}
+			}
+			this.body = {'events': grouped};
 			this.status = 200;
 		} else {
 			this.body = {message: 'GET Events/List: Authentication is required'};
