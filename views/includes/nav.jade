@@ -3,10 +3,10 @@
 		.navbar-header(style='width:100%')
 			a.navbar-brand(href='#') TimeCalendar
 			ul.nav.navbar-nav.navbar-right
-				li.dropdown
+				li.dropdown.pull-right
 					a.dropdown-toggle(href="#",role="button",data-toggle="dropdown")
 						i.fa.fa-align-justify.fa-fw
-					ul.dropdown-menu.pull-right
+					ul.dropdown-menu
 						li
 							a(href="#")
 								i.fa.fa-cog.fa-fw
@@ -20,11 +20,3 @@
 							a(href="/logout",target="_self")
 								i.fa.fa-sign-out.fa-fw
 								| &nbsp;Logout
-			form.navbar-form(style='margin-top:12px')
-				.form-group
-					input.form-control.typeahead(type='text',placeholder='Event name')
-				.form-group
-					input.form-control.minicolors(type='hidden',data-control='saturation',placeholder='Font color')
-				.form-group
-					input.form-control.minicolors(type='hidden',data-control='saturation',placeholder='Background color')
-				button.btn.btn-default(type='button',style='margin:0') Submit
