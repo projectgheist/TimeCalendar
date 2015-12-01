@@ -17,7 +17,7 @@ include includes/nav
 	.row
 		.col-lg-6(ng-show='chartist.data.series.length')
 			chartist.ct-chart(chartist-data='chartist.data', chartist-chart-type='Pie', chartist-chart-options='chartist.options', chartist-responsive-options='chartist.responsiveOptions')
-		div(ng-class="{'col-lg-12': !chartist.data.series.length, 'col-lg-6': chartist.data.series.length}")	
+		div(ng-class="{'col-lg-12':!chartist.data.series.length, 'col-lg-6':chartist.data.series.length}")
 			ul.list-group(ng-show='eventGroups.length')
 				li.list-group-item(ng-repeat='e in eventGroups',style='background-color:{{e.event.fontBgColor}};padding:0 15px')
 					.row
