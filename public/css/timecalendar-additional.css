@@ -13,6 +13,10 @@ html, body, .container-height, .container-height .row, .container-height .row .c
 	left: inherit;
 }
 
+.navbar .navbar-brand {
+	padding: 15px;
+}
+
 .navbar-form .minicolors-theme-bootstrap {
 	display: inline-block;
 	margin: 0 5px;

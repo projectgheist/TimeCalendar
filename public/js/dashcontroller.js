@@ -69,6 +69,14 @@
 
 		// declare events variable
 		$scope.eventSources = [];
+		$scope.eventGroups = [];
+	
+		// declare chart variable
+		$scope.chartist = {
+			data: {
+				series: []
+			}
+		};
 		
 		//
 		var alphabet = 'abcdefghijklmnopqrst';
@@ -103,9 +111,9 @@
 				// End of the working day (@todo: to be overridden when a later event op the day is detected)
 				maxTime: ($scope.isWeekView ? '23:59:59' : '19:00:00'),
 				// How much time a row occupies
-				slotDuration: ($scope.isWeekView ? '01:00:00' : '00:30:00'),
+				slotDuration: '00:30:00',
 				// Intervals between labels on the left side
-				slotLabelInterval: ($scope.isWeekView ? '03:00:00' : '01:00:00'),
+				slotLabelInterval: '01:00:00',
 				// Format of the label on the left side
 				slotLabelFormat: 'h(:mm) a',
 				/*
@@ -279,6 +287,8 @@
 							})
 						},
 						options: {
+							width: '100%',
+							height: '100%',
 							labelInterpolationFnc: function (value) {
 								return Math.round(value / $scope.chartist.data.series.reduce(sum) * 100) + '%';
 							}
