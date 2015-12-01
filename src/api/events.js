@@ -23,7 +23,7 @@ route
 					}, {
 						$or: [ {
 							startTime: { // only today's items
-								$gt: mm().utc(params.st).startOf('day').toDate()
+								$gt: mm(parseInt(params.st)).toDate()
 							}
 						}, {
 							duration: { // still running items
@@ -61,7 +61,7 @@ route
 					{
 						$match: {
 							startTime: { // only today's items
-								$gt: mm().utc(params.st).startOf('day').toDate()
+								$gt: mm(parseInt(params.st)).toDate()
 							},
 							// All events from a specific user
 							user: mg.Types.ObjectId(this.req.user)
