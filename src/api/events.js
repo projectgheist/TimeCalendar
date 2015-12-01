@@ -241,8 +241,8 @@ route.nested(/\/list\/?/)
 			}
 			// remove non-relevant entries
 			if (params.name) {
-				for (var i in grouped) {
-					if (grouped[i]._id) {
+				for (var i = grouped.length - 1; i >= 0; --i) {
+					if (!grouped[i].hasOwnProperty('event') && grouped[i].hasOwnProperty('_id')) {
 						grouped.splice(i, 1);
 					}
 				}
