@@ -13,7 +13,7 @@ route
 	.get(function * (next) {
 		if (this.req.isAuthenticated()) {
 			var params = this.request.query || this.request.body;
-			var searchTime = (params.st ? mm(parseInt(params.st)) : mm()).toDate();
+			var searchTime = (params.st ? mm(parseInt(params.st)) : mm().startOf('day')).toDate();
 			var events = yield db.all(db.EventItem, {
 				sort: {
 					endTime: -1
