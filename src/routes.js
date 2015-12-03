@@ -67,11 +67,13 @@ ap
 
 /** views route */
 ap
-	.route(/\/views\/?(\w+)?\/?/)
+	.route(/\/views((\/\w+)+)?\/?/)
 	.get(function * (next) {
 		if (this.request.params.length && this.request.params[0]) {
+			// remove leading '/'
+			var name = this.request.params[0].replace(/^\//gi, '');
 			this.render(
-				this.request.params[0],
+				name,
 				{
 					'config': cf.site
 				},

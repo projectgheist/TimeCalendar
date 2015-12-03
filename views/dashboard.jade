@@ -2,7 +2,8 @@ include includes/header
 include includes/nav
 .container(ng-controller='dashController')
 	.row
-		.col-xs-12#alert
+		.col-xs-12
+			ng-include(src="'views/templates/alert'", ng-repeat='e in alerts')
 	.row
 		.col-sm-6
 			.well(ng-if='eventSources && eventSources.length && eventSources[0].length')
