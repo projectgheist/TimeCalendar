@@ -3,10 +3,7 @@ include includes/nav
 .container(ng-controller='dashController')
 	.row
 		.col-xs-12
-			.alert.alert-dismissible.fade.in(ng-class='alertStyle',role="alert")
-				button.close(type="button",data-dismiss="alert",aria-label="Close")
-					span(aria-hidden='true') &times;
-				p {{alertMessage}}
+			ng-include(src="'views/templates/alert'", ng-repeat='e in alerts')
 	.row
 		.col-sm-6
 			.well(ng-if='eventSources && eventSources.length && eventSources[0].length')

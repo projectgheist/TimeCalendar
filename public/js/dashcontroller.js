@@ -70,6 +70,7 @@
 		// declare events variable
 		$scope.eventSources = [];
 		$scope.eventGroups = [];
+		$scope.alerts = [];
 	
 		// declare chart variable
 		$scope.chartist = {
@@ -178,11 +179,8 @@
 				st: moment($scope.startDate).valueOf(),
 				td: 0
 			}, function (res) {
-				$scope.alertStyle = 'alert-success';
-				$scope.alertMessage = 'Successfully store new event!';
-				$('#success-alert').fadeTo(2000, 500).slideUp(500, function () {
-					$('#success-alert').alert('close');
-				});
+				// show alert
+				$scope.showAlert('alert-success', 'Successfully store new event!');
 				// change to a different color
 				$scope.bgcolor = $scope.materialColors[Math.floor(Math.random() * $scope.materialColors.length)];
 				// re fetch events
@@ -202,29 +200,31 @@
 		// Post a stop all current running events
 		$scope.stopAllEvents = function () {
 			dashService.eventItems().save({'e': 'a'}, function (res) {
-				
+				// show alert
+				$scope.showAlert('alert-success', 'Successfully ended all events!');
+			}, function (ignore) {
+				// show alert
+				$scope.showAlert('alert-danger', 'Failed to end all events!');
 			});
 		};
 
 		// Stop a single event with an unique identifier
 		$scope.stopEvent = function (eventItemId) {
 			dashService.eventItems().save({'id': eventItemId}, function (res) {
-				$scope.alertStyle = 'alert-success';
-				$scope.alertMessage = 'Successfully store new event!';
-				$('#success-alert').fadeTo(2000, 500).slideUp(500, function () {
-					$('#success-alert').alert('close');
-				});
+				// show alert
+				$scope.showAlert('alert-success', 'Successfully store new event!');
 				// re fetch events
 				$scope.getEventItems();
 			}, function (ignore) {
-				$scope.alertStyle = 'alert-danger';
-				$scope.alertMessage = 'Something when wrong submitting new event!';
+				// show alert
+				$scope.showAlert('alert-danger', 'Failed to end event!');
 			});
 		};
 
 		// Retrieve event types 
 		$scope.getEvents = function (val) {
 			return dashService.events().query({name: val}).$promise.then(function (res) {
+				// return data
 				return res.events;
 			});
 		};
@@ -265,7 +265,9 @@
 		$scope.getEventItems = function () {
 			var params = {};
 			if ($scope.isWeekView) {
-				params.st = moment().isoWeekday(7).startOf('week').valueOf();
+				params.st = moment().startOf('week').valueOf();
+			} else {
+				params.st = moment().startOf('day').valueOf();
 			}
 			dashService.eventItems().get(params, function (res) {
 				// store the events to the calendar
@@ -346,7 +348,10 @@
 					}
 				}
 				$timeout($scope.changeChartColors, 100);
-			}, function (ignore) {});
+			}, function (ignore) {
+				// show alert
+				$scope.showAlert('alert-danger', 'Failed to retrieve events!');
+			});
 		};
 		
 		//
@@ -355,6 +360,20 @@
 				var className = ['.ct-series-', alphabet.charAt(i), ' .ct-slice-pie'].join('');
 				$(className).css('fill', $scope.eventGroups[i].event.fontBgColor);
 			}
+		};
+		
+		//
+		$scope.showAlert = function (style, message) {
+			$scope.alerts.push({
+				alertStyle: style, // 'alert-success';
+				alertMessage: message // 'Successfully store new event!';
+			});
+			// auto hide alert
+			$timeout(function () {
+				$('.alert').fadeTo(2000, 500).slideUp(500, function () {
+					$('.alert').alert('close');
+				})
+			}, 100);
 		};
 
 		// Immediately call function

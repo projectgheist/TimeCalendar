@@ -13,6 +13,7 @@ route
 	.get(function * (next) {
 		if (this.req.isAuthenticated()) {
 			var params = this.request.query || this.request.body;
+			var searchTime = (params.st ? mm(parseInt(params.st)) : mm().startOf('day')).toDate();
 			var events = yield db.all(db.EventItem, {
 				sort: {
 					endTime: -1
@@ -23,7 +24,7 @@ route
 					}, {
 						$or: [ {
 							startTime: { // only today's items
-								$gt: mm(parseInt(params.st)).toDate()
+								$gt: searchTime
 							}
 						}, {
 							duration: { // still running items
@@ -61,7 +62,7 @@ route
 					{
 						$match: {
 							startTime: { // only today's items
-								$gt: mm(parseInt(params.st)).toDate()
+								$gt: searchTime
 							},
 							// All events from a specific user
 							user: mg.Types.ObjectId(this.req.user)
