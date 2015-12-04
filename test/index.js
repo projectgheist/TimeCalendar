@@ -297,7 +297,7 @@ describe('Events API (user)', function () {
 			})
 			.expect(200)
 			.end(function (ignore, res) {
-				if (res.body && res.body.items) {
+				if (res.body && res.body.items.length) {
 					done();
 				}
 			});

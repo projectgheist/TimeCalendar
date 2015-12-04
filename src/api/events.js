@@ -186,7 +186,7 @@ route
 							// All event items from a specific user
 							user: mg.Types.ObjectId(this.req.user),
 							startTime: mm(params.st).startOf('minute'),
-							duration: params.td,
+							duration: params.td || 0,
 							allDay: false
 						});
 						// Save needs to be called after creating new items
