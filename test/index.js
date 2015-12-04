@@ -293,7 +293,7 @@ describe('Events API (user)', function () {
 		rq
 			.post('/api/0/events')
 			.send({
-				e: a
+				e: 'a'
 			})
 			.expect(200)
 			.end(function (ignore, res) {
