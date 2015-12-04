@@ -112,7 +112,7 @@
 				// End of the working day (@todo: to be overridden when a later event op the day is detected)
 				maxTime: ($scope.isWeekView ? '23:59:59' : '19:00:00'),
 				// How much time a row occupies
-				slotDuration: '00:30:00',
+				slotDuration: ($scope.isWeekView ? '00:30:00' : '00:10:00'),
 				// Intervals between labels on the left side
 				slotLabelInterval: '01:00:00',
 				// Format of the label on the left side
