@@ -236,6 +236,23 @@ describe('Events API (user)', function () {
 			});
 	});
 
+	it('POST start another event', function (done) {
+		rq
+			.post('/api/0/events')
+			.send({
+				name: 'SecondEvent',
+				fontTextColor: '#fff',
+				fontBgColor: '#009688',
+				st: mm()
+			})
+			.expect(200)
+			.end(function (ignore, res) {
+				if (res.body && res.body.sid) {
+					done();
+				}
+			});
+	});
+
 	it('GET events (running events)', function (done) {
 		rq
 			.get('/api/0/events')
@@ -267,6 +284,20 @@ describe('Events API (user)', function () {
 			.expect(200)
 			.end(function (ignore, res) {
 				if (res.body && res.body.sid) {
+					done();
+				}
+			});
+	});
+
+	it('POST stop all events', function (done) {
+		rq
+			.post('/api/0/events')
+			.send({
+				e: a
+			})
+			.expect(200)
+			.end(function (ignore, res) {
+				if (res.body && res.body.items) {
 					done();
 				}
 			});
