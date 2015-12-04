@@ -136,9 +136,22 @@
 			console.log(event);
 		}
 
+		// Executed when an event is modified, dragged
 		function onEventModify (event, delta, revertFunc, jsEvent, ui, vie) {
 			// Modify the event
-			console.log(event);
+			dashService.eventItems().save({
+				id: event.id,
+				st: moment(event.start).valueOf(),
+				et: moment(event.end).valueOf()
+			}, function (res) {
+				// show alert
+				$scope.showAlert('alert-success', 'Succesfully modified event!');
+				// re fetch events
+				$scope.getEventItems();
+			}, function (ignore) {
+				// show alert
+				$scope.showAlert('alert-danger', 'Failed to modify event!');
+			});
 		};
 
 		// Set default colors
@@ -202,6 +215,8 @@
 			dashService.eventItems().save({'e': 'a'}, function (res) {
 				// show alert
 				$scope.showAlert('alert-success', 'Successfully ended all events!');
+				// re fetch events
+				$scope.getEventItems();
 			}, function (ignore) {
 				// show alert
 				$scope.showAlert('alert-danger', 'Failed to end all events!');
@@ -289,8 +304,6 @@
 							})
 						},
 						options: {
-							width: '100%',
-							height: '100%',
 							labelInterpolationFnc: function (value) {
 								return Math.round(value / $scope.chartist.data.series.reduce(sum) * 100) + '%';
 							}

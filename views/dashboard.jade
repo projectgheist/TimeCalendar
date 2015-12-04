@@ -65,12 +65,12 @@ include includes/nav
 			ul.list-group(ng-show='eventSources && eventSources[1]')
 				li.list-group-item(ng-repeat='e in eventSources[1]',style='background-color:{{e.color}};padding:0 15px')
 					.row
-						.col-lg-1
-							button.close.pull-left(type='button',style='margin:25px 0')
-								span &times;
-						.col-lg-11(ng-click='setNewEvent(e)')
+						.col-lg-12(ng-click='setNewEvent(e)')
 							span.badge.pull-right(style='margin:25px 0') {{e.duration}}
-							h4(style='color:{{e.textColor}};margin:25px 0') {{e.title}}
+							h4(style='color:{{e.textColor}};margin:25px 0')
+								span
+									i.fa.fa-close.fa-fw
+								| &nbsp;{{e.title}}
 			.well(ng-hide='eventSources && eventSources[1].length')
 				h1
 					i.fa.fa-warning.fa-fw
@@ -80,11 +80,14 @@ include includes/nav
 				i.fa.fa-bar-chart.fa-fw
 				| &nbsp;Statistics
 			ul.list-group(ng-show='eventGroups')
-				li.list-group-item(ng-repeat='e in eventGroups',style='background-color:{{e.event.fontBgColor}};padding:0 15px')
+				li.list-group-item(ng-repeat='e in eventGroups',style='background-color:{{e.event.color}};padding:0 15px')
 					.row
 						.col-lg-12(ng-click='setNewEvent(e.event)')
 							span.badge.pull-right(style='margin:25px 0') {{e.duration}}
-							h4(style='color:{{e.event.fontTextColor}};margin:25px 0') {{e.event.name}}
+							h4(style='color:{{e.event.textColor}};margin:25px 0')
+								span
+									i.fa.fa-tag.fa-fw
+								| &nbsp;{{e.event.title}}
 			.well(ng-hide='eventGroups.length')
 				h1
 					i.fa.fa-warning.fa-fw
