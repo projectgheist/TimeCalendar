@@ -193,7 +193,7 @@
 				td: 0
 			}, function (res) {
 				// show alert
-				$scope.showAlert('alert-success', 'Successfully store new event!');
+				$scope.showAlert('alert-success', ['Successfully started new <b>', $scope.eventName,'</b> event!'].join(''));
 				// change to a different color
 				$scope.bgcolor = $scope.materialColors[Math.floor(Math.random() * $scope.materialColors.length)];
 				// re fetch events
@@ -224,10 +224,10 @@
 		};
 
 		// Stop a single event with an unique identifier
-		$scope.stopEvent = function (eventItemId) {
-			dashService.eventItems().save({'id': eventItemId}, function (res) {
+		$scope.stopEvent = function (eventItem) {
+			dashService.eventItems().save({'id': eventItem.id}, function (res) {
 				// show alert
-				$scope.showAlert('alert-success', 'Successfully store new event!');
+				$scope.showAlert('alert-success', ['Successfully stopped <b>', eventItem.title,'</b> event!'].join(''));
 				// re fetch events
 				$scope.getEventItems();
 			}, function (ignore) {

@@ -13,7 +13,7 @@ include includes/nav
 				.form-group
 					.input-group(ng-repeat='e in eventSources[0]')
 						span.input-group-btn
-							button.btn.btn-block(type='button',ng-click='stopEvent(e.id)')
+							button.btn.btn-block(type='button',ng-click='stopEvent(e)')
 								i.fa.fa-times.fa-fw
 						p(style='margin-top: 7px') {{e.title}}
 							small.pull-right
