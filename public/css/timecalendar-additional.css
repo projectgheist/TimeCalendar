@@ -75,3 +75,9 @@ form .minicolors-theme-bootstrap .minicolors-swatch {
 .list-group-item-heading .checkbox.pull-right {
 	margin-top: 0;
 }
+
+/** Bootstrap UI with Material boostrap */
+td.form-group input[type=text] {
+	margin-left: auto;
+	margin-right: auto;
+}

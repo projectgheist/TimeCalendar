@@ -130,10 +130,20 @@
 				eventResize: onEventModify
 			}
 		};
+		
+		$scope.datepicker = {
+			opened: false
+		};
+		
+		$scope.openDatepicker = function () {
+			$scope.datepicker.opened = true;
+		};
 
 		function onEventClick (event, jsEvent, view) {
-			console.log('onEventClick');
-			console.log(event);
+			$('#modalTitle').text(event.title);
+			$('#ModalDialog').modal({
+				show: true
+			});
 		}
 
 		// Executed when an event is modified, dragged
