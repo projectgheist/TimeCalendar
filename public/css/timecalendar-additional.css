@@ -81,3 +81,13 @@ td.form-group input[type=text] {
 	margin-left: auto;
 	margin-right: auto;
 }
+
+/** Bootstrap tags input with Material boostrap */
+.bootstrap-tagsinput {
+	padding: 7px 0;
+	margin-bottom: 7px;
+	background-image: linear-gradient(#009688, #009688), linear-gradient(#D2D2D2, #D2D2D2);
+	background-size: 0 2px, 100% 1px;
+	background-repeat: no-repeat;
+	background-position: center bottom, center calc(100% - 1px);
+}

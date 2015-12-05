@@ -31,6 +31,9 @@ module.exports = function(grunt) {
 					'./bower_components/fullcalendar/dist/gcal.js',
 
 					'./private/js/jquery.minicolors.js',
+
+					'./bower_components/bootstrap-tagsinput/dist/bootstrap-tagsinput.js',
+					'./bower_components/bootstrap-tagsinput/dist/bootstrap-tagsinput-angular.js',
 					
 					'./bower_components/chartist/dist/chartist.js',
 					'./bower_components/angular-chartist.js/dist/angular-chartist.js',
@@ -54,6 +57,7 @@ module.exports = function(grunt) {
 					'./bower_components/fullcalendar/dist/fullcalendar.css',
 					'./private/css/_materialFullCalendar.scss',
 					'./private/css/jquery.minicolors.css',
+					'./bower_components/bootstrap-tagsinput/dist/bootstrap-tagsinput.css',
 					'./bower_components/chartist/dist/chartist.min.css',
 				],
 				dest: './public/css/<%= pkg.name %>.css'

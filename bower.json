@@ -32,8 +32,9 @@
     "angular-ui-calendar": "~1.0.1",
     "bootstrap": "~3.3.5",
     "fullcalendar": "~2.4.0",
-    "Chart.js": "~1.0.2",
-    "angular-chartist.js": "~3.3.12"
+    "angular-chartist.js": "~3.3.12",
+    "chartist": "~0.9.5",
+    "bootstrap-tagsinput": "~0.7.1"
   },
   "resolutions": {
     "angular": "1.4.7",
