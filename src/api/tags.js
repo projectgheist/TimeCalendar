@@ -19,7 +19,7 @@ route
 					$and: [ {
 						user: mg.Types.ObjectId(this.req.user)
 					}, {
-						name: (params.n || '')
+						name: new RegExp(['.*', (params.n || ''), '.*'].join(''), 'i')
 					} ]
 				}
 			});

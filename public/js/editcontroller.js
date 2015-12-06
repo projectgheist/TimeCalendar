@@ -14,7 +14,8 @@
 	function editService ($resource) {
 		return {
 			eventNames: eventNames,
-			changeEvent: changeEvent
+			changeEvent: changeEvent,
+			tags: tags
 		};
 		function eventNames () {
 			return $resource('/api/0/events/list', {
@@ -31,7 +32,13 @@
 				id: '@id',
 				name: '@name',
 				fontTextColor: '@fontTextColor',
-				fontBgColor: '@fontBgColor'
+				fontBgColor: '@fontBgColor',
+				tags: '@tags'
+			});
+		}
+		function tags () {
+			return $resource('/api/0/tags', {
+				n: '@n',
 			});
 		}
 	}
@@ -67,6 +74,12 @@
 						$scope.eventName = ref.event.name;
 						$('#textcolor').minicolors('value', ref.event.fontTextColor);
 						$('#bgcolor').minicolors('value', ref.event.fontBgColor);
+						// reset variable
+						$('#tags').tagsinput('removeAll');
+						// set event tags
+						for (var j in ref.event.tags) {
+							$('#tags').tagsinput('add', ref.event.tags[j].name, {preventPost: true});
+						}
 					} else {
 						ref.selected = false;
 					}
@@ -81,6 +94,7 @@
 				name: $scope.eventName,
 				fontTextColor: $('#textcolor').minicolors('value'),
 				fontBgColor: $('#bgcolor').minicolors('value'),
+				tags: $('#tags').tagsinput('items')
 			}, function (res) {
 				$scope.alertStyle = 'alert-success';
 				$scope.alertMessage = 'Successfully store new event!';
@@ -96,11 +110,17 @@
 				$scope.alertMessage = 'Something when wrong submitting new event!';
 			});
 		};
-
+		// GET tags
+		$scope.getTags = function (value) {
+			var a = value.split(',');
+			editService.tags().query({n: a[a.length - 1]}, function (res) {
+				return res;
+			});
+		}
+		
 		// GET events
 		$scope.getEvents = function () {
 			editService.eventNames().query({}, function (res) {
-				console.log(res);
 				$scope.events = res.events;
 				for (var i in $scope.events) {
 					var ref = $scope.events[i];
@@ -112,6 +132,9 @@
 				}, 1);
 			});
 		};
+		
+		// setup tag input
+		$('#tags').tagsinput();
 		
 		// Immediately call function
 		$scope.getEvents();

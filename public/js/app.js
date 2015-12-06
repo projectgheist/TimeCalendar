@@ -11,13 +11,6 @@
 	jQuery(document).ready(function ($) {
 		$('.alert').alert('close');
 		$('input.minicolors').minicolors({theme: 'bootstrap'});
-		$('input').tagsinput({
-			typeahead: {
-				source: function(query) {
-					return $.get('/api/0/tags');
-				}
-			}
-		});
 	});
 
 	/** function clamp
