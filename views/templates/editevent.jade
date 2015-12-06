@@ -1,0 +1,45 @@
+mixin modalHeader
+	h4.modal-title
+		i.fa.fa-tag.fa-fw
+		| &nbsp;
+		span#modalTitle
+	
+mixin modalBody(obj)
+	form
+		.form-group
+			label.sr-only Event name
+			.input-group
+				span.input-group-btn
+					a.btn.btn-default
+						i.fa.fa-search.fa-fw
+				input.form-control(type='text',placeholder='Event name',ng-model='eventName',ng-required,uib-typeahead='e.event.name for e in getEvents($viewValue)',typeahead-loading='loadingEvents',typeahead-no-results='noEvents',typeahead-on-select='onTypeAheadSelect($item, $model, $label)')
+			.alert.alert-warning(ng-show='loadingEvents || noEvents')
+				span(ng-show='loadingEvents')
+					i.fa.fa-refresh
+					| &nbsp;Loading ...
+				span(ng-show='noEvents')
+					i.fa.fa-remove
+					| &nbsp;No events found!
+		.form-group
+			.input-group
+				span.input-group-btn
+					button.btn.btn-default(type='button', ng-click='openDatepicker()')
+						i.fa.fa-calendar.fa-fw
+				input.form-control(type='text', ng-model='newDate', uib-datepicker-popup='dd MMMM yyyy', is-open='datepicker.opened', ng-required='true')
+		.row
+			.col-lg-6
+				.form-group
+					h4 Start time
+					uib-timepicker(ng-model='newStartTime', ng-change='modalTimeChanged()')
+			.col-lg-6
+				.form-group
+					h4 End time
+					uib-timepicker(ng-model='newEndTime', ng-change='modalTimeChanged()')
+
+mixin modalFooter(obj)
+	.pull-left
+		button.btn.btn-danger(type="button", data-dismiss="modal") Delete
+	button.btn.btn-default(type="button", data-dismiss="modal") Close
+	button.btn.btn-primary(type="button", data-dismiss="modal") Save changes
+
+include modal

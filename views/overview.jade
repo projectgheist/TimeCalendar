@@ -9,24 +9,29 @@ include includes/nav
 				li.active Overview
 			.calendar(ui-calendar='uiConfig.calendar',ng-model='eventSources')
 			hr
+			ng-include(src="'views/templates/alert'", ng-repeat='e in alerts')
 	.row
 		.col-xs-12
 			h1 
 				i.fa.fa-bar-chart.fa-fw
 				| &nbsp;Statistics
 	.row
-		.col-lg-6(ng-show='chartist.data.series.length')
+		.col-lg-6(ng-show='chartist.data.series.length', style='height:300px')
 			chartist.ct-chart(chartist-data='chartist.data', chartist-chart-type='Pie', chartist-chart-options='chartist.options', chartist-responsive-options='chartist.responsiveOptions')
 		div(ng-class="{'col-lg-12':!chartist.data.series.length, 'col-lg-6':chartist.data.series.length}")
 			ul.list-group(ng-show='eventGroups.length')
-				li.list-group-item(ng-repeat='e in eventGroups',style='background-color:{{e.event.fontBgColor}};padding:0 15px')
+				li.list-group-item(ng-repeat='e in eventGroups',style='background-color:{{e.event.color}};padding:0 15px')
 					.row
-						.col-lg-12(ng-click='setNewEvent(e.event)')
+						.col-lg-12
 							span.badge.pull-right(style='margin:25px 0') {{e.duration}}
-							h4(style='color:{{e.event.fontTextColor}};margin:25px 0') {{e.event.name}}
+							h4(style='color:{{e.event.textColor}};margin:25px 0')
+								span
+									i.fa.fa-tag.fa-fw
+									| &nbsp;{{e.event.title}}
 			.alert.alert-warning(role='alert', ng-hide='eventGroups.length')
 				p
 					i.fa.fa-warning.fa-fw
 					| &nbsp;No events found during this period!
+	include templates/editevent
 include includes/js
 script(type='text/javascript', src='/js/dashcontroller.js')

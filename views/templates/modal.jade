@@ -1,0 +1,11 @@
+.modal.fade.in#ModalDialog(tabindex="-1", role="dialog")
+	.modal-dialog(role="document")
+		.modal-content
+			.modal-header
+				button.close(type="button", data-dismiss="modal", aria-label="Close")
+					span(aria-hidden="true") &times
+				+modalHeader
+			.modal-body
+				+modalBody
+			.modal-footer
+				+modalFooter

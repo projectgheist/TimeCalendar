@@ -13,7 +13,7 @@ route
 	.get(function * (next) {
 		if (this.req.isAuthenticated()) {
 			var params = this.request.query || this.request.body;
-			var searchTime = (params.st ? mm(parseInt(params.st)) : mm().startOf('day')).toDate();
+			var searchTime = (params.st ? mm(parseInt(params.st, 0)) : mm().startOf('day')).toDate();
 			var events = yield db.all(db.EventItem, {
 				sort: {
 					endTime: -1
@@ -34,12 +34,18 @@ route
 					} ]
 				}
 			})
-			.populate('event');
+			.populate({
+				path: 'event',
+				populate: {
+					path: 'tags'
+				}
+			});
 			var running = [];
 			var completed = [];
 			for (var i in events) {
 				var ref = events[i];
 				var d = ref.duration || mm().diff(ref.startTime);
+				// format that the calendar uses
 				var n = {
 					id: ref.sid,
 					title: ref.event.name,
@@ -98,7 +104,12 @@ route
 				for (var h in populated) {
 					var event = populated[h];
 					if (String(event._id) === String(grouped[j]._id)) {
-						grouped[j].event = event;
+						// convert event to the same format the calendar uses
+						grouped[j].event = {
+							title: event.name,
+							color: event.fontBgColor || '#000',
+							textColor: event.fontTextColor || '#fff'
+						};
 						delete grouped[j]._id;
 						break;
 					}
@@ -112,14 +123,46 @@ route
 		}
 		yield next;
 	});
+
+/** Stop an event item */
+function StopEventItem (Item, Options) {
+	// make sure that options variable exists
+	Options || (Options = {});
+	// set start time
+	Item.startTime = Options.st ? mm(parseInt(Options.st, 0)) : Item.startTime;
+	// set end time OR floor to the nearest minute
+	Item.endTime = Options.et ? mm(parseInt(Options.et, 0)) : (Item.endTime || mm().add(1, 'minute').startOf('minute'));
+	// ! duration needs to be a value larger then 0
+	Item.duration = mm(Item.endTime).diff(Item.startTime);
+}
+
 route
 	/** Add a new event item */
 	.post(function * (next) {
 		if (this.req.isAuthenticated()) {
 			var params = this.request.body;
 			if (params && !ut.isEmpty(params)) {
-				// Need to find existing item?
-				if (params.name) {
+				if (params.e) { // execute an event?
+					switch (params.e) {
+						case 'a': // stop all running events
+							// Find event item to stop
+							var dbItems = yield db.all(db.EventItem, {
+								query: {
+									user: mg.Types.ObjectId(this.req.user),
+									duration: 0
+								}
+							});
+							for (var i in dbItems) {
+								StopEventItem(dbItems[i], {});
+								// store item
+								yield dbItems[i].save();
+							}
+							// return valid result
+							this.body = {items: dbItems};
+							this.status = 200;
+						break;
+					}
+				} else if (params.name) { // Need to find existing item?
 					var opts = {
 						// All events from a specific user
 						user: mg.Types.ObjectId(this.req.user)
@@ -130,7 +173,7 @@ route
 						opts.name = params.name;
 					}
 					// Find or create new event
-					var dbEvent = yield db.findOrCreate(db.Event, opts);
+					var dbEvent = yield db.findOrCreate(db.Event, opts).populate('tags');
 					if (params.name) {
 						dbEvent.name = params.name;
 					}
@@ -140,6 +183,24 @@ route
 					if (params.fontBgColor) {
 						dbEvent.fontBgColor = params.fontBgColor;
 					}
+					if (params.tags) {
+						// make it an array, if it isn't already
+						if (!ut.isArray(params.tags)) {
+							params.tags = [params.tags];
+						}
+						// find tags in database
+						var newTags = [];
+						for (var k in params.tags) {
+							var tag = yield db.findOrCreate(db.Tag, { 
+								// All tags from a specific user
+								user: mg.Types.ObjectId(this.req.user),
+								// find by tag name
+								name: params.tags[k] 
+							});
+							newTags.push(tag);
+						}
+						dbEvent.tags = newTags;
+					}
 					// Contains a start time?
 					if (params.st) {
 						// Create new element for event
@@ -148,7 +209,7 @@ route
 							// All event items from a specific user
 							user: mg.Types.ObjectId(this.req.user),
 							startTime: mm(params.st).startOf('minute'),
-							duration: params.td,
+							duration: params.td || 0,
 							allDay: false
 						});
 						// Save needs to be called after creating new items
@@ -165,15 +226,16 @@ route
 				} else if (params.id) { // Stop event item
 					// Find event item to stop
 					var dbItem = yield db.findOrCreate(db.EventItem, {
+						// All event items from a specific user
 						user: mg.Types.ObjectId(this.req.user),
+						// ID of event item to look for
 						sid: params.id
 					});
-					// floor to the nearest minute
-					dbItem.endTime = mm().add(1, 'minute').startOf('minute');
-					// ! duration needs to be a value larger then 0
-					dbItem.duration = mm(dbItem.endTime).diff(dbItem.startTime);
-					// re-save
+					// Stop event item
+					StopEventItem(dbItem, params);
+					// store item
 					yield dbItem.save();
+					// return valid result
 					this.body = dbItem;
 					this.status = 200;
 				}
@@ -200,15 +262,13 @@ route.nested(/\/list\/?/)
 							// All events from a specific user
 							user: mg.Types.ObjectId(this.req.user)
 						}
-					},
-					{
+					}, {
 						$group: {
 							_id: '$event', // !required
 							count: {$sum: 1},
 							duration: {$sum: '$duration'}
 						}
-					},
-					{
+					}, {
 						$sort: {
 							duration: -1 // descending
 						}
@@ -228,7 +288,8 @@ route.nested(/\/list\/?/)
 				name: new RegExp(['.*', (params.name || ''), '.*'].join(''), 'i')
 			}, function (ignore, res) {
 				return res;
-			});
+			})
+			.populate('tags');
 			// populate the event items' event with events
 			for (var j in grouped) {
 				for (var h in populated) {

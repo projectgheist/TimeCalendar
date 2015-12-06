@@ -2,6 +2,13 @@
  */
 var mg = require('mongoose');
 
+/** function isArray
+ * checks if value is an array
+*/
+exports.isArray = function (val) {
+	return Array.isArray(val);
+};
+
 /** function isEmpty
 */
 exports.isEmpty = function (obj) {

@@ -18,6 +18,8 @@ var Event = sc({
 	user: ut.refAndRequired('User'),
 	// Array of EventItems associated with this event
 	items: [ut.ref('EventItem')],
+	// Array of Tags associated with this event
+	tags: [ut.ref('Tag')],
 	// color of the text
 	fontTextColor: { type: String, default: '' },
 	// color of the text

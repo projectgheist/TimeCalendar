@@ -112,7 +112,7 @@
 				// End of the working day (@todo: to be overridden when a later event op the day is detected)
 				maxTime: ($scope.isWeekView ? '23:59:59' : '19:00:00'),
 				// How much time a row occupies
-				slotDuration: '00:30:00',
+				slotDuration: ($scope.isWeekView ? '00:30:00' : '00:10:00'),
 				// Intervals between labels on the left side
 				slotLabelInterval: '01:00:00',
 				// Format of the label on the left side
@@ -130,15 +130,38 @@
 				eventResize: onEventModify
 			}
 		};
+		
+		$scope.datepicker = {
+			opened: false
+		};
+		
+		$scope.openDatepicker = function () {
+			$scope.datepicker.opened = true;
+		};
 
 		function onEventClick (event, jsEvent, view) {
-			console.log('onEventClick');
-			console.log(event);
+			$('#modalTitle').text(event.title);
+			$('#ModalDialog').modal({
+				show: true
+			});
 		}
 
+		// Executed when an event is modified, dragged
 		function onEventModify (event, delta, revertFunc, jsEvent, ui, vie) {
 			// Modify the event
-			console.log(event);
+			dashService.eventItems().save({
+				id: event.id,
+				st: moment(event.start).valueOf(),
+				et: moment(event.end).valueOf()
+			}, function (res) {
+				// show alert
+				$scope.showAlert('alert-success', 'Succesfully modified event!');
+				// re fetch events
+				$scope.getEventItems();
+			}, function (ignore) {
+				// show alert
+				$scope.showAlert('alert-danger', 'Failed to modify event!');
+			});
 		};
 
 		// Set default colors
@@ -180,7 +203,7 @@
 				td: 0
 			}, function (res) {
 				// show alert
-				$scope.showAlert('alert-success', 'Successfully store new event!');
+				$scope.showAlert('alert-success', ['Successfully started new <b>', $scope.eventName,'</b> event!'].join(''));
 				// change to a different color
 				$scope.bgcolor = $scope.materialColors[Math.floor(Math.random() * $scope.materialColors.length)];
 				// re fetch events
@@ -202,6 +225,8 @@
 			dashService.eventItems().save({'e': 'a'}, function (res) {
 				// show alert
 				$scope.showAlert('alert-success', 'Successfully ended all events!');
+				// re fetch events
+				$scope.getEventItems();
 			}, function (ignore) {
 				// show alert
 				$scope.showAlert('alert-danger', 'Failed to end all events!');
@@ -209,10 +234,10 @@
 		};
 
 		// Stop a single event with an unique identifier
-		$scope.stopEvent = function (eventItemId) {
-			dashService.eventItems().save({'id': eventItemId}, function (res) {
+		$scope.stopEvent = function (eventItem) {
+			dashService.eventItems().save({'id': eventItem.id}, function (res) {
 				// show alert
-				$scope.showAlert('alert-success', 'Successfully store new event!');
+				$scope.showAlert('alert-success', ['Successfully stopped <b>', eventItem.title,'</b> event!'].join(''));
 				// re fetch events
 				$scope.getEventItems();
 			}, function (ignore) {
@@ -289,8 +314,6 @@
 							})
 						},
 						options: {
-							width: '100%',
-							height: '100%',
 							labelInterpolationFnc: function (value) {
 								return Math.round(value / $scope.chartist.data.series.reduce(sum) * 100) + '%';
 							}

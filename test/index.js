@@ -96,6 +96,13 @@ describe('Events API (no user)', function () {
 			.end(done);
 	});
 
+	it('GET tags', function (done) {
+		rq
+			.get('/api/0/events')
+			.expect(401)
+			.end(done);
+	});
+
 	it('POST start event', function (done) {
 		rq
 			.post('/api/0/events')
@@ -225,12 +232,30 @@ describe('Events API (user)', function () {
 				name: 'TestEvent',
 				fontTextColor: '#fff',
 				fontBgColor: '#009688',
-				st: mm()
+				st: mm(),
+				tags: ['Public']
 			})
 			.expect(200)
 			.end(function (ignore, res) {
 				if (res.body && res.body.sid) {
 					item = res.body;
+					done();
+				}
+			});
+	});
+
+	it('POST start another event', function (done) {
+		rq
+			.post('/api/0/events')
+			.send({
+				name: 'SecondEvent',
+				fontTextColor: '#fff',
+				fontBgColor: '#009688',
+				st: mm()
+			})
+			.expect(200)
+			.end(function (ignore, res) {
+				if (res.body && res.body.sid) {
 					done();
 				}
 			});
@@ -272,6 +297,20 @@ describe('Events API (user)', function () {
 			});
 	});
 
+	it('POST stop all events', function (done) {
+		rq
+			.post('/api/0/events')
+			.send({
+				e: 'a'
+			})
+			.expect(200)
+			.end(function (ignore, res) {
+				if (res.body && res.body.items.length) {
+					done();
+				}
+			});
+	});
+
 	it('POST edit event name', function (done) {
 		rq
 			.post('/api/0/events')
@@ -279,7 +318,8 @@ describe('Events API (user)', function () {
 				id: item.event.sid,
 				name: 'EditTestEvent',
 				fontTextColor: '#000',
-				fontBgColor: '#009688'
+				fontBgColor: '#009688',
+				tags: 'QA'
 			})
 			.expect(200)
 			.end(done);
@@ -304,6 +344,13 @@ describe('Events API (user)', function () {
 					done();
 				}
 			});
+	});
+
+	it('GET tags', function (done) {
+		rq
+			.get('/api/0/events')
+			.expect(200)
+			.end(done);
 	});
 
 	it('Mock sign out', function (done) {
