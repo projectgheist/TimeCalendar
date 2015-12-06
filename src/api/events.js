@@ -189,29 +189,14 @@ route
 							params.tags = [params.tags];
 						}
 						// find tags in database
-						var newTags = yield db.Tag.find({
-							// All tags from a specific user
-							user: mg.Types.ObjectId(this.req.user),
-							// All tags with a name in the supplied array
-							name: {
-								$in: params.tags
-							}
-						}, function (ignore, res) {
-							return res;
-						});
-						var copyTags = params.tags;
-						// loop over found tags
-						for (var l in dbEvent.tags) {
-							for (var j in copyTags) {
-								if (copyTags[j] !== dbEvent.tags[l].name) {
-									continue;
-								}
-								copyTags.splice(j, 1);
-								break;
-							}
-						}
-						for (var k in copyTags) {
-							var tag = yield db.findOrCreate(db.Tag, { name: copyTags[k] });
+						var newTags = [];
+						for (var k in params.tags) {
+							var tag = yield db.findOrCreate(db.Tag, { 
+								// All tags from a specific user
+								user: mg.Types.ObjectId(this.req.user),
+								// find by tag name
+								name: params.tags[k] 
+							});
 							newTags.push(tag);
 						}
 						dbEvent.tags = newTags;

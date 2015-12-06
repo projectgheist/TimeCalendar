@@ -315,10 +315,11 @@ describe('Events API (user)', function () {
 		rq
 			.post('/api/0/events')
 			.send({
+				id: item.event.sid,
 				name: 'EditTestEvent',
 				fontTextColor: '#000',
 				fontBgColor: '#009688',
-				tags: ['QA']
+				tags: 'QA'
 			})
 			.expect(200)
 			.end(done);
