@@ -10,6 +10,7 @@ var cf = require('../config');
 exports.Event = require('./models/event');
 exports.EventItem = require('./models/eventitem');
 exports.User = require('./models/user');
+exports.Tag = require('./models/tag');
 
 // if database is already connected return
 if (!mg.connection || !mg.connection.db) {

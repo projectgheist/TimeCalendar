@@ -34,7 +34,12 @@ route
 					} ]
 				}
 			})
-			.populate('event');
+			.populate({
+				path: 'event',
+				populate: {
+					path: 'tags'
+				}
+			});
 			var running = [];
 			var completed = [];
 			for (var i in events) {
@@ -168,7 +173,7 @@ route
 						opts.name = params.name;
 					}
 					// Find or create new event
-					var dbEvent = yield db.findOrCreate(db.Event, opts);
+					var dbEvent = yield db.findOrCreate(db.Event, opts).populate('tags');
 					if (params.name) {
 						dbEvent.name = params.name;
 					}
@@ -177,6 +182,39 @@ route
 					}
 					if (params.fontBgColor) {
 						dbEvent.fontBgColor = params.fontBgColor;
+					}
+					if (params.tags) {
+						// make it an array, if it isn't already
+						if (!ut.isArray(params.tags)) {
+							params.tags = [params.tags];
+						}
+						// find tags in database
+						var newTags = yield db.Tag.find({
+							// All tags from a specific user
+							user: mg.Types.ObjectId(this.req.user),
+							// All tags with a name in the supplied array
+							name: {
+								$in: params.tags
+							}
+						}, function (ignore, res) {
+							return res;
+						});
+						var copyTags = params.tags;
+						// loop over found tags
+						for (var l in dbEvent.tags) {
+							for (var j in copyTags) {
+								if (copyTags[j] !== dbEvent.tags[l].name) {
+									continue;
+								}
+								copyTags.splice(j, 1);
+								break;
+							}
+						}
+						for (var k in copyTags) {
+							var tag = yield db.findOrCreate(db.Tag, { name: copyTags[k] });
+							newTags.push(tag);
+						}
+						dbEvent.tags = newTags;
 					}
 					// Contains a start time?
 					if (params.st) {
@@ -203,7 +241,9 @@ route
 				} else if (params.id) { // Stop event item
 					// Find event item to stop
 					var dbItem = yield db.findOrCreate(db.EventItem, {
+						// All event items from a specific user
 						user: mg.Types.ObjectId(this.req.user),
+						// ID of event item to look for
 						sid: params.id
 					});
 					// Stop event item
@@ -237,15 +277,13 @@ route.nested(/\/list\/?/)
 							// All events from a specific user
 							user: mg.Types.ObjectId(this.req.user)
 						}
-					},
-					{
+					}, {
 						$group: {
 							_id: '$event', // !required
 							count: {$sum: 1},
 							duration: {$sum: '$duration'}
 						}
-					},
-					{
+					}, {
 						$sort: {
 							duration: -1 // descending
 						}
@@ -265,7 +303,8 @@ route.nested(/\/list\/?/)
 				name: new RegExp(['.*', (params.name || ''), '.*'].join(''), 'i')
 			}, function (ignore, res) {
 				return res;
-			});
+			})
+			.populate('tags');
 			// populate the event items' event with events
 			for (var j in grouped) {
 				for (var h in populated) {
