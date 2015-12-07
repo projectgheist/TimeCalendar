@@ -1,20 +1,22 @@
 include includes/header
 .container.container-height
 	.row
-		.col-xs-offset-3.col-xs-6.col-lg-offset-4.col-lg-4(style='top:25%')
-			.card
-				.card-height-indicator
-				.card-content.text-center
-					.card-image.alert-danger
-						h3.card-image-headline
-							span.fa-stack.fa-lg
-								i.fa.fa-circle.fa-stack-2x
-								i.fa.fa-calendar.fa-stack-1x.text-danger
-					.card-body
-						h3 TimeCalendar
-					footer.card-footer
-						form(action='/auth/google',method="get")
-							button.btn.btn-material-red(type='submit') Sign-in with Google
+		.hidden-xs(style='height: 20%')
+		.col-sm-offset-2.col-sm-8
+			div(style='max-width: 384px; margin: 0 auto')
+				.card
+					.card-height-indicator
+					.card-content.text-center
+						.card-image.alert-danger
+							h3.card-image-headline
+								span.fa-stack.fa-lg
+									i.fa.fa-circle.fa-stack-2x
+									i.fa.fa-calendar.fa-stack-1x.text-danger
+						.card-body
+							h3 TimeCalendar
+						footer.card-footer
+							form(action='/auth/google',method="get")
+								button.btn.btn-material-red(type='submit') Sign-in with Google
 			.text-center(style='margin-top:30px')
 				p
 					iframe(src='https://ghbtns.com/github-btn.html?user=projectgheist&repo=timecalendar&type=star&count=true',frameborder='0',scrolling='0',width='75px',height='20px')

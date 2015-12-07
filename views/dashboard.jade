@@ -6,21 +6,6 @@ include includes/nav
 			ng-include(src="'views/templates/alert'", ng-repeat='e in alerts')
 	.row
 		.col-sm-6
-			.well(ng-if='eventSources && eventSources.length && eventSources[0].length')
-				h4 
-					i.fa.fa-cog.fa-fw
-					| &nbsp;In progress
-				.form-group
-					.input-group(ng-repeat='e in eventSources[0]')
-						span.input-group-btn
-							button.btn.btn-block(type='button',ng-click='stopEvent(e)')
-								i.fa.fa-times.fa-fw
-						p(style='margin-top: 7px') {{e.title}}
-							small.pull-right
-								i.fa.fa-clock-o.fa-fw
-								| &nbsp;{{e.duration}}
-				.text-right
-					button.btn(type='button',ng-click='stopAllEvents()') Stop all
 			.well
 				h4
 					i.fa.fa-check-square-o.fa-fw
@@ -51,46 +36,58 @@ include includes/nav
 								input.form-control.minicolors#bgcolor(type='hidden',ng-model='bgcolor',data-control='saturation',placeholder='Background color',value='{{bgcolor}}')
 					.text-right
 						button.btn.btn-primary(type='button',ng-click='submitEventItem()') Start
-		.col-sm-6
+			.well(ng-if='eventSources && eventSources.length && eventSources[0].length')
+				h4
+					i.fa.fa-cog.fa-fw
+					| &nbsp;In progress
+				.form-group
+					.input-group(ng-repeat='e in eventSources[0]')
+						span.input-group-btn
+							button.btn.btn-block(type='button',ng-click='stopEvent(e)')
+								i.fa.fa-times.fa-fw
+						p(style='margin-top: 7px') {{e.title}}
+							small.pull-right
+								i.fa.fa-clock-o.fa-fw
+								| &nbsp;{{e.duration}}
+				.text-right
+					button.btn(type='button',ng-click='stopAllEvents()') Stop all
+		.hidden-xs.col-sm-6
 			.calendar(ui-calendar='uiConfig.calendar',ng-model='eventSources')
 			a.btn(href='/overview',target='_self') Week
-	.row
-		.col-xs-12
-			hr
-	.row
-		.col-sm-6
-			h1 
-				i.fa.fa-history.fa-fw
-				| &nbsp;Completed events
-			ul.list-group(ng-show='eventSources && eventSources[1]')
-				li.list-group-item(ng-repeat='e in eventSources[1]',style='background-color:{{e.color}};padding:0 15px')
-					.row
-						.col-lg-12(ng-click='setNewEvent(e)')
-							span.badge.pull-right(style='margin:25px 0') {{e.duration}}
-							h4(style='color:{{e.textColor}};margin:25px 0')
-								span
-									i.fa.fa-close.fa-fw
-								| &nbsp;{{e.title}}
-			.well(ng-hide='eventSources && eventSources[1].length')
-				h1
-					i.fa.fa-warning.fa-fw
-					| &nbsp;No previous events
-		.col-sm-6
-			h1 
-				i.fa.fa-bar-chart.fa-fw
-				| &nbsp;Statistics
-			ul.list-group(ng-show='eventGroups')
-				li.list-group-item(ng-repeat='e in eventGroups',style='background-color:{{e.event.color}};padding:0 15px')
-					.row
-						.col-lg-12(ng-click='setNewEvent(e.event)')
-							span.badge.pull-right(style='margin:25px 0') {{e.duration}}
-							h4(style='color:{{e.event.textColor}};margin:25px 0')
-								span
-									i.fa.fa-tag.fa-fw
-								| &nbsp;{{e.event.title}}
-			.well(ng-hide='eventGroups.length')
-				h1
-					i.fa.fa-warning.fa-fw
-					| &nbsp;No previous events
+	.hidden-xs
+		.row
+			.col-xs-12
+				hr
+		.row
+			.col-sm-6
+				h1 
+					i.fa.fa-history.fa-fw
+					| &nbsp;Completed events
+				ul.list-group(ng-show='eventSources && eventSources[1]')
+					li.list-group-item(ng-repeat='e in eventSources[1]', ng-click='setNewEvent(e)', style='background-color:{{e.color}};padding:0 15px')
+						span.badge.pull-right(style='margin:25px 0') {{e.duration}}
+						h4(style='color:{{e.textColor}};margin:25px 0')
+							span
+								i.fa.fa-close.fa-fw
+							| &nbsp;{{e.title}}
+				.well(ng-hide='eventSources && eventSources[1].length')
+					h1
+						i.fa.fa-warning.fa-fw
+						| &nbsp;No previous events
+			.col-sm-6
+				h1 
+					i.fa.fa-bar-chart.fa-fw
+					| &nbsp;Statistics
+				ul.list-group(ng-show='eventGroups')
+					li.list-group-item(ng-repeat='e in eventGroups', ng-click='setNewEvent(e.event)', style='background-color:{{e.event.color}};padding:0 15px')
+						span.badge.pull-right(style='margin:25px 0') {{e.duration}}
+						h4(style='color:{{e.event.textColor}};margin:25px 0')
+							span
+								i.fa.fa-tag.fa-fw
+							| &nbsp;{{e.event.title}}
+				.well(ng-hide='eventGroups.length')
+					h1
+						i.fa.fa-warning.fa-fw
+						| &nbsp;No previous events
 include includes/js
 script(type='text/javascript', src='/js/dashcontroller.js')
