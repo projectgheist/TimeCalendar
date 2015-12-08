@@ -2,21 +2,22 @@
 	.container
 		.navbar-header(style='width:100%')
 			a.navbar-brand(href='#') TimeCalendar
-			ul.nav.navbar-nav.navbar-right
-				li.dropdown.pull-right
-					a.dropdown-toggle(href="#",role="button",data-toggle="dropdown")
-						i.fa.fa-align-justify.fa-fw
-					ul.dropdown-menu
-						li
-							a(href="#")
-								i.fa.fa-cog.fa-fw
-								| &nbsp;Settings
-						li
-							a(href="https://github.com/projectgheist/timecalendar",target="_blank")
-								i.fa.fa-github.fa-fw
-								| &nbsp;View on Github
-						li.divider
-						li
-							a(href="/logout",target="_self")
-								i.fa.fa-sign-out.fa-fw
-								| &nbsp;Logout
+			.navbar-collapse.text-right
+				ul.nav.navbar-nav.navbar-right
+					li.dropdown
+						a.dropdown-toggle(href="#",role="button",data-toggle="dropdown")
+							i.fa.fa-align-justify.fa-fw
+						ul.dropdown-menu
+							li
+								a(href="#")
+									i.fa.fa-cog.fa-fw
+									| &nbsp;Settings
+							li
+								a(href="https://github.com/projectgheist/timecalendar",target="_blank")
+									i.fa.fa-github.fa-fw
+									| &nbsp;View on Github
+							li.divider
+							li
+								a(href="/logout",target="_self")
+									i.fa.fa-sign-out.fa-fw
+									| &nbsp;Logout
