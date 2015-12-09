@@ -18,7 +18,7 @@ include includes/nav
 								a.btn.btn-default(href='/edit/eventnames', target='_self')
 									i.fa.fa-search.fa-fw
 							input.form-control(type='text',placeholder='Event name',ng-model='eventName',ng-required,uib-typeahead='e.event.name for e in getEvents($viewValue)',typeahead-loading='loadingEvents',typeahead-no-results='noEvents',typeahead-on-select='onTypeAheadSelect($item, $model, $label)')
-						.alert.alert-warning(ng-show='loadingEvents || noEvents')
+						.alert(ng-class="{'alert-info':noEvents, 'alert-warning':loadingEvents}", ng-show='loadingEvents || noEvents')
 							span(ng-show='loadingEvents')
 								i.fa.fa-refresh
 								| &nbsp;Loading ...
