@@ -1,0 +1,8 @@
+h4(style='margin:25px 0')
+	span.badge.pull-right {{e.duration}}
+	span.fa-stack.fa-lg
+		i.fa.fa-square.fa-stack-2x(style='color:{{e.color || e.event.color}}')
+		i.fa.fa-tag.fa-stack-1x(ng-if='e.event', style='color:{{e.event.textColor}}')
+		i.fa.fa-remove.fa-stack-1x(ng-if='!e.event', style='color:{{e.textColor}}')
+	| &nbsp;{{e.title || e.event.title}}
+hr(ng-hide='$last')

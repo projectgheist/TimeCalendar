@@ -64,12 +64,8 @@ include includes/nav
 					i.fa.fa-history.fa-fw
 					| &nbsp;Completed events
 				ul.list-group(ng-show='eventSources && eventSources[1]')
-					li.list-group-item(ng-repeat='e in eventSources[1]', ng-click='setNewEvent(e)', style='background-color:{{e.color}};padding:0 15px')
-						span.badge.pull-right(style='margin:25px 0') {{e.duration}}
-						h4(style='color:{{e.textColor}};margin:25px 0')
-							span
-								i.fa.fa-close.fa-fw
-							| &nbsp;{{e.title}}
+					li.list-group-item(ng-repeat='e in eventSources[1]', ng-click='setNewEvent(e)', style='padding:0 15px')
+						include templates/event
 				.well(ng-hide='eventSources && eventSources[1].length')
 					h1
 						i.fa.fa-warning.fa-fw
@@ -79,12 +75,8 @@ include includes/nav
 					i.fa.fa-bar-chart.fa-fw
 					| &nbsp;Statistics
 				ul.list-group(ng-show='eventGroups')
-					li.list-group-item(ng-repeat='e in eventGroups', ng-click='setNewEvent(e.event)', style='background-color:{{e.event.color}};padding:0 15px')
-						span.badge.pull-right(style='margin:25px 0') {{e.duration}}
-						h4(style='color:{{e.event.textColor}};margin:25px 0')
-							span
-								i.fa.fa-tag.fa-fw
-							| &nbsp;{{e.event.title}}
+					li.list-group-item(ng-repeat='e in eventGroups', ng-click='setNewEvent(e.event)', style='padding:0 15px')
+						include templates/event
 				.well(ng-hide='eventGroups.length')
 					h1
 						i.fa.fa-warning.fa-fw

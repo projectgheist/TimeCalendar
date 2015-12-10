@@ -20,12 +20,8 @@ include includes/nav
 			chartist.ct-chart(chartist-data='chartist.data', chartist-chart-type='Pie', chartist-chart-options='chartist.options', chartist-responsive-options='chartist.responsiveOptions')
 		div(ng-class="{'col-lg-12':!chartist.data.series.length, 'col-lg-6':chartist.data.series.length}")
 			ul.list-group(ng-show='eventGroups.length')
-				li.list-group-item(ng-repeat='e in eventGroups',style='background-color:{{e.event.color}};padding:0 15px')
-					span.badge.pull-right(style='margin:25px 0') {{e.duration}}
-					h4(style='color:{{e.event.textColor}};margin:25px 0')
-						span
-							i.fa.fa-tag.fa-fw
-							| &nbsp;{{e.event.title}}
+				li.list-group-item(ng-repeat='e in eventGroups',style='padding:0 15px')
+					include templates/event
 			.alert.alert-warning(role='alert', ng-hide='eventGroups.length')
 				p
 					i.fa.fa-warning.fa-fw
