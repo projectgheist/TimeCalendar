@@ -132,6 +132,26 @@
 			}
 		};
 		
+		//
+		var loadingbarIds = [
+			'#loadingChart',
+			'#loadingCalendar'
+		];
+		var loadingbars = [];
+		
+		for (var q in loadingbarIds) {
+			// make sure that the id exists
+			if ($(loadingbarIds[q]).length) {
+				var newBar = new Mprogress({
+					template: 3, 
+					parent: loadingbarIds[q],
+					start: true  // start it now
+				});
+				loadingbars.push(newBar);
+			}
+		}
+
+		// set default variables for date picker
 		$scope.datepicker = {
 			opened: false
 		};
@@ -295,6 +315,10 @@
 			} else {
 				params.st = moment().startOf('day').valueOf();
 			}
+			for (var b in loadingbars) {
+				console.log('loadingbar');
+				loadingbars[b].start();
+			}
 			dashService.eventItems().get(params, function (res) {
 				// store the events to the calendar
 				$scope.eventSources = res.array;
@@ -371,8 +395,14 @@
 						}
 					}
 				}
+				for (var b in loadingbars) {
+					loadingbars[b].end();
+				}
 				$timeout($scope.changeChartColors, 100);
 			}, function (ignore) {
+				for (var b in loadingbars) {
+					loadingbars[b].end();
+				}
 				// show alert
 				$scope.showAlert('alert-danger', 'Failed to retrieve events!');
 			});

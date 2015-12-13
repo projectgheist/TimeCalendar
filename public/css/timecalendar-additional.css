@@ -96,3 +96,8 @@ td.form-group input[type=text] {
 	background-repeat: no-repeat;
 	background-position: center bottom, center calc(100% - 1px);
 }
+
+/** Mprogress bar styling*/
+.ui-mprogress {
+	margin: 15px 0;
+}

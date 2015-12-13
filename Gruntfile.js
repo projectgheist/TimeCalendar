@@ -40,7 +40,9 @@ module.exports = function(grunt) {
 					
 					'./bower_components/Flowtype.js/flowtype.js',
 					'./bower_components/angular-flowtype/angular-flowtype.js',
-					
+	
+					'./bower_components/mprogress/build/js/mprogress.js',
+	
 					'./private/js/mousetrap.js',
 					'./private/js/jquery.texttailor.js'
 				],
@@ -59,6 +61,7 @@ module.exports = function(grunt) {
 					'./private/css/jquery.minicolors.css',
 					'./bower_components/bootstrap-tagsinput/dist/bootstrap-tagsinput.css',
 					'./bower_components/chartist/dist/chartist.min.css',
+					'./bower_components/mprogress/build/css/mprogress.css',
 				],
 				dest: './public/css/<%= pkg.name %>.css'
 			}

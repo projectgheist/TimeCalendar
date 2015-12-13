@@ -16,12 +16,8 @@ include includes/nav
 								i.fa.fa-search.fa-fw
 						input.form-control(type='text',placeholder='Event name',ng-model='eventName',ng-required,uib-typeahead='e.event.name for e in getEvents($viewValue)',typeahead-loading='loadingEvents',typeahead-no-results='noEvents',typeahead-on-select='onTypeAheadSelect($item, $model, $label)')
 					.alert(ng-class="{'alert-info':noEvents, 'alert-warning':loadingEvents}", ng-show='loadingEvents || noEvents')
-						span(ng-show='loadingEvents')
-							i.fa.fa-refresh
-							| &nbsp;Loading ...
-						span(ng-show='noEvents')
-							i.fa.fa-remove
-							| &nbsp;No events found!
+						p(ng-show='loadingEvents') Loading ...
+						p(ng-show='noEvents') No events found!
 				.row.hidden
 					.col-xs-6
 						.form-group
@@ -43,7 +39,7 @@ include includes/nav
 							i.fa.fa-clock-o.fa-fw
 							| &nbsp;{{e.duration}}
 				button.btn.btn-raised(type='button',ng-click='stopAllEvents()') Stop all
-			.text-muted.text-center(ng-if='!eventSources || !eventSources.length || !eventSources[0].length')
+			.text-muted.text-center(ng-if='eventSources.length && !eventSources[0].length')
 				p
 					i.fa.fa-minus-circle.fa-fw.fa-5x
 				p No current running events
