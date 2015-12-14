@@ -406,7 +406,10 @@
 				for (var b in loadingbars) {
 					loadingbars[b].end();
 				}
-				$timeout($scope.changeChartColors, 100);
+				
+				$('chartist').on('created', function (data) {
+					$scope.changeChartColors();
+				});
 			}, function (ignore) {
 				// end loading bars
 				for (var b in loadingbars) {
@@ -420,6 +423,7 @@
 		//
 		$scope.changeChartColors = function () {
 			for (var i in $scope.eventGroups) {
+				// create css class
 				var className = ['.ct-series-', alphabet.charAt(i), ' .ct-slice-pie'].join('');
 				$(className).css('fill', $scope.eventGroups[i].event.fontBgColor);
 			}
