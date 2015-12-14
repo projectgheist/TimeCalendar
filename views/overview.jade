@@ -13,7 +13,7 @@ include includes/nav
 			h1 Statistics
 	.row(ng-if='chartist.data.series.length')
 		.col-lg-6(style='height:300px')
-			chartist.ct-chart(chartist-data='chartist.data', chartist-chart-type='Pie', chartist-chart-options='chartist.options', chartist-responsive-options='chartist.responsiveOptions')
+			chartist.ct-chart(chartist-data='chartist.data', chartist-chart-type='Pie', chartist-chart-options='chartist.options', chartist-responsive-options='chartist.responsiveOptions', chartist-events='chartist.events')
 		.col-lg-6
 			ul.list-group(ng-show='eventGroups.length')
 				li.list-group-item(ng-repeat='e in eventGroups',style='padding:0 15px')

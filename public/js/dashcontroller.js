@@ -363,7 +363,12 @@
 								labelOffset: 80,
 								chartPadding: 20
 							} ]
-						]
+						],
+						events: {
+							update: function (obj) {
+								$scope.changeChartColors();
+							}
+						}
 					};
 				}
 				// has current running events?
@@ -406,10 +411,6 @@
 				for (var b in loadingbars) {
 					loadingbars[b].end();
 				}
-				
-				$('chartist').on('created', function (data) {
-					$scope.changeChartColors();
-				});
 			}, function (ignore) {
 				// end loading bars
 				for (var b in loadingbars) {
