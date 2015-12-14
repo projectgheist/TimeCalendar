@@ -71,6 +71,7 @@
 		$scope.eventSources = [];
 		$scope.eventGroups = [];
 		$scope.alerts = [];
+		$scope.isAlertEnabled = false;
 	
 		// declare chart variable
 		$scope.chartist = {
@@ -131,6 +132,26 @@
 			}
 		};
 		
+		//
+		var loadingbarIds = [
+			'#loadingChart',
+			'#loadingCalendar'
+		];
+		var loadingbars = [];
+		
+		for (var q in loadingbarIds) {
+			// make sure that the id exists
+			if ($(loadingbarIds[q]).length) {
+				var newBar = new Mprogress({
+					template: 3, 
+					parent: loadingbarIds[q],
+					start: true  // start it now
+				});
+				loadingbars.push(newBar);
+			}
+		}
+
+		// set default variables for date picker
 		$scope.datepicker = {
 			opened: false
 		};
@@ -294,6 +315,10 @@
 			} else {
 				params.st = moment().startOf('day').valueOf();
 			}
+			for (var b in loadingbars) {
+				console.log('loadingbar');
+				loadingbars[b].start();
+			}
 			dashService.eventItems().get(params, function (res) {
 				// store the events to the calendar
 				$scope.eventSources = res.array;
@@ -370,8 +395,14 @@
 						}
 					}
 				}
+				for (var b in loadingbars) {
+					loadingbars[b].end();
+				}
 				$timeout($scope.changeChartColors, 100);
 			}, function (ignore) {
+				for (var b in loadingbars) {
+					loadingbars[b].end();
+				}
 				// show alert
 				$scope.showAlert('alert-danger', 'Failed to retrieve events!');
 			});
@@ -387,15 +418,35 @@
 		
 		//
 		$scope.showAlert = function (style, message) {
-			$scope.alerts.push({
-				alertStyle: style, // 'alert-success';
-				alertMessage: message // 'Successfully store new event!';
-			});
+			// check if alert is already being rendered
+			if ($scope.isAlertEnabled) {
+				// store message
+				$scope.alerts.push({
+					alertStyle: style, // 'alert-success';
+					alertMessage: message // 'Successfully store new event!';
+				});
+			} else {
+				// set variables
+				$scope.alertStyle = style;
+				$scope.alertMessage = message;
+				// reset slideup
+				$('.alert').stop(true, true);
+				// show
+				$scope.isAlertEnabled = true;
+			}
 			// auto hide alert
 			$timeout(function () {
 				$('.alert').fadeTo(2000, 500).slideUp(500, function () {
-					$('.alert').alert('close');
-				})
+					// reset value
+					$scope.isAlertEnabled = false;
+					// display the next alert in the list
+					if ($scope.alerts.length) {
+						// remove from array
+						var ref = $scope.alerts.splice(0, 1)[0];
+						// do above functionality again
+						$scope.showAlert(ref.alertStyle, ref.alertMessage);
+					}
+				});
 			}, 100);
 		};
 

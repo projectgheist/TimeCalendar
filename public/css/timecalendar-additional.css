@@ -76,6 +76,11 @@ form .minicolors-theme-bootstrap .minicolors-swatch {
 	margin-top: 0;
 }
 
+.list-group-item hr {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
 /** Bootstrap UI with Material boostrap */
 td.form-group input[type=text] {
 	margin-left: auto;
@@ -90,4 +95,9 @@ td.form-group input[type=text] {
 	background-size: 0 2px, 100% 1px;
 	background-repeat: no-repeat;
 	background-position: center bottom, center calc(100% - 1px);
+}
+
+/** Mprogress bar styling*/
+.ui-mprogress {
+	margin: 15px 0;
 }
