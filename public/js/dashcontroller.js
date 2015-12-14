@@ -288,9 +288,11 @@
 			$scope.updateStartDate();
 			//
 			if ($scope.eventSources.length) {
+				// reference to running events array
 				var ref = $scope.eventSources[0];
 				// loop all running events
 				for (var i in ref) {
+					// item in array is object?
 					if (typeof ref[i] === 'object') {
 						// set end time to now (it's still running)
 						ref[i].end = Date.now();
@@ -315,8 +317,8 @@
 			} else {
 				params.st = moment().startOf('day').valueOf();
 			}
+			// start loading bars
 			for (var b in loadingbars) {
-				console.log('loadingbar');
 				loadingbars[b].start();
 			}
 			dashService.eventItems().get(params, function (res) {
@@ -334,6 +336,11 @@
 				if ($scope.isWeekView) {
 					$scope.chartist = {
 						data: {
+							// extract event names
+							labels: $scope.eventGroups.map(function (val) {
+								return val.event.title;
+							}),
+							// extract event durations
 							series: $scope.eventGroups.map(function (val) {
 								return val.durationInMin;
 							})
@@ -395,11 +402,13 @@
 						}
 					}
 				}
+				// end loading bars
 				for (var b in loadingbars) {
 					loadingbars[b].end();
 				}
 				$timeout($scope.changeChartColors, 100);
 			}, function (ignore) {
+				// end loading bars
 				for (var b in loadingbars) {
 					loadingbars[b].end();
 				}
