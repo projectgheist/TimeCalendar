@@ -101,3 +101,7 @@ td.form-group input[type=text] {
 .ui-mprogress {
 	margin: 15px 0;
 }
+
+/** Chartist styling */
+.ct-label {
+}

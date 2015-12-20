@@ -160,8 +160,18 @@
 			$scope.datepicker.opened = true;
 		};
 
+		//
 		function onEventClick (event, jsEvent, view) {
+			// set modal header text
 			$('#modalTitle').text(event.title);
+			$scope.eventName = event.title;
+			// set date
+			$scope.newDate = moment(event.start).startOf('day').format('DD MMMM YYYY');
+			// set start time
+			$scope.newStartTime = event.start;
+			// set end time
+			$scope.newEndTime = event.end;
+			// display edit event modal
 			$('#ModalDialog').modal({
 				show: true
 			});
@@ -365,7 +375,7 @@
 							} ]
 						],
 						events: {
-							update: function (obj) {
+							created: function (obj) {
 								$scope.changeChartColors();
 							}
 						}
@@ -424,9 +434,10 @@
 		//
 		$scope.changeChartColors = function () {
 			for (var i in $scope.eventGroups) {
-				// create css class
+				// create css class string
 				var className = ['.ct-series-', alphabet.charAt(i), ' .ct-slice-pie'].join('');
-				$(className).css('fill', $scope.eventGroups[i].event.fontBgColor);
+				// set background color
+				$(className).css('fill', $scope.eventGroups[i].event.color);
 			}
 		};
 		
