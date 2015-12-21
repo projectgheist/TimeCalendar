@@ -311,6 +311,8 @@
 						ref[i].duration = moment(moment().diff(moment(ref[i].start))).format('HH:mm');
 					}
 				}
+				// force calendar re-render
+				$('.calendar').fullCalendar('rerenderEvents');
 			}
 		};
 
