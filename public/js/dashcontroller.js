@@ -135,7 +135,8 @@
 		//
 		var loadingbarIds = [
 			'#loadingChart',
-			'#loadingCalendar'
+			'#loadingCalendar',
+			'#loadingDashboard'
 		];
 		var loadingbars = [];
 		
@@ -160,8 +161,18 @@
 			$scope.datepicker.opened = true;
 		};
 
+		//
 		function onEventClick (event, jsEvent, view) {
+			// set modal header text
 			$('#modalTitle').text(event.title);
+			$scope.eventName = event.title;
+			// set date
+			$scope.newDate = moment(event.start).startOf('day').format('DD MMMM YYYY');
+			// set start time
+			$scope.newStartTime = event.start;
+			// set end time
+			$scope.newEndTime = event.end;
+			// display edit event modal
 			$('#ModalDialog').modal({
 				show: true
 			});
@@ -288,9 +299,11 @@
 			$scope.updateStartDate();
 			//
 			if ($scope.eventSources.length) {
+				// reference to running events array
 				var ref = $scope.eventSources[0];
 				// loop all running events
 				for (var i in ref) {
+					// item in array is object?
 					if (typeof ref[i] === 'object') {
 						// set end time to now (it's still running)
 						ref[i].end = Date.now();
@@ -315,8 +328,8 @@
 			} else {
 				params.st = moment().startOf('day').valueOf();
 			}
+			// start loading bars
 			for (var b in loadingbars) {
-				console.log('loadingbar');
 				loadingbars[b].start();
 			}
 			dashService.eventItems().get(params, function (res) {
@@ -334,6 +347,11 @@
 				if ($scope.isWeekView) {
 					$scope.chartist = {
 						data: {
+							// extract event names
+							labels: $scope.eventGroups.map(function (val) {
+								return val.event.title;
+							}),
+							// extract event durations
 							series: $scope.eventGroups.map(function (val) {
 								return val.durationInMin;
 							})
@@ -356,7 +374,12 @@
 								labelOffset: 80,
 								chartPadding: 20
 							} ]
-						]
+						],
+						events: {
+							created: function (obj) {
+								$scope.changeChartColors();
+							}
+						}
 					};
 				}
 				// has current running events?
@@ -395,11 +418,12 @@
 						}
 					}
 				}
+				// end loading bars
 				for (var b in loadingbars) {
 					loadingbars[b].end();
 				}
-				$timeout($scope.changeChartColors, 100);
 			}, function (ignore) {
+				// end loading bars
 				for (var b in loadingbars) {
 					loadingbars[b].end();
 				}
@@ -411,8 +435,10 @@
 		//
 		$scope.changeChartColors = function () {
 			for (var i in $scope.eventGroups) {
+				// create css class string
 				var className = ['.ct-series-', alphabet.charAt(i), ' .ct-slice-pie'].join('');
-				$(className).css('fill', $scope.eventGroups[i].event.fontBgColor);
+				// set background color
+				$(className).css('fill', $scope.eventGroups[i].event.color);
 			}
 		};
 		

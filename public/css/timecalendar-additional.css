@@ -81,6 +81,11 @@ form .minicolors-theme-bootstrap .minicolors-swatch {
 	margin-bottom: 0;
 }
 
+/** AngularJS styling */
+[ng\:cloak], [ng-cloak], [data-ng-cloak], [x-ng-cloak], .ng-cloak, .x-ng-cloak {
+	display: none !important;
+}
+
 /** Bootstrap UI with Material boostrap */
 td.form-group input[type=text] {
 	margin-left: auto;
@@ -100,4 +105,8 @@ td.form-group input[type=text] {
 /** Mprogress bar styling*/
 .ui-mprogress {
 	margin: 15px 0;
+}
+
+/** Chartist styling */
+.ct-label {
 }

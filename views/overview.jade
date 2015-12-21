@@ -8,14 +8,14 @@ include includes/nav
 					a(href='/',target='_self') Home
 				li.active Overview
 			ng-include(src="'views/templates/alert'", ng-show='isAlertEnabled')
-			.calendar(ui-calendar='uiConfig.calendar', ng-show='eventSources.length', ng-model='eventSources')
+			.calendar(ui-calendar='uiConfig.calendar', ng-model='eventSources')
 			#loadingCalendar(ng-show='!eventSources.length')
 			h1 Statistics
-	.row(ng-if='chartist.data.series.length')
-		.col-lg-6(style='height:300px')
-			chartist.ct-chart(chartist-data='chartist.data', chartist-chart-type='Pie', chartist-chart-options='chartist.options', chartist-responsive-options='chartist.responsiveOptions')
-		.col-lg-6
-			ul.list-group(ng-show='eventGroups.length')
+	.row
+		div(ng-class="{'hidden':!chartist.data.series.length, 'col-lg-6':chartist.data.series.length}", style='height:300px')
+			chartist.ct-chart(chartist-data='chartist.data', chartist-chart-type='Pie', chartist-chart-options='chartist.options', chartist-responsive-options='chartist.responsiveOptions', chartist-events='chartist.events')
+		div(ng-class="{'col-xs-12':!chartist.data.series.length, 'col-xs-6':chartist.data.series.length}")
+			ul.list-group(ng-show='eventGroups.length', ng-cloak='')
 				li.list-group-item(ng-repeat='e in eventGroups',style='padding:0 15px')
 					include templates/event
 			.alert.alert-warning(role='alert', ng-show='!eventGroups.length')

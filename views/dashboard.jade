@@ -4,6 +4,7 @@ include includes/nav
 	.row
 		.col-xs-12
 			ng-include(src="'views/templates/alert'", ng-show='isAlertEnabled')
+			.row#loadingDashboard
 	.row
 		.col-sm-6
 			h2 Start new event
@@ -15,7 +16,7 @@ include includes/nav
 							a.btn.btn-default(href='/edit/eventnames', target='_self')
 								i.fa.fa-search.fa-fw
 						input.form-control(type='text',placeholder='Event name',ng-model='eventName',ng-required,uib-typeahead='e.event.name for e in getEvents($viewValue)',typeahead-loading='loadingEvents',typeahead-no-results='noEvents',typeahead-on-select='onTypeAheadSelect($item, $model, $label)')
-					.alert(ng-class="{'alert-info':noEvents, 'alert-warning':loadingEvents}", ng-show='loadingEvents || noEvents')
+					.alert(ng-class="{'alert-info':noEvents, 'alert-warning':loadingEvents}", ng-show='loadingEvents || noEvents', ng-cloak='')
 						p(ng-show='loadingEvents') Loading ...
 						p(ng-show='noEvents') No events found!
 				.row.hidden
@@ -29,7 +30,7 @@ include includes/nav
 							input.form-control.minicolors#bgcolor(type='hidden',ng-model='bgcolor',data-control='saturation',placeholder='Background color',value='{{bgcolor}}')
 				button.btn.btn-primary(type='button',ng-click='submitEventItem()') Start
 			h2 In progress
-			.form-group(ng-if='eventSources && eventSources.length && eventSources[0].length')
+			.form-group(ng-if='eventSources && eventSources.length && eventSources[0].length', ng-cloak='')
 				.input-group(ng-repeat='e in eventSources[0]')
 					span.input-group-btn
 						button.btn.btn-block(type='button',ng-click='stopEvent(e)')
@@ -38,7 +39,7 @@ include includes/nav
 						small.pull-right
 							i.fa.fa-clock-o.fa-fw
 							| &nbsp;{{e.duration}}
-				button.btn.btn-raised(type='button',ng-click='stopAllEvents()') Stop all
+				button.btn.btn-raised(type='button', ng-click='stopAllEvents()') Stop all
 			.text-muted.text-center(ng-if='eventSources.length && !eventSources[0].length')
 				p
 					i.fa.fa-minus-circle.fa-fw.fa-5x
@@ -53,7 +54,7 @@ include includes/nav
 		.row
 			.col-sm-6
 				h2 Completed events
-				ul.list-group(ng-show='eventSources && eventSources[1]')
+				ul.list-group(ng-show='eventSources && eventSources[1]', ng-cloak='')
 					li.list-group-item(ng-repeat='e in eventSources[1]', ng-click='setNewEvent(e)', style='padding:0 15px')
 						include templates/event
 				.text-muted.text-center(ng-hide='eventSources && eventSources[1].length')
@@ -62,7 +63,7 @@ include includes/nav
 					p No previous events
 			.col-sm-6
 				h2 Statistics
-				ul.list-group(ng-show='eventGroups')
+				ul.list-group(ng-show='eventGroups', ng-cloak='')
 					li.list-group-item(ng-repeat='e in eventGroups', ng-click='setNewEvent(e.event)', style='padding:0 15px')
 						include templates/event
 				.text-muted.text-center(ng-hide='eventGroups.length')
