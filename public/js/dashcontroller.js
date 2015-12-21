@@ -135,7 +135,8 @@
 		//
 		var loadingbarIds = [
 			'#loadingChart',
-			'#loadingCalendar'
+			'#loadingCalendar',
+			'#loadingDashboard'
 		];
 		var loadingbars = [];
 		
