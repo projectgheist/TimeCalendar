@@ -57,10 +57,11 @@
 		'$interval',
 		'$timeout',
 		'$window',
-		'dashService'
+		'dashService',
+		'uiCalendarConfig'
 	];
 
-	function dashController ($rootScope, $scope, $http, $location, $route, $routeParams, $anchorScroll, $sce, $interval, $timeout, $window, dashService) {
+	function dashController ($rootScope, $scope, $http, $location, $route, $routeParams, $anchorScroll, $sce, $interval, $timeout, $window, dashService, uiCalendarConfig) {
 		// !Prevents the page from scrolling to the id
 		$('.nav-tabs a').click(function (e) {
 			e.preventDefault();
@@ -306,13 +307,16 @@
 					// item in array is object?
 					if (typeof ref[i] === 'object') {
 						// set end time to now (it's still running)
-						ref[i].end = Date.now();
+						ref[i].end = moment();
 						// calculate new duration time
 						ref[i].duration = moment(moment().diff(moment(ref[i].start))).format('HH:mm');
 					}
 				}
 				// force calendar re-render
-				$('.calendar').fullCalendar('rerenderEvents');
+				var calendar = uiCalendarConfig.calendars.myCalendar;
+				calendar.fullCalendar('removeEvents');
+				calendar.fullCalendar('addEventSource', $scope.eventSources[0]);
+				calendar.fullCalendar('addEventSource', $scope.eventSources[1]);
 			}
 		};
 
