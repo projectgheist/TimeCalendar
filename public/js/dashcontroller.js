@@ -73,6 +73,7 @@
 		$scope.eventGroups = [];
 		$scope.alerts = [];
 		$scope.isAlertEnabled = false;
+		$scope.totalTime = 0;
 	
 		// declare chart variable
 		$scope.chartist = {

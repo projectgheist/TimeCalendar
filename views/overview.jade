@@ -8,7 +8,7 @@ include includes/nav
 					a(href='/',target='_self') Home
 				li.active Overview
 			ng-include(src="'views/templates/alert'", ng-show='isAlertEnabled')
-			.calendar(ui-calendar='uiConfig.calendar', ng-model='eventSources')
+			.calendar(ui-calendar='uiConfig.calendar', ng-model='eventSources', calendar='myCalendar')
 			#loadingCalendar(ng-show='!eventSources.length')
 			h1 Statistics
 	.row

@@ -20,7 +20,7 @@ var EventItem = sc({
 	startTime: { type: Date, default: Date.now },
 	// date that this event was created
 	endTime: { type: Date },
-	// how long the event lasted
+	// how long the event lasted (in ms)
 	duration: { type: Number, min: 0, default: 0 },
 	// Flag true if event takes up the entire day
 	allDay: { type: Boolean, default: false }
