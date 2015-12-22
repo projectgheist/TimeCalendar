@@ -3,9 +3,12 @@
 var ap = require('./app');
 var pp = require('koa-passport');
 
+// One month in milliseconds
+var ONE_MONTH = 31 * 24 * 60 * 60 * 1000;
+
 /** Sessions */
-ap.keys = ['your-session-secret'];
-ap.use(require('koa-session')(ap));
+ap.keys = [process.env.SESSION_SECRET || 'your-session-secret'];
+ap.use(require('koa-session')({maxAge: ONE_MONTH}, ap));
 
 /** Enable body parsing */
 ap.use(require('koa-bodyparser')());

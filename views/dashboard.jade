@@ -45,7 +45,7 @@ include includes/nav
 					i.fa.fa-minus-circle.fa-fw.fa-5x
 				p No current running events
 		.hidden-xs.col-sm-6
-			.calendar(ui-calendar='uiConfig.calendar',ng-model='eventSources')
+			.calendar(ui-calendar='uiConfig.calendar',ng-model='eventSources', calendar='myCalendar')
 			a.btn(href='/overview',target='_self') Week
 	.hidden-xs
 		.row
