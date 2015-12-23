@@ -66,6 +66,9 @@ include includes/nav
 				ul.list-group(ng-show='eventGroups', ng-cloak='')
 					li.list-group-item(ng-repeat='e in eventGroups', ng-click='setNewEvent(e.event)', style='padding:0 15px')
 						include templates/event
+					hr
+					li.list-group-item(style='background-color: #eeeeee')
+						h4(style='margin:25px 0') Total time
 				.text-muted.text-center(ng-hide='eventGroups.length')
 					p
 						i.fa.fa-warning.fa-fw.fa-5x

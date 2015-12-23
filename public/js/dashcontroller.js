@@ -344,6 +344,8 @@
 				$scope.eventSources = res.array;
 				// store event group data
 				$scope.eventGroups = res.groups;
+				// store total time
+				$scope.totalTime = res.time;
 				// format duration of grouped events
 				for (var i in $scope.eventGroups) {
 					var ref = $scope.eventGroups[i];
