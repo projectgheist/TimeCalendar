@@ -99,6 +99,8 @@ route
 			}, function (ignore, res) {
 				return res;
 			});
+			// declare total time variable
+			var totalTime = 0;
 			// populate the event items' event with events
 			for (var j in grouped) {
 				for (var h in populated) {
@@ -114,8 +116,10 @@ route
 						break;
 					}
 				}
+				// increment total time
+				totalTime += grouped[j].duration;
 			}
-			this.body = {'array': [running, completed], groups: grouped};
+			this.body = {'array': [running, completed], groups: grouped, time: totalTime};
 			this.status = 200;
 		} else {
 			this.body = {message: 'GET Events: Authentication is required'};
@@ -132,7 +136,7 @@ function StopEventItem (Item, Options) {
 	Item.startTime = Options.st ? mm(parseInt(Options.st, 0)) : Item.startTime;
 	// set end time OR floor to the nearest minute
 	Item.endTime = Options.et ? mm(parseInt(Options.et, 0)) : (Item.endTime || mm().add(1, 'minute').startOf('minute'));
-	// ! duration needs to be a value larger then 0
+	// !duration needs to be a value larger then 0
 	Item.duration = mm(Item.endTime).diff(Item.startTime);
 }
 
