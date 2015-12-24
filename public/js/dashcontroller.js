@@ -327,6 +327,14 @@
 		//
 		var sum = function(a, b) { return a + b };
 
+		// Format time duration to string
+		$scope.formatDuration = function (str) {
+			// retrieve day count from total time
+			var days = Math.floor(moment.duration(str).asDays());
+			// format string
+			return (days > 0 ? [days, 'd '].join('') : '') + moment(str).format('HH:mm');
+		};
+		
 		// Retrieve event types 
 		$scope.getEventItems = function () {
 			var params = {};
@@ -345,11 +353,13 @@
 				// store event group data
 				$scope.eventGroups = res.groups;
 				// store total time
-				$scope.totalTime = moment(res.time).format('HH:mm');
+				$scope.totalTime = $scope.formatDuration(res.time);
 				// format duration of grouped events
 				for (var i in $scope.eventGroups) {
 					var ref = $scope.eventGroups[i];
-					ref.duration = moment(ref.duration).format('HH:mm');
+					// format duration to string
+					ref.duration = $scope.formatDuration(ref.duration);
+					// store duration in minutes for sorting use in the chart
 					ref.durationInMin = moment.duration(ref.duration).minutes();
 				}
 				// declare chart data when in overview mode
