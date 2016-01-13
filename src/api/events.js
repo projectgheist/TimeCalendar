@@ -195,11 +195,11 @@ route
 						// find tags in database
 						var newTags = [];
 						for (var k in params.tags) {
-							var tag = yield db.findOrCreate(db.Tag, { 
+							var tag = yield db.findOrCreate(db.Tag, {
 								// All tags from a specific user
 								user: mg.Types.ObjectId(this.req.user),
 								// find by tag name
-								name: params.tags[k] 
+								name: params.tags[k]
 							});
 							newTags.push(tag);
 						}
