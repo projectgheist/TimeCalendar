@@ -65,6 +65,20 @@ ap
 		}
 	});
 
+/** profile route */
+ap
+	.route(/\/profile((\/\w+)+)?\/?/)
+	.get(function * (next) {
+		this.render(
+			'profile',
+			{
+				'config': cf.site
+			},
+			true
+		);
+		yield next;
+	});
+
 /** views route */
 ap
 	.route(/\/views((\/\w+)+)?\/?/)

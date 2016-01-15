@@ -324,7 +324,7 @@
 		// Do every 15 seconds
 		$interval($scope.setRunningEvents, 1000 * 15);
 		
-		//
+		// Return addition of 2 variables
 		var sum = function(a, b) { return a + b };
 
 		// Format time duration to string

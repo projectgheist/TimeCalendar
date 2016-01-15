@@ -46,6 +46,13 @@ describe('Events API (no user)', function () {
 			.expect(302)
 			.end(done);
 	});
+	
+	it('Route - Profile', function (done) {
+		rq
+			.get('/profile')
+			.expect(200)
+			.end(done);
+	});
 
 	it('Route - Login', function (done) {
 		rq
