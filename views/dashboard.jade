@@ -63,7 +63,7 @@ include includes/nav
 					p No previous events
 			.col-sm-6
 				h2 Statistics
-				ul.list-group(ng-show='eventGroups', ng-cloak='')
+				ul.list-group(ng-show='eventGroups && eventGroups.length', ng-cloak='')
 					li.list-group-item(ng-repeat='e in eventGroups', ng-click='setNewEvent(e.event)', style='padding:0 15px')
 						include templates/event
 					li.list-group-item(style='background-color: #eeeeee')
