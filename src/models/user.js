@@ -1,10 +1,13 @@
 /** Includes
  */
 var mg = require('mongoose');
+var sh = require('shortid');
 
 var User = mg.Schema({
 	// Unique identifier
 	openID: { type: String, required: true, index: { unique: true } },
+	// unique identifier
+	sid: { type: String, default: sh.generate },
 	// eg. google, facebook, ...
 	provider: String,
 	// Email address
