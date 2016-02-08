@@ -1,6 +1,7 @@
 /** Includes
  */
 var mg = require('mongoose');
+var sh = require('shortid');
 
 var User = mg.Schema({
 	// Unique identifier
