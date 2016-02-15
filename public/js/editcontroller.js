@@ -54,7 +54,8 @@
 		'editService'
 	];
 
-	/**  */
+	/** The controller class to use
+	 */
 	function editController ($rootScope, $scope, $location, $route, $routeParams, $timeout, editService) {
 		// Declare variables
 		$scope.isEventSelected = false;
@@ -110,6 +111,7 @@
 				$scope.alertMessage = 'Something when wrong submitting new event!';
 			});
 		};
+		
 		// GET tags
 		$scope.getTags = function (value) {
 			var a = value.split(',');

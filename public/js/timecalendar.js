@@ -9209,8 +9209,8 @@ return jQuery;
 
 }));
 ;/**
- * @license AngularJS v1.4.7
- * (c) 2010-2015 Google, Inc. http://angularjs.org
+ * @license AngularJS v1.5.0
+ * (c) 2010-2016 Google, Inc. http://angularjs.org
  * License: MIT
  */
 (function(window, document, undefined) {'use strict';
@@ -9267,7 +9267,7 @@ function minErr(module, ErrorConstructor) {
       return match;
     });
 
-    message += '\nhttp://errors.angularjs.org/1.4.7/' +
+    message += '\nhttp://errors.angularjs.org/1.5.0/' +
       (module ? module + '/' : '') + code;
 
     for (i = SKIP_INDEXES, paramPrefix = '?'; i < templateArgs.length; i++, paramPrefix = '&') {
@@ -9398,29 +9398,9 @@ var REGEX_STRING_REGEXP = /^\/(.+)\/([a-z]*)$/;
 // This is used so that it's possible for internal tests to create mock ValidityStates.
 var VALIDITY_STATE_PROPERTY = 'validity';
 
-/**
- * @ngdoc function
- * @name angular.lowercase
- * @module ng
- * @kind function
- *
- * @description Converts the specified string to lowercase.
- * @param {string} string String to be converted to lowercase.
- * @returns {string} Lowercased string.
- */
-var lowercase = function(string) {return isString(string) ? string.toLowerCase() : string;};
 var hasOwnProperty = Object.prototype.hasOwnProperty;
 
-/**
- * @ngdoc function
- * @name angular.uppercase
- * @module ng
- * @kind function
- *
- * @description Converts the specified string to uppercase.
- * @param {string} string String to be converted to uppercase.
- * @returns {string} Uppercased string.
- */
+var lowercase = function(string) {return isString(string) ? string.toLowerCase() : string;};
 var uppercase = function(string) {return isString(string) ? string.toUpperCase() : string;};
 
 
@@ -9440,7 +9420,7 @@ var manualUppercase = function(s) {
 
 // String#toLowerCase and String#toUpperCase don't produce correct results in browsers with Turkish
 // locale, for this reason we need to detect this case and redefine lowercase/uppercase methods
-// with correct but slower alternatives.
+// with correct but slower alternatives. See https://github.com/angular/angular.js/issues/11387
 if ('i' !== 'I'.toLowerCase()) {
   lowercase = manualLowercase;
   uppercase = manualUppercase;
@@ -9477,20 +9457,25 @@ msie = document.documentMode;
  *                   String ...)
  */
 function isArrayLike(obj) {
-  if (obj == null || isWindow(obj)) {
-    return false;
-  }
+
+  // `null`, `undefined` and `window` are not array-like
+  if (obj == null || isWindow(obj)) return false;
+
+  // arrays, strings and jQuery/jqLite objects are array like
+  // * jqLite is either the jQuery or jqLite constructor function
+  // * we have to check the existence of jqLite first as this method is called
+  //   via the forEach method when constructing the jqLite object in the first place
+  if (isArray(obj) || isString(obj) || (jqLite && obj instanceof jqLite)) return true;
 
   // Support: iOS 8.2 (not reproducible in simulator)
   // "length" in obj used to prevent JIT error (gh-11508)
   var length = "length" in Object(obj) && obj.length;
 
-  if (obj.nodeType === NODE_TYPE_ELEMENT && length) {
-    return true;
-  }
+  // NodeList objects (with `item` method) and
+  // other objects with suitable length characteristics are array-like
+  return isNumber(length) &&
+    (length >= 0 && ((length - 1) in obj || obj instanceof Array) || typeof obj.item == 'function');
 
-  return isString(obj) || isArray(obj) || length === 0 ||
-         typeof length === 'number' && length > 0 && (length - 1) in obj;
 }
 
 /**
@@ -9587,7 +9572,7 @@ function forEachSorted(obj, iterator, context) {
  * @returns {function(*, string)}
  */
 function reverseParams(iteratorFn) {
-  return function(value, key) { iteratorFn(key, value); };
+  return function(value, key) {iteratorFn(key, value);};
 }
 
 /**
@@ -9635,6 +9620,10 @@ function baseExtend(dst, objs, deep) {
           dst[key] = new Date(src.valueOf());
         } else if (isRegExp(src)) {
           dst[key] = new RegExp(src);
+        } else if (src.nodeName) {
+          dst[key] = src.cloneNode(true);
+        } else if (isElement(src)) {
+          dst[key] = src.clone();
         } else {
           if (!isObject(dst[key])) dst[key] = isArray(src) ? [] : {};
           baseExtend(dst[key], [src], true);
@@ -9750,7 +9739,7 @@ identity.$inject = [];
 function valueFn(value) {return function() {return value;};}
 
 function hasCustomToString(obj) {
-  return isFunction(obj.toString) && obj.toString !== Object.prototype.toString;
+  return isFunction(obj.toString) && obj.toString !== toString;
 }
 
 
@@ -9949,9 +9938,13 @@ function isPromiseLike(obj) {
 }
 
 
-var TYPED_ARRAY_REGEXP = /^\[object (Uint8(Clamped)?)|(Uint16)|(Uint32)|(Int8)|(Int16)|(Int32)|(Float(32)|(64))Array\]$/;
+var TYPED_ARRAY_REGEXP = /^\[object (?:Uint8|Uint8Clamped|Uint16|Uint32|Int8|Int16|Int32|Float32|Float64)Array\]$/;
 function isTypedArray(value) {
-  return TYPED_ARRAY_REGEXP.test(toString.call(value));
+  return value && isNumber(value.length) && TYPED_ARRAY_REGEXP.test(toString.call(value));
+}
+
+function isArrayBuffer(obj) {
+  return toString.call(obj) === '[object ArrayBuffer]';
 }
 
 
@@ -9991,7 +9984,7 @@ function isElement(node) {
  * @returns {object} in the form of {key1:true, key2:true, ...}
  */
 function makeMap(str) {
-  var obj = {}, items = str.split(","), i;
+  var obj = {}, items = str.split(','), i;
   for (i = 0; i < items.length; i++) {
     obj[items[i]] = true;
   }
@@ -10073,100 +10066,138 @@ function arrayRemove(array, value) {
  </file>
  </example>
  */
-function copy(source, destination, stackSource, stackDest) {
-  if (isWindow(source) || isScope(source)) {
-    throw ngMinErr('cpws',
-      "Can't copy! Making copies of Window or Scope instances is not supported.");
-  }
-  if (isTypedArray(destination)) {
-    throw ngMinErr('cpta',
-      "Can't copy! TypedArray destination cannot be mutated.");
-  }
+function copy(source, destination) {
+  var stackSource = [];
+  var stackDest = [];
 
-  if (!destination) {
-    destination = source;
-    if (isObject(source)) {
-      var index;
-      if (stackSource && (index = stackSource.indexOf(source)) !== -1) {
-        return stackDest[index];
-      }
-
-      // TypedArray, Date and RegExp have specific copy functionality and must be
-      // pushed onto the stack before returning.
-      // Array and other objects create the base object and recurse to copy child
-      // objects. The array/object will be pushed onto the stack when recursed.
-      if (isArray(source)) {
-        return copy(source, [], stackSource, stackDest);
-      } else if (isTypedArray(source)) {
-        destination = new source.constructor(source);
-      } else if (isDate(source)) {
-        destination = new Date(source.getTime());
-      } else if (isRegExp(source)) {
-        destination = new RegExp(source.source, source.toString().match(/[^\/]*$/)[0]);
-        destination.lastIndex = source.lastIndex;
-      } else if (isFunction(source.cloneNode)) {
-          destination = source.cloneNode(true);
-      } else {
-        var emptyObject = Object.create(getPrototypeOf(source));
-        return copy(source, emptyObject, stackSource, stackDest);
-      }
-
-      if (stackDest) {
-        stackSource.push(source);
-        stackDest.push(destination);
-      }
+  if (destination) {
+    if (isTypedArray(destination) || isArrayBuffer(destination)) {
+      throw ngMinErr('cpta', "Can't copy! TypedArray destination cannot be mutated.");
     }
-  } else {
-    if (source === destination) throw ngMinErr('cpi',
-      "Can't copy! Source and destination are identical.");
-
-    stackSource = stackSource || [];
-    stackDest = stackDest || [];
-
-    if (isObject(source)) {
-      stackSource.push(source);
-      stackDest.push(destination);
+    if (source === destination) {
+      throw ngMinErr('cpi', "Can't copy! Source and destination are identical.");
     }
 
+    // Empty the destination object
+    if (isArray(destination)) {
+      destination.length = 0;
+    } else {
+      forEach(destination, function(value, key) {
+        if (key !== '$$hashKey') {
+          delete destination[key];
+        }
+      });
+    }
+
+    stackSource.push(source);
+    stackDest.push(destination);
+    return copyRecurse(source, destination);
+  }
+
+  return copyElement(source);
+
+  function copyRecurse(source, destination) {
+    var h = destination.$$hashKey;
     var result, key;
     if (isArray(source)) {
-      destination.length = 0;
-      for (var i = 0; i < source.length; i++) {
-        destination.push(copy(source[i], null, stackSource, stackDest));
+      for (var i = 0, ii = source.length; i < ii; i++) {
+        destination.push(copyElement(source[i]));
+      }
+    } else if (isBlankObject(source)) {
+      // createMap() fast path --- Safe to avoid hasOwnProperty check because prototype chain is empty
+      for (key in source) {
+        destination[key] = copyElement(source[key]);
+      }
+    } else if (source && typeof source.hasOwnProperty === 'function') {
+      // Slow path, which must rely on hasOwnProperty
+      for (key in source) {
+        if (source.hasOwnProperty(key)) {
+          destination[key] = copyElement(source[key]);
+        }
       }
     } else {
-      var h = destination.$$hashKey;
-      if (isArray(destination)) {
-        destination.length = 0;
-      } else {
-        forEach(destination, function(value, key) {
-          delete destination[key];
-        });
-      }
-      if (isBlankObject(source)) {
-        // createMap() fast path --- Safe to avoid hasOwnProperty check because prototype chain is empty
-        for (key in source) {
-          destination[key] = copy(source[key], null, stackSource, stackDest);
-        }
-      } else if (source && typeof source.hasOwnProperty === 'function') {
-        // Slow path, which must rely on hasOwnProperty
-        for (key in source) {
-          if (source.hasOwnProperty(key)) {
-            destination[key] = copy(source[key], null, stackSource, stackDest);
-          }
-        }
-      } else {
-        // Slowest path --- hasOwnProperty can't be called as a method
-        for (key in source) {
-          if (hasOwnProperty.call(source, key)) {
-            destination[key] = copy(source[key], null, stackSource, stackDest);
-          }
+      // Slowest path --- hasOwnProperty can't be called as a method
+      for (key in source) {
+        if (hasOwnProperty.call(source, key)) {
+          destination[key] = copyElement(source[key]);
         }
       }
-      setHashKey(destination,h);
+    }
+    setHashKey(destination, h);
+    return destination;
+  }
+
+  function copyElement(source) {
+    // Simple values
+    if (!isObject(source)) {
+      return source;
+    }
+
+    // Already copied values
+    var index = stackSource.indexOf(source);
+    if (index !== -1) {
+      return stackDest[index];
+    }
+
+    if (isWindow(source) || isScope(source)) {
+      throw ngMinErr('cpws',
+        "Can't copy! Making copies of Window or Scope instances is not supported.");
+    }
+
+    var needsRecurse = false;
+    var destination = copyType(source);
+
+    if (destination === undefined) {
+      destination = isArray(source) ? [] : Object.create(getPrototypeOf(source));
+      needsRecurse = true;
+    }
+
+    stackSource.push(source);
+    stackDest.push(destination);
+
+    return needsRecurse
+      ? copyRecurse(source, destination)
+      : destination;
+  }
+
+  function copyType(source) {
+    switch (toString.call(source)) {
+      case '[object Int8Array]':
+      case '[object Int16Array]':
+      case '[object Int32Array]':
+      case '[object Float32Array]':
+      case '[object Float64Array]':
+      case '[object Uint8Array]':
+      case '[object Uint8ClampedArray]':
+      case '[object Uint16Array]':
+      case '[object Uint32Array]':
+        return new source.constructor(copyElement(source.buffer));
+
+      case '[object ArrayBuffer]':
+        //Support: IE10
+        if (!source.slice) {
+          var copied = new ArrayBuffer(source.byteLength);
+          new Uint8Array(copied).set(new Uint8Array(source));
+          return copied;
+        }
+        return source.slice(0);
+
+      case '[object Boolean]':
+      case '[object Number]':
+      case '[object String]':
+      case '[object Date]':
+        return new source.constructor(source.valueOf());
+
+      case '[object RegExp]':
+        var re = new RegExp(source.source, source.toString().match(/[^\/]*$/)[0]);
+        re.lastIndex = source.lastIndex;
+        return re;
+    }
+
+    if (isFunction(source.cloneNode)) {
+      return source.cloneNode(true);
     }
   }
-  return destination;
 }
 
 /**
@@ -10229,38 +10260,37 @@ function equals(o1, o2) {
   if (o1 === null || o2 === null) return false;
   if (o1 !== o1 && o2 !== o2) return true; // NaN === NaN
   var t1 = typeof o1, t2 = typeof o2, length, key, keySet;
-  if (t1 == t2) {
-    if (t1 == 'object') {
-      if (isArray(o1)) {
-        if (!isArray(o2)) return false;
-        if ((length = o1.length) == o2.length) {
-          for (key = 0; key < length; key++) {
-            if (!equals(o1[key], o2[key])) return false;
-          }
-          return true;
-        }
-      } else if (isDate(o1)) {
-        if (!isDate(o2)) return false;
-        return equals(o1.getTime(), o2.getTime());
-      } else if (isRegExp(o1)) {
-        return isRegExp(o2) ? o1.toString() == o2.toString() : false;
-      } else {
-        if (isScope(o1) || isScope(o2) || isWindow(o1) || isWindow(o2) ||
-          isArray(o2) || isDate(o2) || isRegExp(o2)) return false;
-        keySet = createMap();
-        for (key in o1) {
-          if (key.charAt(0) === '$' || isFunction(o1[key])) continue;
+  if (t1 == t2 && t1 == 'object') {
+    if (isArray(o1)) {
+      if (!isArray(o2)) return false;
+      if ((length = o1.length) == o2.length) {
+        for (key = 0; key < length; key++) {
           if (!equals(o1[key], o2[key])) return false;
-          keySet[key] = true;
-        }
-        for (key in o2) {
-          if (!(key in keySet) &&
-              key.charAt(0) !== '$' &&
-              isDefined(o2[key]) &&
-              !isFunction(o2[key])) return false;
         }
         return true;
       }
+    } else if (isDate(o1)) {
+      if (!isDate(o2)) return false;
+      return equals(o1.getTime(), o2.getTime());
+    } else if (isRegExp(o1)) {
+      if (!isRegExp(o2)) return false;
+      return o1.toString() == o2.toString();
+    } else {
+      if (isScope(o1) || isScope(o2) || isWindow(o1) || isWindow(o2) ||
+        isArray(o2) || isDate(o2) || isRegExp(o2)) return false;
+      keySet = createMap();
+      for (key in o1) {
+        if (key.charAt(0) === '$' || isFunction(o1[key])) continue;
+        if (!equals(o1[key], o2[key])) return false;
+        keySet[key] = true;
+      }
+      for (key in o2) {
+        if (!(key in keySet) &&
+            key.charAt(0) !== '$' &&
+            isDefined(o2[key]) &&
+            !isFunction(o2[key])) return false;
+      }
+      return true;
     }
   }
   return false;
@@ -10437,7 +10467,7 @@ function toJsonReplacer(key, value) {
  * @returns {string|undefined} JSON-ified string representing `obj`.
  */
 function toJson(obj, pretty) {
-  if (typeof obj === 'undefined') return undefined;
+  if (isUndefined(obj)) return undefined;
   if (!isNumber(pretty)) {
     pretty = pretty ? 2 : null;
   }
@@ -10464,7 +10494,10 @@ function fromJson(json) {
 }
 
 
+var ALL_COLONS = /:/g;
 function timezoneToOffset(timezone, fallback) {
+  // IE/Edge do not "understand" colon (`:`) in timezone
+  timezone = timezone.replace(ALL_COLONS, '');
   var requestedTimezoneOffset = Date.parse('Jan 01, 1970 00:00:00 ' + timezone) / 60000;
   return isNaN(requestedTimezoneOffset) ? fallback : requestedTimezoneOffset;
 }
@@ -10479,8 +10512,9 @@ function addDateMinutes(date, minutes) {
 
 function convertTimezoneToLocal(date, timezone, reverse) {
   reverse = reverse ? -1 : 1;
-  var timezoneOffset = timezoneToOffset(timezone, date.getTimezoneOffset());
-  return addDateMinutes(date, reverse * (timezoneOffset - date.getTimezoneOffset()));
+  var dateTimezoneOffset = date.getTimezoneOffset();
+  var timezoneOffset = timezoneToOffset(timezone, dateTimezoneOffset);
+  return addDateMinutes(date, reverse * (timezoneOffset - dateTimezoneOffset));
 }
 
 
@@ -10499,7 +10533,7 @@ function startingTag(element) {
     return element[0].nodeType === NODE_TYPE_TEXT ? lowercase(elemHtml) :
         elemHtml.
           match(/^(<[^>]+>)/)[1].
-          replace(/^<([\w\-]+)/, function(match, nodeName) { return '<' + lowercase(nodeName); });
+          replace(/^<([\w\-]+)/, function(match, nodeName) {return '<' + lowercase(nodeName);});
   } catch (e) {
     return lowercase(elemHtml);
   }
@@ -10942,7 +10976,6 @@ function snake_case(name, separator) {
 }
 
 var bindJQueryFired = false;
-var skipDestroyOnNextJQueryCleanData;
 function bindJQuery() {
   var originalCleanData;
 
@@ -10976,15 +11009,11 @@ function bindJQuery() {
     originalCleanData = jQuery.cleanData;
     jQuery.cleanData = function(elems) {
       var events;
-      if (!skipDestroyOnNextJQueryCleanData) {
-        for (var i = 0, elem; (elem = elems[i]) != null; i++) {
-          events = jQuery._data(elem, "events");
-          if (events && events.$destroy) {
-            jQuery(elem).triggerHandler('$destroy');
-          }
+      for (var i = 0, elem; (elem = elems[i]) != null; i++) {
+        events = jQuery._data(elem, "events");
+        if (events && events.$destroy) {
+          jQuery(elem).triggerHandler('$destroy');
         }
-      } else {
-        skipDestroyOnNextJQueryCleanData = false;
       }
       originalCleanData(elems);
     };
@@ -11178,7 +11207,7 @@ function setupModuleLoader(window) {
      *        unspecified then the module is being retrieved for further configuration.
      * @param {Function=} configFn Optional configuration function for the module. Same as
      *        {@link angular.Module#config Module#config()}.
-     * @returns {module} new module with the {@link angular.Module} api.
+     * @returns {angular.Module} new module with the {@link angular.Module} api.
      */
     return function module(name, requires, configFn) {
       var assertNotHasOwnProperty = function(name, context) {
@@ -11290,7 +11319,7 @@ function setupModuleLoader(window) {
            * @param {string} name constant name
            * @param {*} object Constant value.
            * @description
-           * Because the constant are fixed, they get applied before other provide methods.
+           * Because the constants are fixed, they get applied before other provide methods.
            * See {@link auto.$provide#constant $provide.constant()}.
            */
           constant: invokeLater('$provide', 'constant', 'unshift'),
@@ -11383,6 +11412,19 @@ function setupModuleLoader(window) {
            * See {@link ng.$compileProvider#directive $compileProvider.directive()}.
            */
           directive: invokeLaterAndSetModuleName('$compileProvider', 'directive'),
+
+          /**
+           * @ngdoc method
+           * @name angular.Module#component
+           * @module ng
+           * @param {string} name Name of the component in camel-case (i.e. myComp which will match as my-comp)
+           * @param {Object} options Component definition object (a simplified
+           *    {@link ng.$compile#directive-definition-object directive definition object})
+           *
+           * @description
+           * See {@link ng.$compileProvider#component $compileProvider.component()}.
+           */
+          component: invokeLaterAndSetModuleName('$compileProvider', 'component'),
 
           /**
            * @ngdoc method
@@ -11535,11 +11577,14 @@ function toDebugString(obj) {
   $AnchorScrollProvider,
   $AnimateProvider,
   $CoreAnimateCssProvider,
+  $$CoreAnimateJsProvider,
   $$CoreAnimateQueueProvider,
-  $$CoreAnimateRunnerProvider,
+  $$AnimateRunnerFactoryProvider,
+  $$AnimateAsyncRunFactoryProvider,
   $BrowserProvider,
   $CacheFactoryProvider,
   $ControllerProvider,
+  $DateProvider,
   $DocumentProvider,
   $ExceptionHandlerProvider,
   $FilterProvider,
@@ -11589,11 +11634,11 @@ function toDebugString(obj) {
  * - `codeName` – `{string}` – Code name of the release, such as "jiggling-armfat".
  */
 var version = {
-  full: '1.4.7',    // all of these placeholder strings will be replaced by grunt's
+  full: '1.5.0',    // all of these placeholder strings will be replaced by grunt's
   major: 1,    // package task
-  minor: 4,
-  dot: 7,
-  codeName: 'dark-luminescence'
+  minor: 5,
+  dot: 0,
+  codeName: 'ennoblement-facilitation'
 };
 
 
@@ -11695,8 +11740,10 @@ function publishExternalAPI(angular) {
         $anchorScroll: $AnchorScrollProvider,
         $animate: $AnimateProvider,
         $animateCss: $CoreAnimateCssProvider,
+        $$animateJs: $$CoreAnimateJsProvider,
         $$animateQueue: $$CoreAnimateQueueProvider,
-        $$AnimateRunner: $$CoreAnimateRunnerProvider,
+        $$AnimateRunner: $$AnimateRunnerFactoryProvider,
+        $$animateAsyncRun: $$AnimateAsyncRunFactoryProvider,
         $browser: $BrowserProvider,
         $cacheFactory: $CacheFactoryProvider,
         $controller: $ControllerProvider,
@@ -11767,16 +11814,22 @@ function publishExternalAPI(angular) {
  *
  * If jQuery is available, `angular.element` is an alias for the
  * [jQuery](http://api.jquery.com/jQuery/) function. If jQuery is not available, `angular.element`
- * delegates to Angular's built-in subset of jQuery, called "jQuery lite" or "jqLite."
+ * delegates to Angular's built-in subset of jQuery, called "jQuery lite" or **jqLite**.
  *
- * <div class="alert alert-success">jqLite is a tiny, API-compatible subset of jQuery that allows
- * Angular to manipulate the DOM in a cross-browser compatible way. **jqLite** implements only the most
- * commonly needed functionality with the goal of having a very small footprint.</div>
+ * jqLite is a tiny, API-compatible subset of jQuery that allows
+ * Angular to manipulate the DOM in a cross-browser compatible way. jqLite implements only the most
+ * commonly needed functionality with the goal of having a very small footprint.
  *
- * To use `jQuery`, simply ensure it is loaded before the `angular.js` file.
+ * To use `jQuery`, simply ensure it is loaded before the `angular.js` file. You can also use the
+ * {@link ngJq `ngJq`} directive to specify that jqlite should be used over jQuery, or to use a
+ * specific version of jQuery if multiple versions exist on the page.
  *
- * <div class="alert">**Note:** all element references in Angular are always wrapped with jQuery or
- * jqLite; they are never raw DOM references.</div>
+ * <div class="alert alert-info">**Note:** All element references in Angular are always wrapped with jQuery or
+ * jqLite (such as the element argument in a directive's compile / link function). They are never raw DOM references.</div>
+ *
+ * <div class="alert alert-warning">**Note:** Keep in mind that this function will not find elements
+ * by tag name / CSS selector. For lookups by tag name, try instead `angular.element(document).find(...)`
+ * or `$document.find()`, or use the standard DOM APIs, e.g. `document.querySelectorAll()`.</div>
  *
  * ## Angular's jqLite
  * jqLite provides only the following jQuery methods:
@@ -11789,7 +11842,8 @@ function publishExternalAPI(angular) {
  * - [`children()`](http://api.jquery.com/children/) - Does not support selectors
  * - [`clone()`](http://api.jquery.com/clone/)
  * - [`contents()`](http://api.jquery.com/contents/)
- * - [`css()`](http://api.jquery.com/css/) - Only retrieves inline-styles, does not call `getComputedStyle()`. As a setter, does not convert numbers to strings or append 'px'.
+ * - [`css()`](http://api.jquery.com/css/) - Only retrieves inline-styles, does not call `getComputedStyle()`.
+ *   As a setter, does not convert numbers to strings or append 'px', and also does not have automatic property prefixing.
  * - [`data()`](http://api.jquery.com/data/)
  * - [`detach()`](http://api.jquery.com/detach/)
  * - [`empty()`](http://api.jquery.com/empty/)
@@ -11923,6 +11977,12 @@ function jqLiteHasData(node) {
   return false;
 }
 
+function jqLiteCleanData(nodes) {
+  for (var i = 0, ii = nodes.length; i < ii; i++) {
+    jqLiteRemoveData(nodes[i]);
+  }
+}
+
 function jqLiteBuildFragment(html, context) {
   var tmp, tag, wrap,
       fragment = context.createDocumentFragment(),
@@ -11974,6 +12034,24 @@ function jqLiteParseHTML(html, context) {
 
   return [];
 }
+
+function jqLiteWrapNode(node, wrapper) {
+  var parent = node.parentNode;
+
+  if (parent) {
+    parent.replaceChild(wrapper, node);
+  }
+
+  wrapper.appendChild(node);
+}
+
+
+// IE9-11 has no method "contains" in SVG element and in Node.prototype. Bug #10259.
+var jqLiteContains = Node.prototype.contains || function(arg) {
+  // jshint bitwise: false
+  return !!(this.compareDocumentPosition(arg) & 16);
+  // jshint bitwise: true
+};
 
 /////////////////////////////////////////////
 function JQLite(element) {
@@ -12033,17 +12111,23 @@ function jqLiteOff(element, type, fn, unsupported) {
       delete events[type];
     }
   } else {
-    forEach(type.split(' '), function(type) {
-      if (isDefined(fn)) {
-        var listenerFns = events[type];
-        arrayRemove(listenerFns || [], fn);
-        if (listenerFns && listenerFns.length > 0) {
-          return;
-        }
-      }
 
-      removeEventListenerFn(element, type, handle);
-      delete events[type];
+    var removeHandler = function(type) {
+      var listenerFns = events[type];
+      if (isDefined(fn)) {
+        arrayRemove(listenerFns || [], fn);
+      }
+      if (!(isDefined(fn) && listenerFns && listenerFns.length > 0)) {
+        removeEventListenerFn(element, type, handle);
+        delete events[type];
+      }
+    };
+
+    forEach(type.split(' '), function(type) {
+      removeHandler(type);
+      if (MOUSE_EVENT_MAP[type]) {
+        removeHandler(MOUSE_EVENT_MAP[type]);
+      }
     });
   }
 }
@@ -12211,7 +12295,7 @@ function jqLiteRemove(element, keepData) {
 function jqLiteDocumentLoaded(action, win) {
   win = win || window;
   if (win.document.readyState === 'complete') {
-    // Force the action to be run async for consistent behaviour
+    // Force the action to be run async for consistent behavior
     // from the action's point of view
     // i.e. it will definitely not be in a $apply
     win.setTimeout(action);
@@ -12297,7 +12381,8 @@ function getAliasedAttrName(name) {
 forEach({
   data: jqLiteData,
   removeData: jqLiteRemoveData,
-  hasData: jqLiteHasData
+  hasData: jqLiteHasData,
+  cleanData: jqLiteCleanData
 }, function(fn, name) {
   JQLite[name] = fn;
 });
@@ -12498,6 +12583,9 @@ function createEventHandler(element, events) {
       return event.immediatePropagationStopped === true;
     };
 
+    // Some events have special handlers that wrap the real handler
+    var handlerWrapper = eventFns.specialHandlerWrapper || defaultHandlerWrapper;
+
     // Copy event handlers in case event handlers array is modified during execution.
     if ((eventFnsLength > 1)) {
       eventFns = shallowCopy(eventFns);
@@ -12505,7 +12593,7 @@ function createEventHandler(element, events) {
 
     for (var i = 0; i < eventFnsLength; i++) {
       if (!event.isImmediatePropagationStopped()) {
-        eventFns[i].call(element, event);
+        handlerWrapper(element, event, eventFns[i]);
       }
     }
   };
@@ -12514,6 +12602,22 @@ function createEventHandler(element, events) {
   //       events on `element`
   eventHandler.elem = element;
   return eventHandler;
+}
+
+function defaultHandlerWrapper(element, event, handler) {
+  handler.call(element, event);
+}
+
+function specialMouseHandlerWrapper(target, event, handler) {
+  // Refer to jQuery's implementation of mouseenter & mouseleave
+  // Read about mouseenter and mouseleave:
+  // http://www.quirksmode.org/js/events_mouse.html#link8
+  var related = event.relatedTarget;
+  // For mousenter/leave call the handler if related is outside the target.
+  // NB: No relatedTarget if the mouse left/entered the browser window
+  if (!related || (related !== target && !jqLiteContains.call(target, related))) {
+    handler.call(target, event);
+  }
 }
 
 //////////////////////////////////////////
@@ -12544,35 +12648,28 @@ forEach({
     var types = type.indexOf(' ') >= 0 ? type.split(' ') : [type];
     var i = types.length;
 
-    while (i--) {
-      type = types[i];
+    var addHandler = function(type, specialHandlerWrapper, noEventListener) {
       var eventFns = events[type];
 
       if (!eventFns) {
-        events[type] = [];
-
-        if (type === 'mouseenter' || type === 'mouseleave') {
-          // Refer to jQuery's implementation of mouseenter & mouseleave
-          // Read about mouseenter and mouseleave:
-          // http://www.quirksmode.org/js/events_mouse.html#link8
-
-          jqLiteOn(element, MOUSE_EVENT_MAP[type], function(event) {
-            var target = this, related = event.relatedTarget;
-            // For mousenter/leave call the handler if related is outside the target.
-            // NB: No relatedTarget if the mouse left/entered the browser window
-            if (!related || (related !== target && !target.contains(related))) {
-              handle(event, type);
-            }
-          });
-
-        } else {
-          if (type !== '$destroy') {
-            addEventListenerFn(element, type, handle);
-          }
+        eventFns = events[type] = [];
+        eventFns.specialHandlerWrapper = specialHandlerWrapper;
+        if (type !== '$destroy' && !noEventListener) {
+          addEventListenerFn(element, type, handle);
         }
-        eventFns = events[type];
       }
+
       eventFns.push(fn);
+    };
+
+    while (i--) {
+      type = types[i];
+      if (MOUSE_EVENT_MAP[type]) {
+        addHandler(MOUSE_EVENT_MAP[type], specialMouseHandlerWrapper);
+        addHandler(type, undefined, true);
+      } else {
+        addHandler(type);
+      }
     }
   },
 
@@ -12640,12 +12737,7 @@ forEach({
   },
 
   wrap: function(element, wrapNode) {
-    wrapNode = jqLite(wrapNode).eq(0).clone()[0];
-    var parent = element.parentNode;
-    if (parent) {
-      parent.replaceChild(wrapNode, element);
-    }
-    wrapNode.appendChild(element);
+    jqLiteWrapNode(element, jqLite(wrapNode).eq(0).clone()[0]);
   },
 
   remove: jqLiteRemove,
@@ -12923,17 +13015,23 @@ var $$HashMapProvider = [function() {
  * Implicit module which gets automatically added to each {@link auto.$injector $injector}.
  */
 
+var ARROW_ARG = /^([^\(]+?)=>/;
 var FN_ARGS = /^[^\(]*\(\s*([^\)]*)\)/m;
 var FN_ARG_SPLIT = /,/;
 var FN_ARG = /^\s*(_?)(\S+?)\1\s*$/;
 var STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
 var $injectorMinErr = minErr('$injector');
 
+function extractArgs(fn) {
+  var fnText = fn.toString().replace(STRIP_COMMENTS, ''),
+      args = fnText.match(ARROW_ARG) || fnText.match(FN_ARGS);
+  return args;
+}
+
 function anonFn(fn) {
   // For anonymous functions, showing at the very least the function signature can help in
   // debugging.
-  var fnText = fn.toString().replace(STRIP_COMMENTS, ''),
-      args = fnText.match(FN_ARGS);
+  var args = extractArgs(fn);
   if (args) {
     return 'function(' + (args[1] || '').replace(/[\s\r\n]+/, ' ') + ')';
   }
@@ -12942,7 +13040,6 @@ function anonFn(fn) {
 
 function annotate(fn, strictDi, name) {
   var $inject,
-      fnText,
       argDecl,
       last;
 
@@ -12957,8 +13054,7 @@ function annotate(fn, strictDi, name) {
           throw $injectorMinErr('strictdi',
             '{0} is not using explicit annotation and cannot be invoked in strict mode', name);
         }
-        fnText = fn.toString().replace(STRIP_COMMENTS, '');
-        argDecl = fnText.match(FN_ARGS);
+        argDecl = extractArgs(fn);
         forEach(argDecl[1].split(FN_ARG_SPLIT), function(arg) {
           arg.replace(FN_ARG, function(all, underscore, name) {
             $inject.push(name);
@@ -13348,8 +13444,20 @@ function annotate(fn, strictDi, name) {
  *
  * Register a **service constructor**, which will be invoked with `new` to create the service
  * instance.
- * This is short for registering a service where its provider's `$get` property is the service
- * constructor function that will be used to instantiate the service instance.
+ * This is short for registering a service where its provider's `$get` property is a factory
+ * function that returns an instance instantiated by the injector from the service constructor
+ * function.
+ *
+ * Internally it looks a bit like this:
+ *
+ * ```
+ * {
+ *   $get: function() {
+ *     return $injector.instantiate(constructor);
+ *   }
+ * }
+ * ```
+ *
  *
  * You should use {@link auto.$provide#service $provide.service(class)} if you define your service
  * as a type/class.
@@ -13450,7 +13558,7 @@ function annotate(fn, strictDi, name) {
  * @description
  *
  * Register a **service decorator** with the {@link auto.$injector $injector}. A service decorator
- * intercepts the creation of a service, allowing it to override or modify the behaviour of the
+ * intercepts the creation of a service, allowing it to override or modify the behavior of the
  * service. The object returned by the decorator may be the original service, or a new service
  * object which replaces or wraps and delegates to the original service.
  *
@@ -13499,14 +13607,19 @@ function createInjector(modulesToLoad, strictDi) {
             throw $injectorMinErr('unpr', "Unknown provider: {0}", path.join(' <- '));
           })),
       instanceCache = {},
-      instanceInjector = (instanceCache.$injector =
+      protoInstanceInjector =
           createInternalInjector(instanceCache, function(serviceName, caller) {
             var provider = providerInjector.get(serviceName + providerSuffix, caller);
-            return instanceInjector.invoke(provider.$get, provider, undefined, serviceName);
-          }));
+            return instanceInjector.invoke(
+                provider.$get, provider, undefined, serviceName);
+          }),
+      instanceInjector = protoInstanceInjector;
 
-
-  forEach(loadModules(modulesToLoad), function(fn) { if (fn) instanceInjector.invoke(fn); });
+  providerCache['$injector' + providerSuffix] = { $get: valueFn(protoInstanceInjector) };
+  var runBlocks = loadModules(modulesToLoad);
+  instanceInjector = protoInstanceInjector.get('$injector');
+  instanceInjector.strictDi = strictDi;
+  forEach(runBlocks, function(fn) { if (fn) instanceInjector.invoke(fn); });
 
   return instanceInjector;
 
@@ -13656,47 +13769,66 @@ function createInjector(modulesToLoad, strictDi) {
       }
     }
 
+
+    function injectionArgs(fn, locals, serviceName) {
+      var args = [],
+          $inject = createInjector.$$annotate(fn, strictDi, serviceName);
+
+      for (var i = 0, length = $inject.length; i < length; i++) {
+        var key = $inject[i];
+        if (typeof key !== 'string') {
+          throw $injectorMinErr('itkn',
+                  'Incorrect injection token! Expected service name as string, got {0}', key);
+        }
+        args.push(locals && locals.hasOwnProperty(key) ? locals[key] :
+                                                         getService(key, serviceName));
+      }
+      return args;
+    }
+
+    function isClass(func) {
+      // IE 9-11 do not support classes and IE9 leaks with the code below.
+      if (msie <= 11) {
+        return false;
+      }
+      // Workaround for MS Edge.
+      // Check https://connect.microsoft.com/IE/Feedback/Details/2211653
+      return typeof func === 'function'
+        && /^(?:class\s|constructor\()/.test(Function.prototype.toString.call(func));
+    }
+
     function invoke(fn, self, locals, serviceName) {
       if (typeof locals === 'string') {
         serviceName = locals;
         locals = null;
       }
 
-      var args = [],
-          $inject = createInjector.$$annotate(fn, strictDi, serviceName),
-          length, i,
-          key;
-
-      for (i = 0, length = $inject.length; i < length; i++) {
-        key = $inject[i];
-        if (typeof key !== 'string') {
-          throw $injectorMinErr('itkn',
-                  'Incorrect injection token! Expected service name as string, got {0}', key);
-        }
-        args.push(
-          locals && locals.hasOwnProperty(key)
-          ? locals[key]
-          : getService(key, serviceName)
-        );
-      }
+      var args = injectionArgs(fn, locals, serviceName);
       if (isArray(fn)) {
-        fn = fn[length];
+        fn = fn[fn.length - 1];
       }
 
-      // http://jsperf.com/angularjs-invoke-apply-vs-switch
-      // #5388
-      return fn.apply(self, args);
+      if (!isClass(fn)) {
+        // http://jsperf.com/angularjs-invoke-apply-vs-switch
+        // #5388
+        return fn.apply(self, args);
+      } else {
+        args.unshift(null);
+        return new (Function.prototype.bind.apply(fn, args))();
+      }
     }
+
 
     function instantiate(Type, locals, serviceName) {
       // Check if Type is annotated and use just the given function at n-1 as parameter
       // e.g. someModule.factory('greeter', ['$window', function(renamed$window) {}]);
-      // Object creation: http://jsperf.com/create-constructor/2
-      var instance = Object.create((isArray(Type) ? Type[Type.length - 1] : Type).prototype || null);
-      var returnedValue = invoke(Type, instance, locals, serviceName);
-
-      return isObject(returnedValue) || isFunction(returnedValue) ? returnedValue : instance;
+      var ctor = (isArray(Type) ? Type[Type.length - 1] : Type);
+      var args = injectionArgs(Type, locals, serviceName);
+      // Empty object at position 0 is ignored for invocation with `new`, but required.
+      args.unshift(null);
+      return new (Function.prototype.bind.apply(ctor, args))();
     }
+
 
     return {
       invoke: invoke,
@@ -13753,7 +13885,7 @@ function $AnchorScrollProvider() {
    * When called, it scrolls to the element related to the specified `hash` or (if omitted) to the
    * current value of {@link ng.$location#hash $location.hash()}, according to the rules specified
    * in the
-   * [HTML5 spec](http://dev.w3.org/html5/spec/Overview.html#the-indicated-part-of-the-document).
+   * [HTML5 spec](http://www.w3.org/html/wg/drafts/html/master/browsers.html#the-indicated-part-of-the-document).
    *
    * It also watches the {@link ng.$location#hash $location.hash()} and automatically scrolls to
    * match any anchor whenever it changes. This can be disabled by calling
@@ -14036,27 +14168,8 @@ function prepareAnimateOptions(options) {
       : {};
 }
 
-var $$CoreAnimateRunnerProvider = function() {
-  this.$get = ['$q', '$$rAF', function($q, $$rAF) {
-    function AnimateRunner() {}
-    AnimateRunner.all = noop;
-    AnimateRunner.chain = noop;
-    AnimateRunner.prototype = {
-      end: noop,
-      cancel: noop,
-      resume: noop,
-      pause: noop,
-      complete: noop,
-      then: function(pass, fail) {
-        return $q(function(resolve) {
-          $$rAF(function() {
-            resolve();
-          });
-        }).then(pass, fail);
-      }
-    };
-    return AnimateRunner;
-  }];
+var $$CoreAnimateJsProvider = function() {
+  this.$get = function() {};
 };
 
 // this is prefixed with Core since it conflicts with
@@ -14084,7 +14197,12 @@ var $$CoreAnimateQueueProvider = function() {
           addRemoveClassesPostDigest(element, options.addClass, options.removeClass);
         }
 
-        return new $$AnimateRunner(); // jshint ignore:line
+        var runner = new $$AnimateRunner(); // jshint ignore:line
+
+        // since there are no animations to run the runner needs to be
+        // notified that the animation call is complete.
+        runner.complete();
+        return runner;
       }
     };
 
@@ -14268,7 +14386,7 @@ var $AnimateProvider = ['$provide', function($provide) {
      * when an animation is detected (and animations are enabled), $animate will do the heavy lifting
      * to ensure that animation runs with the triggered DOM operation.
      *
-     * By default $animate doesn't trigger an animations. This is because the `ngAnimate` module isn't
+     * By default $animate doesn't trigger any animations. This is because the `ngAnimate` module isn't
      * included and only when it is active then the animation hooks that `$animate` triggers will be
      * functional. Once active then all structural `ng-` directives will trigger animations as they perform
      * their DOM-related operations (enter, leave and move). Other directives such as `ngClass`,
@@ -14326,8 +14444,8 @@ var $AnimateProvider = ['$provide', function($provide) {
        * // remove all the animation event listeners listening for `enter` on the given element and its children
        * $animate.off('enter', container);
        *
-       * // remove the event listener function provided by `listenerFn` that is set
-       * // to listen for `enter` on the given `element` as well as its children
+       * // remove the event listener function provided by `callback` that is set
+       * // to listen for `enter` on the given `container` as well as its children
        * $animate.off('enter', container, callback);
        * ```
        *
@@ -14549,17 +14667,30 @@ var $AnimateProvider = ['$provide', function($provide) {
        * @kind function
        *
        * @description Performs an inline animation on the element which applies the provided to and from CSS styles to the element.
-       * If any detected CSS transition, keyframe or JavaScript matches the provided className value then the animation will take
-       * on the provided styles. For example, if a transition animation is set for the given className then the provided from and
-       * to styles will be applied alongside the given transition. If a JavaScript animation is detected then the provided styles
-       * will be given in as function paramters into the `animate` method (or as apart of the `options` parameter).
+       * If any detected CSS transition, keyframe or JavaScript matches the provided className value, then the animation will take
+       * on the provided styles. For example, if a transition animation is set for the given classNamem, then the provided `from` and
+       * `to` styles will be applied alongside the given transition. If the CSS style provided in `from` does not have a corresponding
+       * style in `to`, the style in `from` is applied immediately, and no animation is run.
+       * If a JavaScript animation is detected then the provided styles will be given in as function parameters into the `animate`
+       * method (or as part of the `options` parameter):
+       *
+       * ```js
+       * ngModule.animation('.my-inline-animation', function() {
+       *   return {
+       *     animate : function(element, from, to, done, options) {
+       *       //animation
+       *       done();
+       *     }
+       *   }
+       * });
+       * ```
        *
        * @param {DOMElement} element the element which the CSS styles will be applied to
        * @param {object} from the from (starting) CSS styles that will be applied to the element and across the animation.
        * @param {object} to the to (destination) CSS styles that will be applied to the element and across the animation.
        * @param {string=} className an optional CSS class that will be applied to the element for the duration of the animation. If
        *    this value is left as empty then a CSS class of `ng-inline-animate` will be applied to the element.
-       *    (Note that if no animation is detected then this value will not be appplied to the element.)
+       *    (Note that if no animation is detected then this value will not be applied to the element.)
        * @param {object=} options an optional collection of options/styles that will be applied to the element
        *
        * @return {Promise} the animation callback promise
@@ -14577,6 +14708,190 @@ var $AnimateProvider = ['$provide', function($provide) {
   }];
 }];
 
+var $$AnimateAsyncRunFactoryProvider = function() {
+  this.$get = ['$$rAF', function($$rAF) {
+    var waitQueue = [];
+
+    function waitForTick(fn) {
+      waitQueue.push(fn);
+      if (waitQueue.length > 1) return;
+      $$rAF(function() {
+        for (var i = 0; i < waitQueue.length; i++) {
+          waitQueue[i]();
+        }
+        waitQueue = [];
+      });
+    }
+
+    return function() {
+      var passed = false;
+      waitForTick(function() {
+        passed = true;
+      });
+      return function(callback) {
+        passed ? callback() : waitForTick(callback);
+      };
+    };
+  }];
+};
+
+var $$AnimateRunnerFactoryProvider = function() {
+  this.$get = ['$q', '$sniffer', '$$animateAsyncRun', '$document', '$timeout',
+       function($q,   $sniffer,   $$animateAsyncRun,   $document,   $timeout) {
+
+    var INITIAL_STATE = 0;
+    var DONE_PENDING_STATE = 1;
+    var DONE_COMPLETE_STATE = 2;
+
+    AnimateRunner.chain = function(chain, callback) {
+      var index = 0;
+
+      next();
+      function next() {
+        if (index === chain.length) {
+          callback(true);
+          return;
+        }
+
+        chain[index](function(response) {
+          if (response === false) {
+            callback(false);
+            return;
+          }
+          index++;
+          next();
+        });
+      }
+    };
+
+    AnimateRunner.all = function(runners, callback) {
+      var count = 0;
+      var status = true;
+      forEach(runners, function(runner) {
+        runner.done(onProgress);
+      });
+
+      function onProgress(response) {
+        status = status && response;
+        if (++count === runners.length) {
+          callback(status);
+        }
+      }
+    };
+
+    function AnimateRunner(host) {
+      this.setHost(host);
+
+      var rafTick = $$animateAsyncRun();
+      var timeoutTick = function(fn) {
+        $timeout(fn, 0, false);
+      };
+
+      this._doneCallbacks = [];
+      this._tick = function(fn) {
+        var doc = $document[0];
+
+        // the document may not be ready or attached
+        // to the module for some internal tests
+        if (doc && doc.hidden) {
+          timeoutTick(fn);
+        } else {
+          rafTick(fn);
+        }
+      };
+      this._state = 0;
+    }
+
+    AnimateRunner.prototype = {
+      setHost: function(host) {
+        this.host = host || {};
+      },
+
+      done: function(fn) {
+        if (this._state === DONE_COMPLETE_STATE) {
+          fn();
+        } else {
+          this._doneCallbacks.push(fn);
+        }
+      },
+
+      progress: noop,
+
+      getPromise: function() {
+        if (!this.promise) {
+          var self = this;
+          this.promise = $q(function(resolve, reject) {
+            self.done(function(status) {
+              status === false ? reject() : resolve();
+            });
+          });
+        }
+        return this.promise;
+      },
+
+      then: function(resolveHandler, rejectHandler) {
+        return this.getPromise().then(resolveHandler, rejectHandler);
+      },
+
+      'catch': function(handler) {
+        return this.getPromise()['catch'](handler);
+      },
+
+      'finally': function(handler) {
+        return this.getPromise()['finally'](handler);
+      },
+
+      pause: function() {
+        if (this.host.pause) {
+          this.host.pause();
+        }
+      },
+
+      resume: function() {
+        if (this.host.resume) {
+          this.host.resume();
+        }
+      },
+
+      end: function() {
+        if (this.host.end) {
+          this.host.end();
+        }
+        this._resolve(true);
+      },
+
+      cancel: function() {
+        if (this.host.cancel) {
+          this.host.cancel();
+        }
+        this._resolve(false);
+      },
+
+      complete: function(response) {
+        var self = this;
+        if (self._state === INITIAL_STATE) {
+          self._state = DONE_PENDING_STATE;
+          self._tick(function() {
+            self._resolve(response);
+          });
+        }
+      },
+
+      _resolve: function(response) {
+        if (this._state !== DONE_COMPLETE_STATE) {
+          forEach(this._doneCallbacks, function(fn) {
+            fn(response);
+          });
+          this._doneCallbacks.length = 0;
+          this._state = DONE_COMPLETE_STATE;
+        }
+      }
+    };
+
+    return AnimateRunner;
+  }];
+};
+
 /**
  * @ngdoc service
  * @name $animateCss
@@ -14589,37 +14904,18 @@ var $AnimateProvider = ['$provide', function($provide) {
  * Click here {@link ngAnimate.$animateCss to read the documentation for $animateCss}.
  */
 var $CoreAnimateCssProvider = function() {
-  this.$get = ['$$rAF', '$q', function($$rAF, $q) {
+  this.$get = ['$$rAF', '$q', '$$AnimateRunner', function($$rAF, $q, $$AnimateRunner) {
 
-    var RAFPromise = function() {};
-    RAFPromise.prototype = {
-      done: function(cancel) {
-        this.defer && this.defer[cancel === true ? 'reject' : 'resolve']();
-      },
-      end: function() {
-        this.done();
-      },
-      cancel: function() {
-        this.done(true);
-      },
-      getPromise: function() {
-        if (!this.defer) {
-          this.defer = $q.defer();
-        }
-        return this.defer.promise;
-      },
-      then: function(f1,f2) {
-        return this.getPromise().then(f1,f2);
-      },
-      'catch': function(f1) {
-        return this.getPromise()['catch'](f1);
-      },
-      'finally': function(f1) {
-        return this.getPromise()['finally'](f1);
+    return function(element, initialOptions) {
+      // all of the animation functions should create
+      // a copy of the options data, however, if a
+      // parent service has already created a copy then
+      // we should stick to using that
+      var options = initialOptions || {};
+      if (!options.$$prepared) {
+        options = copy(options);
       }
-    };
 
-    return function(element, options) {
       // there is no point in applying the styles since
       // there is no animation that goes on at all in
       // this version of $animateCss.
@@ -14632,7 +14928,8 @@ var $CoreAnimateCssProvider = function() {
         options.from = null;
       }
 
-      var closed, runner = new RAFPromise();
+      /* jshint newcap: false */
+      var closed, runner = new $$AnimateRunner();
       return {
         start: run,
         end: run
@@ -14640,16 +14937,16 @@ var $CoreAnimateCssProvider = function() {
 
       function run() {
         $$rAF(function() {
-          close();
+          applyAnimationContents();
           if (!closed) {
-            runner.done();
+            runner.complete();
           }
           closed = true;
         });
         return runner;
       }
 
-      function close() {
+      function applyAnimationContents() {
         if (options.addClass) {
           element.addClass(options.addClass);
           options.addClass = null;
@@ -15120,9 +15417,9 @@ function $CacheFactoryProvider() {
 
       var size = 0,
           stats = extend({}, options, {id: cacheId}),
-          data = {},
+          data = createMap(),
           capacity = (options && options.capacity) || Number.MAX_VALUE,
-          lruHash = {},
+          lruHash = createMap(),
           freshEnd = null,
           staleEnd = null;
 
@@ -15250,6 +15547,8 @@ function $CacheFactoryProvider() {
             delete lruHash[key];
           }
 
+          if (!(key in data)) return;
+
           delete data[key];
           size--;
         },
@@ -15264,9 +15563,9 @@ function $CacheFactoryProvider() {
          * Clears the cache object of any entries.
          */
         removeAll: function() {
-          data = {};
+          data = createMap();
           size = 0;
-          lruHash = {};
+          lruHash = createMap();
           freshEnd = staleEnd = null;
         },
 
@@ -15555,7 +15854,7 @@ function $TemplateCacheProvider() {
  * When this property is set to true, the HTML compiler will collect DOM nodes between
  * nodes with the attributes `directive-name-start` and `directive-name-end`, and group them
  * together as the directive elements. It is recommended that this feature be used on directives
- * which are not strictly behavioural (such as {@link ngClick}), and which
+ * which are not strictly behavioral (such as {@link ngClick}), and which
  * do not manipulate or replace child nodes (such as {@link ngInclude}).
  *
  * #### `priority`
@@ -15593,35 +15892,62 @@ function $TemplateCacheProvider() {
  * is bound to the parent scope, via matching attributes on the directive's element:
  *
  * * `@` or `@attr` - bind a local scope property to the value of DOM attribute. The result is
- *   always a string since DOM attributes are strings. If no `attr` name is specified  then the
- *   attribute name is assumed to be the same as the local name.
- *   Given `<widget my-attr="hello {{name}}">` and widget definition
- *   of `scope: { localName:'@myAttr' }`, then widget scope property `localName` will reflect
- *   the interpolated value of `hello {{name}}`. As the `name` attribute changes so will the
- *   `localName` property on the widget scope. The `name` is read from the parent scope (not
- *   component scope).
+ *   always a string since DOM attributes are strings. If no `attr` name is specified then the
+ *   attribute name is assumed to be the same as the local name. Given `<my-component
+ *   my-attr="hello {{name}}">` and the isolate scope definition `scope: { localName:'@myAttr' }`,
+ *   the directive's scope property `localName` will reflect the interpolated value of `hello
+ *   {{name}}`. As the `name` attribute changes so will the `localName` property on the directive's
+ *   scope. The `name` is read from the parent scope (not the directive's scope).
  *
- * * `=` or `=attr` - set up bi-directional binding between a local scope property and the
- *   parent scope property of name defined via the value of the `attr` attribute. If no `attr`
- *   name is specified then the attribute name is assumed to be the same as the local name.
- *   Given `<widget my-attr="parentModel">` and widget definition of
- *   `scope: { localModel:'=myAttr' }`, then widget scope property `localModel` will reflect the
+ * * `=` or `=attr` - set up a bidirectional binding between a local scope property and an expression
+ *   passed via the attribute `attr`. The expression is evaluated in the context of the parent scope.
+ *   If no `attr` name is specified then the attribute name is assumed to be the same as the local
+ *   name. Given `<my-component my-attr="parentModel">` and the isolate scope definition `scope: {
+ *   localModel: '=myAttr' }`, the property `localModel` on the directive's scope will reflect the
+ *   value of `parentModel` on the parent scope. Changes to `parentModel` will be reflected in
+ *   `localModel` and vice versa. Optional attributes should be marked as such with a question mark:
+ *   `=?` or `=?attr`. If the binding expression is non-assignable, or if the attribute isn't
+ *   optional and doesn't exist, an exception ({@link error/$compile/nonassign `$compile:nonassign`})
+ *   will be thrown upon discovering changes to the local value, since it will be impossible to sync
+ *   them back to the parent scope. By default, the {@link ng.$rootScope.Scope#$watch `$watch`}
+ *   method is used for tracking changes, and the equality check is based on object identity.
+ *   However, if an object literal or an array literal is passed as the binding expression, the
+ *   equality check is done by value (using the {@link angular.equals} function). It's also possible
+ *   to watch the evaluated value shallowly with {@link ng.$rootScope.Scope#$watchCollection
+ *   `$watchCollection`}: use `=*` or `=*attr` (`=*?` or `=*?attr` if the attribute is optional).
+ *
+  * * `<` or `<attr` - set up a one-way (one-directional) binding between a local scope property and an
+ *   expression passed via the attribute `attr`. The expression is evaluated in the context of the
+ *   parent scope. If no `attr` name is specified then the attribute name is assumed to be the same as the
+ *   local name. You can also make the binding optional by adding `?`: `<?` or `<?attr`.
+ *
+ *   For example, given `<my-component my-attr="parentModel">` and directive definition of
+ *   `scope: { localModel:'<myAttr' }`, then the isolated scope property `localModel` will reflect the
  *   value of `parentModel` on the parent scope. Any changes to `parentModel` will be reflected
- *   in `localModel` and any changes in `localModel` will reflect in `parentModel`. If the parent
- *   scope property doesn't exist, it will throw a NON_ASSIGNABLE_MODEL_EXPRESSION exception. You
- *   can avoid this behavior using `=?` or `=?attr` in order to flag the property as optional. If
- *   you want to shallow watch for changes (i.e. $watchCollection instead of $watch) you can use
- *   `=*` or `=*attr` (`=*?` or `=*?attr` if the property is optional).
+ *   in `localModel`, but changes in `localModel` will not reflect in `parentModel`. There are however
+ *   two caveats:
+ *     1. one-way binding does not copy the value from the parent to the isolate scope, it simply
+ *     sets the same value. That means if your bound value is an object, changes to its properties
+ *     in the isolated scope will be reflected in the parent scope (because both reference the same object).
+ *     2. one-way binding watches changes to the **identity** of the parent value. That means the
+ *     {@link ng.$rootScope.Scope#$watch `$watch`} on the parent value only fires if the reference
+ *     to the value has changed. In most cases, this should not be of concern, but can be important
+ *     to know if you one-way bind to an object, and then replace that object in the isolated scope.
+ *     If you now change a property of the object in your parent scope, the change will not be
+ *     propagated to the isolated scope, because the identity of the object on the parent scope
+ *     has not changed. Instead you must assign a new object.
  *
- * * `&` or `&attr` - provides a way to execute an expression in the context of the parent scope.
- *   If no `attr` name is specified then the attribute name is assumed to be the same as the
- *   local name. Given `<widget my-attr="count = count + value">` and widget definition of
- *   `scope: { localFn:'&myAttr' }`, then isolate scope property `localFn` will point to
- *   a function wrapper for the `count = count + value` expression. Often it's desirable to
- *   pass data from the isolated scope via an expression to the parent scope, this can be
- *   done by passing a map of local variable names and values into the expression wrapper fn.
- *   For example, if the expression is `increment(amount)` then we can specify the amount value
- *   by calling the `localFn` as `localFn({amount: 22})`.
+ *   One-way binding is useful if you do not plan to propagate changes to your isolated scope bindings
+ *   back to the parent. However, it does not make this completely impossible.
+ *
+ * * `&` or `&attr` - provides a way to execute an expression in the context of the parent scope. If
+ *   no `attr` name is specified then the attribute name is assumed to be the same as the local name.
+ *   Given `<my-component my-attr="count = count + value">` and the isolate scope definition `scope: {
+ *   localFn:'&myAttr' }`, the isolate scope property `localFn` will point to a function wrapper for
+ *   the `count = count + value` expression. Often it's desirable to pass data from the isolated scope
+ *   via an expression to the parent scope. This can be done by passing a map of local variable names
+ *   and values into the expression wrapper fn. For example, if the expression is `increment(amount)`
+ *   then we can specify the amount value by calling the `localFn` as `localFn({amount: 22})`.
  *
  * In general it's possible to apply more than one directive to one element, but there might be limitations
  * depending on the type of scope required by the directives. The following points will help explain these limitations.
@@ -15639,9 +15965,32 @@ function $TemplateCacheProvider() {
  *
  *
  * #### `bindToController`
- * When an isolate scope is used for a component (see above), and `controllerAs` is used, `bindToController: true` will
- * allow a component to have its properties bound to the controller, rather than to scope. When the controller
- * is instantiated, the initial values of the isolate scope bindings are already available.
+ * This property is used to bind scope properties directly to the controller. It can be either
+ * `true` or an object hash with the same format as the `scope` property. Additionally, a controller
+ * alias must be set, either by using `controllerAs: 'myAlias'` or by specifying the alias in the controller
+ * definition: `controller: 'myCtrl as myAlias'`.
+ *
+ * When an isolate scope is used for a directive (see above), `bindToController: true` will
+ * allow a component to have its properties bound to the controller, rather than to scope.
+ *
+ * After the controller is instantiated, the initial values of the isolate scope bindings will be bound to the controller
+ * properties. You can access these bindings once they have been initialized by providing a controller method called
+ * `$onInit`, which is called after all the controllers on an element have been constructed and had their bindings
+ * initialized.
+ *
+ * <div class="alert alert-warning">
+ * **Deprecation warning:** although bindings for non-ES6 class controllers are currently
+ * bound to `this` before the controller constructor is called, this use is now deprecated. Please place initialization
+ * code that relies upon bindings inside a `$onInit` method on the controller, instead.
+ * </div>
+ *
+ * It is also possible to set `bindToController` to an object hash with the same format as the `scope` property.
+ * This will set up the scope bindings to the controller directly. Note that `scope` can still be used
+ * to define which kind of scope is created. By default, no scope is created. Use `scope: {}` to create an isolate
+ * scope (useful for component directives).
+ *
+ * If both `bindToController` and `scope` are defined and have object hashes, `bindToController` overrides `scope`.
+ *
  *
  * #### `controller`
  * Controller constructor function. The controller is instantiated before the
@@ -15653,10 +16002,10 @@ function $TemplateCacheProvider() {
  * * `$element` - Current element
  * * `$attrs` - Current attributes object for the element
  * * `$transclude` - A transclude linking function pre-bound to the correct transclusion scope:
- *   `function([scope], cloneLinkingFn, futureParentElement)`.
- *    * `scope`: optional argument to override the scope.
- *    * `cloneLinkingFn`: optional argument to create clones of the original transcluded content.
- *    * `futureParentElement`:
+ *   `function([scope], cloneLinkingFn, futureParentElement, slotName)`:
+ *    * `scope`: (optional) override the scope.
+ *    * `cloneLinkingFn`: (optional) argument to create clones of the original transcluded content.
+ *    * `futureParentElement` (optional):
  *        * defines the parent to which the `cloneLinkingFn` will add the cloned elements.
  *        * default: `$element.parent()` resp. `$element` for `transclude:'element'` resp. `transclude:true`.
  *        * only needed for transcludes that are allowed to contain non html elements (e.g. SVG elements)
@@ -15664,14 +16013,34 @@ function $TemplateCacheProvider() {
  *          as those elements need to created and cloned in a special way when they are defined outside their
  *          usual containers (e.g. like `<svg>`).
  *        * See also the `directive.templateNamespace` property.
+ *    * `slotName`: (optional) the name of the slot to transclude. If falsy (e.g. `null`, `undefined` or `''`)
+ *      then the default translusion is provided.
+ *    The `$transclude` function also has a method on it, `$transclude.isSlotFilled(slotName)`, which returns
+ *    `true` if the specified slot contains content (i.e. one or more DOM nodes).
  *
+ * The controller can provide the following methods that act as life-cycle hooks:
+ * * `$onInit` - Called on each controller after all the controllers on an element have been constructed and
+ *   had their bindings initialized (and before the pre &amp; post linking functions for the directives on
+ *   this element). This is a good place to put initialization code for your controller.
  *
  * #### `require`
  * Require another directive and inject its controller as the fourth argument to the linking function. The
- * `require` takes a string name (or array of strings) of the directive(s) to pass in. If an array is used, the
- * injected argument will be an array in corresponding order. If no such directive can be
- * found, or if the directive does not have a controller, then an error is raised (unless no link function
- * is specified, in which case error checking is skipped). The name can be prefixed with:
+ * `require` property can be a string, an array or an object:
+ * * a **string** containing the name of the directive to pass to the linking function
+ * * an **array** containing the names of directives to pass to the linking function. The argument passed to the
+ * linking function will be an array of controllers in the same order as the names in the `require` property
+ * * an **object** whose property values are the names of the directives to pass to the linking function. The argument
+ * passed to the linking function will also be an object with matching keys, whose values will hold the corresponding
+ * controllers.
+ *
+ * If the `require` property is an object and `bindToController` is truthy, then the required controllers are
+ * bound to the controller using the keys of the `require` property. This binding occurs after all the controllers
+ * have been constructed but before `$onInit` is called.
+ * See the {@link $compileProvider#component} helper for an example of how this can be used.
+ *
+ * If no such required directive(s) can be found, or if the directive does not have a controller, then an error is
+ * raised (unless no link function is specified and the required controllers are not being bound to the directive
+ * controller, in which case error checking is skipped). The name can be prefixed with:
  *
  * * (no prefix) - Locate the required controller on the current element. Throw an error if not found.
  * * `?` - Attempt to locate the required controller or pass `null` to the `link` fn if not found.
@@ -15764,14 +16133,6 @@ function $TemplateCacheProvider() {
  * The contents are compiled and provided to the directive as a **transclusion function**. See the
  * {@link $compile#transclusion Transclusion} section below.
  *
- * There are two kinds of transclusion depending upon whether you want to transclude just the contents of the
- * directive's element or the entire element:
- *
- * * `true` - transclude the content (i.e. the child nodes) of the directive's element.
- * * `'element'` - transclude the whole of the directive's element including any directives on this
- *   element that defined at a lower priority than this directive. When used, the `template`
- *   property is ignored.
- *
  *
  * #### `compile`
  *
@@ -15799,7 +16160,7 @@ function $TemplateCacheProvider() {
 
  * <div class="alert alert-warning">
  * **Note:** The compile function cannot handle directives that recursively use themselves in their
- * own templates or compile functions. Compiling these directives results in an infinite loop and a
+ * own templates or compile functions. Compiling these directives results in an infinite loop and
  * stack overflow errors.
  *
  * This can be avoided by manually using $compile in the postLink function to imperatively compile
@@ -15901,6 +16262,34 @@ function $TemplateCacheProvider() {
  * Testing Transclusion Directives}.
  * </div>
  *
+ * There are three kinds of transclusion depending upon whether you want to transclude just the contents of the
+ * directive's element, the entire element or multiple parts of the element contents:
+ *
+ * * `true` - transclude the content (i.e. the child nodes) of the directive's element.
+ * * `'element'` - transclude the whole of the directive's element including any directives on this
+ *   element that defined at a lower priority than this directive. When used, the `template`
+ *   property is ignored.
+ * * **`{...}` (an object hash):** - map elements of the content onto transclusion "slots" in the template.
+ *
+ * **Mult-slot transclusion** is declared by providing an object for the `transclude` property.
+ *
+ * This object is a map where the keys are the name of the slot to fill and the value is an element selector
+ * used to match the HTML to the slot. The element selector should be in normalized form (e.g. `myElement`)
+ * and will match the standard element variants (e.g. `my-element`, `my:element`, `data-my-element`, etc).
+ *
+ * For further information check out the guide on {@link guide/directive#matching-directives Matching Directives}
+ *
+ * If the element selector is prefixed with a `?` then that slot is optional.
+ *
+ * For example, the transclude object `{ slotA: '?myCustomElement' }` maps `<my-custom-element>` elements to
+ * the `slotA` slot, which can be accessed via the `$transclude` function or via the {@link ngTransclude} directive.
+ *
+ * Slots that are not marked as optional (`?`) will trigger a compile time error if there are no matching elements
+ * in the transclude content. If you wish to know if an optional slot was filled with content, then you can call
+ * `$transclude.isSlotFilled(slotName)` on the transclude function passed to the directive's link function and
+ * injectable into the directive's controller.
+ *
+ *
  * #### Transclusion Functions
  *
  * When a directive requests transclusion, the compiler extracts its contents and provides a **transclusion
@@ -15921,7 +16310,7 @@ function $TemplateCacheProvider() {
  * content and the `scope` is the newly created transclusion scope, to which the clone is bound.
  *
  * <div class="alert alert-info">
- * **Best Practice**: Always provide a `cloneFn` (clone attach function) when you call a translude function
+ * **Best Practice**: Always provide a `cloneFn` (clone attach function) when you call a transclude function
  * since you then get a fresh clone of the original DOM and also have access to the new transclusion scope.
  * </div>
  *
@@ -15953,7 +16342,7 @@ function $TemplateCacheProvider() {
  * </div>
  *
  * The built-in DOM manipulation directives, such as {@link ngIf}, {@link ngSwitch} and {@link ngRepeat}
- * automatically destroy their transluded clones as necessary so you do not need to worry about this if
+ * automatically destroy their transcluded clones as necessary so you do not need to worry about this if
  * you are simply using {@link ngTransclude} to inject the transclusion into your directive.
  *
  *
@@ -15978,19 +16367,19 @@ function $TemplateCacheProvider() {
  *
  * The `$parent` scope hierarchy will look like this:
  *
- * ```
- * - $rootScope
- *   - isolate
- *     - transclusion
- * ```
+   ```
+   - $rootScope
+     - isolate
+       - transclusion
+   ```
  *
  * but the scopes will inherit prototypically from different scopes to their `$parent`.
  *
- * ```
- * - $rootScope
- *   - transclusion
- * - isolate
- * ```
+   ```
+   - $rootScope
+     - transclusion
+   - isolate
+   ```
  *
  *
  * ### Attributes
@@ -15998,10 +16387,9 @@ function $TemplateCacheProvider() {
  * The {@link ng.$compile.directive.Attributes Attributes} object - passed as a parameter in the
  * `link()` or `compile()` functions. It has a variety of uses.
  *
- * accessing *Normalized attribute names:*
- * Directives like 'ngBind' can be expressed in many ways: 'ng:bind', `data-ng-bind`, or 'x-ng-bind'.
- * the attributes object allows for normalized access to
- *   the attributes.
+ * * *Accessing normalized attribute names:* Directives like 'ngBind' can be expressed in many ways:
+ *   'ng:bind', `data-ng-bind`, or 'x-ng-bind'. The attributes object allows for normalized access
+ *   to the attributes.
  *
  * * *Directive inter-communication:* All directives share the same instance of the attributes
  *   object which allows the directives to use the attributes object as inter directive
@@ -16122,8 +16510,15 @@ function $TemplateCacheProvider() {
  *        directives; if given, it will be passed through to the link functions of
  *        directives found in `element` during compilation.
  *      * `transcludeControllers` - an object hash with keys that map controller names
- *        to controller instances; if given, it will make the controllers
- *        available to directives.
+ *        to a hash with the key `instance`, which maps to the controller instance;
+ *        if given, it will make the controllers available to directives on the compileNode:
+ *        ```
+ *        {
+ *          parent: {
+ *            instance: parentControllerInstance
+ *          }
+ *        }
+ *        ```
  *      * `futureParentElement` - defines the parent to which the `cloneAttachFn` will add
  *        the cloned elements; only needed for transcludes that are allowed to contain non html
  *        elements (e.g. SVG elements). See also the directive.controller property.
@@ -16184,7 +16579,7 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
   var EVENT_HANDLER_ATTR_REGEXP = /^(on[a-z]+|formaction)$/;
 
   function parseIsolateBindings(scope, directiveName, isController) {
-    var LOCAL_REGEXP = /^\s*([@&]|=(\*?))(\??)\s*(\w*)\s*$/;
+    var LOCAL_REGEXP = /^\s*([@&<]|=(\*?))(\??)\s*(\w*)\s*$/;
 
     var bindings = {};
 
@@ -16271,8 +16666,8 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
    * @param {string|Object} name Name of the directive in camel-case (i.e. <code>ngBind</code> which
    *    will match as <code>ng-bind</code>), or an object map of directives where the keys are the
    *    names and the values are the factories.
-   * @param {Function|Array} directiveFactory An injectable directive factory function. See
-   *    {@link guide/directive} for more info.
+   * @param {Function|Array} directiveFactory An injectable directive factory function. See the
+   *    {@link guide/directive directive guide} and the {@link $compile compile API} for more info.
    * @returns {ng.$compileProvider} Self for chaining.
    */
    this.directive = function registerDirective(name, directiveFactory) {
@@ -16317,6 +16712,128 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
       forEach(name, reverseParams(registerDirective));
     }
     return this;
+  };
+
+  /**
+   * @ngdoc method
+   * @name $compileProvider#component
+   * @module ng
+   * @param {string} name Name of the component in camelCase (i.e. `myComp` which will match `<my-comp>`)
+   * @param {Object} options Component definition object (a simplified
+   *    {@link ng.$compile#directive-definition-object directive definition object}),
+   *    with the following properties (all optional):
+   *
+   *    - `controller` – `{(string|function()=}` – controller constructor function that should be
+   *      associated with newly created scope or the name of a {@link ng.$compile#-controller-
+   *      registered controller} if passed as a string. An empty `noop` function by default.
+   *    - `controllerAs` – `{string=}` – identifier name for to reference the controller in the component's scope.
+   *      If present, the controller will be published to scope under the `controllerAs` name.
+   *      If not present, this will default to be `$ctrl`.
+   *    - `template` – `{string=|function()=}` – html template as a string or a function that
+   *      returns an html template as a string which should be used as the contents of this component.
+   *      Empty string by default.
+   *
+   *      If `template` is a function, then it is {@link auto.$injector#invoke injected} with
+   *      the following locals:
+   *
+   *      - `$element` - Current element
+   *      - `$attrs` - Current attributes object for the element
+   *
+   *    - `templateUrl` – `{string=|function()=}` – path or function that returns a path to an html
+   *      template that should be used  as the contents of this component.
+   *
+   *      If `templateUrl` is a function, then it is {@link auto.$injector#invoke injected} with
+   *      the following locals:
+   *
+   *      - `$element` - Current element
+   *      - `$attrs` - Current attributes object for the element
+   *
+   *    - `bindings` – `{object=}` – defines bindings between DOM attributes and component properties.
+   *      Component properties are always bound to the component controller and not to the scope.
+   *      See {@link ng.$compile#-bindtocontroller- `bindToController`}.
+   *    - `transclude` – `{boolean=}` – whether {@link $compile#transclusion content transclusion} is enabled.
+   *      Disabled by default.
+   *    - `$...` – `{function()=}` – additional annotations to provide to the directive factory function.
+   *
+   * @returns {ng.$compileProvider} the compile provider itself, for chaining of function calls.
+   * @description
+   * Register a **component definition** with the compiler. This is a shorthand for registering a special
+   * type of directive, which represents a self-contained UI component in your application. Such components
+   * are always isolated (i.e. `scope: {}`) and are always restricted to elements (i.e. `restrict: 'E'`).
+   *
+   * Component definitions are very simple and do not require as much configuration as defining general
+   * directives. Component definitions usually consist only of a template and a controller backing it.
+   *
+   * In order to make the definition easier, components enforce best practices like use of `controllerAs`,
+   * `bindToController`. They always have **isolate scope** and are restricted to elements.
+   *
+   * Here are a few examples of how you would usually define components:
+   *
+   * ```js
+   *   var myMod = angular.module(...);
+   *   myMod.component('myComp', {
+   *     template: '<div>My name is {{$ctrl.name}}</div>',
+   *     controller: function() {
+   *       this.name = 'shahar';
+   *     }
+   *   });
+   *
+   *   myMod.component('myComp', {
+   *     template: '<div>My name is {{$ctrl.name}}</div>',
+   *     bindings: {name: '@'}
+   *   });
+   *
+   *   myMod.component('myComp', {
+   *     templateUrl: 'views/my-comp.html',
+   *     controller: 'MyCtrl as ctrl',
+   *     bindings: {name: '@'}
+   *   });
+   *
+   * ```
+   * For more examples, and an in-depth guide, see the {@link guide/component component guide}.
+   *
+   * <br />
+   * See also {@link ng.$compileProvider#directive $compileProvider.directive()}.
+   */
+  this.component = function registerComponent(name, options) {
+    var controller = options.controller || function() {};
+
+    function factory($injector) {
+      function makeInjectable(fn) {
+        if (isFunction(fn) || isArray(fn)) {
+          return function(tElement, tAttrs) {
+            return $injector.invoke(fn, this, {$element: tElement, $attrs: tAttrs});
+          };
+        } else {
+          return fn;
+        }
+      }
+
+      var template = (!options.template && !options.templateUrl ? '' : options.template);
+      return {
+        controller: controller,
+        controllerAs: identifierForController(options.controller) || options.controllerAs || '$ctrl',
+        template: makeInjectable(template),
+        templateUrl: makeInjectable(options.templateUrl),
+        transclude: options.transclude,
+        scope: {},
+        bindToController: options.bindings || {},
+        restrict: 'E',
+        require: options.require
+      };
+    }
+
+    // Copy any annotation properties (starting with $) over to the factory function
+    // These could be used by libraries such as the new component router
+    forEach(options, function(val, key) {
+      if (key.charAt(0) === '$') {
+        factory[key] = val;
+      }
+    });
+
+    factory.$inject = ['$injector'];
+
+    return this.directive(name, factory);
   };
 
 
@@ -16412,10 +16929,12 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
 
   this.$get = [
             '$injector', '$interpolate', '$exceptionHandler', '$templateRequest', '$parse',
-            '$controller', '$rootScope', '$document', '$sce', '$animate', '$$sanitizeUri',
+            '$controller', '$rootScope', '$sce', '$animate', '$$sanitizeUri',
     function($injector,   $interpolate,   $exceptionHandler,   $templateRequest,   $parse,
-             $controller,   $rootScope,   $document,   $sce,   $animate,   $$sanitizeUri) {
+             $controller,   $rootScope,   $sce,   $animate,   $$sanitizeUri) {
 
+    var SIMPLE_ATTR_NAME = /^\w/;
+    var specialAttrHolder = document.createElement('div');
     var Attributes = function(element, attributesToCopy) {
       if (attributesToCopy) {
         var keys = Object.keys(attributesToCopy);
@@ -16551,7 +17070,7 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
 
         nodeName = nodeName_(this.$$element);
 
-        if ((nodeName === 'a' && key === 'href') ||
+        if ((nodeName === 'a' && (key === 'href' || key === 'xlinkHref')) ||
             (nodeName === 'img' && key === 'src')) {
           // sanitize a[href] and img[src] values
           this[key] = value = $$sanitizeUri(value, key === 'src');
@@ -16595,7 +17114,11 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
           if (value === null || isUndefined(value)) {
             this.$$element.removeAttr(attrName);
           } else {
-            this.$$element.attr(attrName, value);
+            if (SIMPLE_ATTR_NAME.test(attrName)) {
+              this.$$element.attr(attrName, value);
+            } else {
+              setSpecialAttr(this.$$element[0], attrName, value);
+            }
           }
         }
 
@@ -16626,7 +17149,8 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
        * @param {string} key Normalized key. (ie ngAttribute) .
        * @param {function(interpolatedValue)} fn Function that will be called whenever
                 the interpolated value of the attribute changes.
-       *        See the {@link guide/directive#text-and-attribute-bindings Directives} guide for more info.
+       *        See the {@link guide/interpolation#how-text-and-attribute-bindings-work Interpolation
+       *        guide} for more info.
        * @returns {function()} Returns a deregistration function for this observer.
        */
       $observe: function(key, fn) {
@@ -16648,6 +17172,18 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
       }
     };
 
+    function setSpecialAttr(element, attrName, value) {
+      // Attributes names that do not start with letters (such as `(click)`) cannot be set using `setAttribute`
+      // so we have to jump through some hoops to get such an attribute
+      // https://github.com/angular/angular.js/pull/13318
+      specialAttrHolder.innerHTML = "<span " + attrName + ">";
+      var attributes = specialAttrHolder.firstChild.attributes;
+      var attribute = attributes[0];
+      // We have to remove the attribute from its container element before we can add it to the destination element
+      attributes.removeNamedItem(attribute.name);
+      attribute.value = value;
+      element.attributes.setNamedItem(attribute);
+    }
 
     function safeAddClass($element, className) {
       try {
@@ -16661,12 +17197,13 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
 
     var startSymbol = $interpolate.startSymbol(),
         endSymbol = $interpolate.endSymbol(),
-        denormalizeTemplate = (startSymbol == '{{' || endSymbol  == '}}')
+        denormalizeTemplate = (startSymbol == '{{' && endSymbol  == '}}')
             ? identity
             : function denormalizeTemplate(template) {
               return template.replace(/\{\{/g, startSymbol).replace(/}}/g, endSymbol);
         },
         NG_ATTR_BINDING = /^ngAttr[A-Z]/;
+    var MULTI_ELEMENT_DIR_RE = /^(.+)Start$/;
 
     compile.$$addBindingInfo = debugInfoEnabled ? function $$addBindingInfo($element, binding) {
       var bindings = $element.data('$binding') || [];
@@ -16704,13 +17241,19 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
         // modify it.
         $compileNodes = jqLite($compileNodes);
       }
+
+      var NOT_EMPTY = /\S+/;
+
       // We can not compile top level text elements since text nodes can be merged and we will
       // not be able to attach scope data to them, so we will wrap them in <span>
-      forEach($compileNodes, function(node, index) {
-        if (node.nodeType == NODE_TYPE_TEXT && node.nodeValue.match(/\S+/) /* non-empty */ ) {
-          $compileNodes[index] = jqLite(node).wrap('<span></span>').parent()[0];
+      for (var i = 0, len = $compileNodes.length; i < len; i++) {
+        var domNode = $compileNodes[i];
+
+        if (domNode.nodeType === NODE_TYPE_TEXT && domNode.nodeValue.match(NOT_EMPTY) /* non-empty */) {
+          jqLiteWrapNode(domNode, $compileNodes[i] = document.createElement('span'));
         }
-      });
+      }
+
       var compositeLinkFn =
               compileNodes($compileNodes, transcludeFn, $compileNodes,
                            maxPriority, ignoreDirective, previousCompileContext);
@@ -16718,6 +17261,14 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
       var namespace = null;
       return function publicLinkFn(scope, cloneConnectFn, options) {
         assertArg(scope, 'scope');
+
+        if (previousCompileContext && previousCompileContext.needsNewScope) {
+          // A parent directive did a replace and a directive on this element asked
+          // for transclusion, which caused us to lose a layer of element on which
+          // we could hold the new transclusion scope, so we will create it manually
+          // here.
+          scope = scope.$parent.$new();
+        }
 
         options = options || {};
         var parentBoundTranscludeFn = options.parentBoundTranscludeFn,
@@ -16773,7 +17324,7 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
       if (!node) {
         return 'html';
       } else {
-        return nodeName_(node) !== 'foreignobject' && node.toString().match(/SVG/) ? 'svg' : 'html';
+        return nodeName_(node) !== 'foreignobject' && toString.call(node).match(/SVG/) ? 'svg' : 'html';
       }
     }
 
@@ -16864,11 +17415,6 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
             if (nodeLinkFn.scope) {
               childScope = scope.$new();
               compile.$$addScopeInfo(jqLite(node), childScope);
-              var destroyBindings = nodeLinkFn.$$destroyBindings;
-              if (destroyBindings) {
-                nodeLinkFn.$$destroyBindings = null;
-                childScope.$on('$destroyed', destroyBindings);
-              }
             } else {
               childScope = scope;
             }
@@ -16887,8 +17433,7 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
               childBoundTranscludeFn = null;
             }
 
-            nodeLinkFn(childLinkFn, childScope, node, $rootElement, childBoundTranscludeFn,
-                       nodeLinkFn);
+            nodeLinkFn(childLinkFn, childScope, node, $rootElement, childBoundTranscludeFn);
 
           } else if (childLinkFn) {
             childLinkFn(scope, node.childNodes, undefined, parentBoundTranscludeFn);
@@ -16912,6 +17457,17 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
           futureParentElement: futureParentElement
         });
       };
+
+      // We need  to attach the transclusion slots onto the `boundTranscludeFn`
+      // so that they are available inside the `controllersBoundTransclude` function
+      var boundSlots = boundTranscludeFn.$$slots = createMap();
+      for (var slotName in transcludeFn.$$slots) {
+        if (transcludeFn.$$slots[slotName]) {
+          boundSlots[slotName] = createBoundTranscludeFn(scope, transcludeFn.$$slots[slotName], previousBoundTranscludeFn);
+        } else {
+          boundSlots[slotName] = null;
+        }
+      }
 
       return boundTranscludeFn;
     }
@@ -16957,13 +17513,11 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
                 });
             }
 
-            var directiveNName = ngAttrName.replace(/(Start|End)$/, '');
-            if (directiveIsMultiElement(directiveNName)) {
-              if (ngAttrName === directiveNName + 'Start') {
-                attrStartName = name;
-                attrEndName = name.substr(0, name.length - 5) + 'end';
-                name = name.substr(0, name.length - 6);
-              }
+            var multiElementMatch = ngAttrName.match(MULTI_ELEMENT_DIR_RE);
+            if (multiElementMatch && directiveIsMultiElement(multiElementMatch[1])) {
+              attrStartName = name;
+              attrEndName = name.substr(0, name.length - 5) + 'end';
+              name = name.substr(0, name.length - 6);
             }
 
             nName = directiveNormalize(name.toLowerCase());
@@ -17074,6 +17628,37 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
     }
 
     /**
+     * A function generator that is used to support both eager and lazy compilation
+     * linking function.
+     * @param eager
+     * @param $compileNodes
+     * @param transcludeFn
+     * @param maxPriority
+     * @param ignoreDirective
+     * @param previousCompileContext
+     * @returns {Function}
+     */
+    function compilationGenerator(eager, $compileNodes, transcludeFn, maxPriority, ignoreDirective, previousCompileContext) {
+        if (eager) {
+            return compile($compileNodes, transcludeFn, maxPriority, ignoreDirective, previousCompileContext);
+        }
+
+        var compiled;
+
+        return function() {
+            if (!compiled) {
+                compiled = compile($compileNodes, transcludeFn, maxPriority, ignoreDirective, previousCompileContext);
+
+                // Null out all of these references in order to make them eligible for garbage collection
+                // since this is a potentially long lived closure
+                $compileNodes = transcludeFn = previousCompileContext = null;
+            }
+
+            return compiled.apply(this, arguments);
+        };
+    }
+
+    /**
      * Once the directives have been collected, their compile functions are executed. This method
      * is responsible for inlining directive templates as well as terminating the application
      * of the directives if the terminal directive has been reached.
@@ -17117,6 +17702,8 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
           replaceDirective = originalReplaceDirective,
           childTranscludeFn = transcludeFn,
           linkFn,
+          didScanForMultipleTransclusion = false,
+          mightHaveMultipleTransclusionError = false,
           directiveValue;
 
       // executes all directives on the current element
@@ -17159,6 +17746,27 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
 
         directiveName = directive.name;
 
+        // If we encounter a condition that can result in transclusion on the directive,
+        // then scan ahead in the remaining directives for others that may cause a multiple
+        // transclusion error to be thrown during the compilation process.  If a matching directive
+        // is found, then we know that when we encounter a transcluded directive, we need to eagerly
+        // compile the `transclude` function rather than doing it lazily in order to throw
+        // exceptions at the correct time
+        if (!didScanForMultipleTransclusion && ((directive.replace && (directive.templateUrl || directive.template))
+            || (directive.transclude && !directive.$$tlb))) {
+                var candidateDirective;
+
+                for (var scanningIndex = i + 1; candidateDirective = directives[scanningIndex++];) {
+                    if ((candidateDirective.transclude && !candidateDirective.$$tlb)
+                        || (candidateDirective.replace && (candidateDirective.templateUrl || candidateDirective.template))) {
+                        mightHaveMultipleTransclusionError = true;
+                        break;
+                    }
+                }
+
+                didScanForMultipleTransclusion = true;
+        }
+
         if (!directive.templateUrl && directive.controller) {
           directiveValue = directive.controller;
           controllerDirectives = controllerDirectives || createMap();
@@ -17188,7 +17796,7 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
             compileNode = $compileNode[0];
             replaceWith(jqCollection, sliceArgs($template), compileNode);
 
-            childTranscludeFn = compile($template, transcludeFn, terminalPriority,
+            childTranscludeFn = compilationGenerator(mightHaveMultipleTransclusionError, $template, transcludeFn, terminalPriority,
                                         replaceDirective && replaceDirective.name, {
                                           // Don't pass in:
                                           // - controllerDirectives - otherwise we'll create duplicates controllers
@@ -17200,9 +17808,69 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
                                           nonTlbTranscludeDirective: nonTlbTranscludeDirective
                                         });
           } else {
+
+            var slots = createMap();
+
             $template = jqLite(jqLiteClone(compileNode)).contents();
+
+            if (isObject(directiveValue)) {
+
+              // We have transclusion slots,
+              // collect them up, compile them and store their transclusion functions
+              $template = [];
+
+              var slotMap = createMap();
+              var filledSlots = createMap();
+
+              // Parse the element selectors
+              forEach(directiveValue, function(elementSelector, slotName) {
+                // If an element selector starts with a ? then it is optional
+                var optional = (elementSelector.charAt(0) === '?');
+                elementSelector = optional ? elementSelector.substring(1) : elementSelector;
+
+                slotMap[elementSelector] = slotName;
+
+                // We explicitly assign `null` since this implies that a slot was defined but not filled.
+                // Later when calling boundTransclusion functions with a slot name we only error if the
+                // slot is `undefined`
+                slots[slotName] = null;
+
+                // filledSlots contains `true` for all slots that are either optional or have been
+                // filled. This is used to check that we have not missed any required slots
+                filledSlots[slotName] = optional;
+              });
+
+              // Add the matching elements into their slot
+              forEach($compileNode.contents(), function(node) {
+                var slotName = slotMap[directiveNormalize(nodeName_(node))];
+                if (slotName) {
+                  filledSlots[slotName] = true;
+                  slots[slotName] = slots[slotName] || [];
+                  slots[slotName].push(node);
+                } else {
+                  $template.push(node);
+                }
+              });
+
+              // Check for required slots that were not filled
+              forEach(filledSlots, function(filled, slotName) {
+                if (!filled) {
+                  throw $compileMinErr('reqslot', 'Required transclusion slot `{0}` was not filled.', slotName);
+                }
+              });
+
+              for (var slotName in slots) {
+                if (slots[slotName]) {
+                  // Only define a transclusion function if the slot was filled
+                  slots[slotName] = compilationGenerator(mightHaveMultipleTransclusionError, slots[slotName], transcludeFn);
+                }
+              }
+            }
+
             $compileNode.empty(); // clear contents
-            childTranscludeFn = compile($template, transcludeFn);
+            childTranscludeFn = compilationGenerator(mightHaveMultipleTransclusionError, $template, transcludeFn, undefined,
+                undefined, { needsNewScope: directive.$$isolateScope || directive.$$newScope});
+            childTranscludeFn.$$slots = slots;
           }
         }
 
@@ -17244,8 +17912,11 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
             var templateDirectives = collectDirectives(compileNode, [], newTemplateAttrs);
             var unprocessedDirectives = directives.splice(i + 1, directives.length - (i + 1));
 
-            if (newIsolateScopeDirective) {
-              markDirectivesAsIsolate(templateDirectives);
+            if (newIsolateScopeDirective || newScopeDirective) {
+              // The original directive caused the current element to be replaced but this element
+              // also needs to have a new scope, so we need to tell the template directives
+              // that they would need to get their scope from further up, if they require transclusion
+              markDirectiveScope(templateDirectives, newIsolateScopeDirective, newScopeDirective);
             }
             directives = directives.concat(templateDirectives).concat(unprocessedDirectives);
             mergeTemplateAttributes(templateAttrs, newTemplateAttrs);
@@ -17362,6 +18033,11 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
           for (var i = 0, ii = require.length; i < ii; i++) {
             value[i] = getControllers(directiveName, require[i], $element, elementControllers);
           }
+        } else if (isObject(require)) {
+          value = {};
+          forEach(require, function(controller, property) {
+            value[property] = getControllers(directiveName, controller, $element, elementControllers);
+          });
         }
 
         return value || null;
@@ -17398,10 +18074,9 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
         return elementControllers;
       }
 
-      function nodeLinkFn(childLinkFn, scope, linkNode, $rootElement, boundTranscludeFn,
-                          thisLinkFn) {
-        var i, ii, linkFn, controller, isolateScope, elementControllers, transcludeFn, $element,
-            attrs;
+      function nodeLinkFn(childLinkFn, scope, linkNode, $rootElement, boundTranscludeFn) {
+        var i, ii, linkFn, isolateScope, controllerScope, elementControllers, transcludeFn, $element,
+            attrs, removeScopeBindingWatches, removeControllerBindingWatches;
 
         if (compileNode === linkNode) {
           attrs = templateAttrs;
@@ -17411,8 +18086,11 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
           attrs = new Attributes($element, templateAttrs);
         }
 
+        controllerScope = scope;
         if (newIsolateScopeDirective) {
           isolateScope = scope.$new(true);
+        } else if (newScopeDirective) {
+          controllerScope = scope.$parent;
         }
 
         if (boundTranscludeFn) {
@@ -17420,6 +18098,10 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
           // is later passed as `parentBoundTranscludeFn` to `publicLinkFn`
           transcludeFn = controllersBoundTransclude;
           transcludeFn.$$boundTransclude = boundTranscludeFn;
+          // expose the slots on the `$transclude` function
+          transcludeFn.isSlotFilled = function(slotName) {
+            return !!boundTranscludeFn.$$slots[slotName];
+          };
         }
 
         if (controllerDirectives) {
@@ -17433,44 +18115,51 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
           compile.$$addScopeClass($element, true);
           isolateScope.$$isolateBindings =
               newIsolateScopeDirective.$$isolateBindings;
-          initializeDirectiveBindings(scope, attrs, isolateScope,
-                                      isolateScope.$$isolateBindings,
-                                      newIsolateScopeDirective, isolateScope);
-        }
-        if (elementControllers) {
-          // Initialize bindToController bindings for new/isolate scopes
-          var scopeDirective = newIsolateScopeDirective || newScopeDirective;
-          var bindings;
-          var controllerForBindings;
-          if (scopeDirective && elementControllers[scopeDirective.name]) {
-            bindings = scopeDirective.$$bindings.bindToController;
-            controller = elementControllers[scopeDirective.name];
-
-            if (controller && controller.identifier && bindings) {
-              controllerForBindings = controller;
-              thisLinkFn.$$destroyBindings =
-                  initializeDirectiveBindings(scope, attrs, controller.instance,
-                                              bindings, scopeDirective);
-            }
-          }
-          for (i in elementControllers) {
-            controller = elementControllers[i];
-            var controllerResult = controller();
-
-            if (controllerResult !== controller.instance) {
-              // If the controller constructor has a return value, overwrite the instance
-              // from setupControllers and update the element data
-              controller.instance = controllerResult;
-              $element.data('$' + i + 'Controller', controllerResult);
-              if (controller === controllerForBindings) {
-                // Remove and re-install bindToController bindings
-                thisLinkFn.$$destroyBindings();
-                thisLinkFn.$$destroyBindings =
-                  initializeDirectiveBindings(scope, attrs, controllerResult, bindings, scopeDirective);
-              }
-            }
+          removeScopeBindingWatches = initializeDirectiveBindings(scope, attrs, isolateScope,
+                                        isolateScope.$$isolateBindings,
+                                        newIsolateScopeDirective);
+          if (removeScopeBindingWatches) {
+            isolateScope.$on('$destroy', removeScopeBindingWatches);
           }
         }
+
+        // Initialize bindToController bindings
+        for (var name in elementControllers) {
+          var controllerDirective = controllerDirectives[name];
+          var controller = elementControllers[name];
+          var bindings = controllerDirective.$$bindings.bindToController;
+
+          if (controller.identifier && bindings) {
+            removeControllerBindingWatches =
+              initializeDirectiveBindings(controllerScope, attrs, controller.instance, bindings, controllerDirective);
+          }
+
+          var controllerResult = controller();
+          if (controllerResult !== controller.instance) {
+            // If the controller constructor has a return value, overwrite the instance
+            // from setupControllers
+            controller.instance = controllerResult;
+            $element.data('$' + controllerDirective.name + 'Controller', controllerResult);
+            removeControllerBindingWatches && removeControllerBindingWatches();
+            removeControllerBindingWatches =
+              initializeDirectiveBindings(controllerScope, attrs, controller.instance, bindings, controllerDirective);
+          }
+        }
+
+        // Bind the required controllers to the controller, if `require` is an object and `bindToController` is truthy
+        forEach(controllerDirectives, function(controllerDirective, name) {
+          var require = controllerDirective.require;
+          if (controllerDirective.bindToController && !isArray(require) && isObject(require)) {
+            extend(elementControllers[name].instance, getControllers(name, require, $element, elementControllers));
+          }
+        });
+
+        // Trigger the `$onInit` method on all controllers that have one
+        forEach(elementControllers, function(controller) {
+          if (isFunction(controller.instance.$onInit)) {
+            controller.instance.$onInit();
+          }
+        });
 
         // PRELINKING
         for (i = 0, ii = preLinkFns.length; i < ii; i++) {
@@ -17507,11 +18196,11 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
 
         // This is the function that is injected as `$transclude`.
         // Note: all arguments are optional!
-        function controllersBoundTransclude(scope, cloneAttachFn, futureParentElement) {
+        function controllersBoundTransclude(scope, cloneAttachFn, futureParentElement, slotName) {
           var transcludeControllers;
-
           // No scope passed in:
           if (!isScope(scope)) {
+            slotName = futureParentElement;
             futureParentElement = cloneAttachFn;
             cloneAttachFn = scope;
             scope = undefined;
@@ -17523,15 +18212,36 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
           if (!futureParentElement) {
             futureParentElement = hasElementTranscludeDirective ? $element.parent() : $element;
           }
-          return boundTranscludeFn(scope, cloneAttachFn, transcludeControllers, futureParentElement, scopeToChild);
+          if (slotName) {
+            // slotTranscludeFn can be one of three things:
+            //  * a transclude function - a filled slot
+            //  * `null` - an optional slot that was not filled
+            //  * `undefined` - a slot that was not declared (i.e. invalid)
+            var slotTranscludeFn = boundTranscludeFn.$$slots[slotName];
+            if (slotTranscludeFn) {
+              return slotTranscludeFn(scope, cloneAttachFn, transcludeControllers, futureParentElement, scopeToChild);
+            } else if (isUndefined(slotTranscludeFn)) {
+              throw $compileMinErr('noslot',
+               'No parent directive that requires a transclusion with slot name "{0}". ' +
+               'Element: {1}',
+               slotName, startingTag($element));
+            }
+          } else {
+            return boundTranscludeFn(scope, cloneAttachFn, transcludeControllers, futureParentElement, scopeToChild);
+          }
         }
       }
     }
 
-    function markDirectivesAsIsolate(directives) {
-      // mark all directives as needing isolate scope.
+    // Depending upon the context in which a directive finds itself it might need to have a new isolated
+    // or child scope created. For instance:
+    // * if the directive has been pulled into a template because another directive with a higher priority
+    // asked for element transclusion
+    // * if the directive itself asks for transclusion but it is at the root of a template and the original
+    // element was replaced. See https://github.com/angular/angular.js/issues/12936
+    function markDirectiveScope(directives, isolateScope, newScope) {
       for (var j = 0, jj = directives.length; j < jj; j++) {
-        directives[j] = inherit(directives[j], {$$isolateScope: true});
+        directives[j] = inherit(directives[j], {$$isolateScope: isolateScope, $$newScope: newScope});
       }
     }
 
@@ -17678,7 +18388,9 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
             var templateDirectives = collectDirectives(compileNode, [], tempTemplateAttrs);
 
             if (isObject(origAsyncDirective.scope)) {
-              markDirectivesAsIsolate(templateDirectives);
+              // the original directive that caused the template to be loaded async required
+              // an isolate scope
+              markDirectiveScope(templateDirectives, true);
             }
             directives = templateDirectives.concat(directives);
             mergeTemplateAttributes(tAttrs, tempTemplateAttrs);
@@ -17727,7 +18439,7 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
               childBoundTranscludeFn = boundTranscludeFn;
             }
             afterTemplateNodeLinkFn(afterTemplateChildLinkFn, scope, linkNode, $rootElement,
-              childBoundTranscludeFn, afterTemplateNodeLinkFn);
+              childBoundTranscludeFn);
           }
           linkQueue = null;
         });
@@ -17744,8 +18456,7 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
           if (afterTemplateNodeLinkFn.transcludeOnThisElement) {
             childBoundTranscludeFn = createBoundTranscludeFn(scope, afterTemplateNodeLinkFn.transclude, boundTranscludeFn);
           }
-          afterTemplateNodeLinkFn(afterTemplateChildLinkFn, scope, node, rootElement, childBoundTranscludeFn,
-                                  afterTemplateNodeLinkFn);
+          afterTemplateNodeLinkFn(afterTemplateChildLinkFn, scope, node, rootElement, childBoundTranscludeFn);
         }
       };
     }
@@ -17949,41 +18660,33 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
         parent.replaceChild(newNode, firstElementToRemove);
       }
 
-      // TODO(perf): what's this document fragment for? is it needed? can we at least reuse it?
+      // Append all the `elementsToRemove` to a fragment. This will...
+      // - remove them from the DOM
+      // - allow them to still be traversed with .nextSibling
+      // - allow a single fragment.qSA to fetch all elements being removed
       var fragment = document.createDocumentFragment();
-      fragment.appendChild(firstElementToRemove);
+      for (i = 0; i < removeCount; i++) {
+        fragment.appendChild(elementsToRemove[i]);
+      }
 
       if (jqLite.hasData(firstElementToRemove)) {
         // Copy over user data (that includes Angular's $scope etc.). Don't copy private
         // data here because there's no public interface in jQuery to do that and copying over
         // event listeners (which is the main use of private data) wouldn't work anyway.
-        jqLite(newNode).data(jqLite(firstElementToRemove).data());
+        jqLite.data(newNode, jqLite.data(firstElementToRemove));
 
-        // Remove data of the replaced element. We cannot just call .remove()
-        // on the element it since that would deallocate scope that is needed
-        // for the new node. Instead, remove the data "manually".
-        if (!jQuery) {
-          delete jqLite.cache[firstElementToRemove[jqLite.expando]];
-        } else {
-          // jQuery 2.x doesn't expose the data storage. Use jQuery.cleanData to clean up after
-          // the replaced element. The cleanData version monkey-patched by Angular would cause
-          // the scope to be trashed and we do need the very same scope to work with the new
-          // element. However, we cannot just cache the non-patched version and use it here as
-          // that would break if another library patches the method after Angular does (one
-          // example is jQuery UI). Instead, set a flag indicating scope destroying should be
-          // skipped this one time.
-          skipDestroyOnNextJQueryCleanData = true;
-          jQuery.cleanData([firstElementToRemove]);
-        }
+        // Remove $destroy event listeners from `firstElementToRemove`
+        jqLite(firstElementToRemove).off('$destroy');
       }
 
-      for (var k = 1, kk = elementsToRemove.length; k < kk; k++) {
-        var element = elementsToRemove[k];
-        jqLite(element).remove(); // must do this way to clean up expando
-        fragment.appendChild(element);
-        delete elementsToRemove[k];
-      }
+      // Cleanup any data/listeners on the elements and children.
+      // This includes invoking the $destroy event on any elements with listeners.
+      jqLite.cleanData(fragment.querySelectorAll('*'));
 
+      // Update the jqLite collection to only contain the `newNode`
+      for (i = 1; i < removeCount; i++) {
+        delete elementsToRemove[i];
+      }
       elementsToRemove[0] = newNode;
       elementsToRemove.length = 1;
     }
@@ -18005,15 +18708,14 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
 
     // Set up $watches for isolate scope and controller bindings. This process
     // only occurs for isolate scopes and new scopes with controllerAs.
-    function initializeDirectiveBindings(scope, attrs, destination, bindings,
-                                         directive, newScope) {
-      var onNewScopeDestroyed;
+    function initializeDirectiveBindings(scope, attrs, destination, bindings, directive) {
+      var removeWatchCollection = [];
       forEach(bindings, function(definition, scopeName) {
         var attrName = definition.attrName,
         optional = definition.optional,
         mode = definition.mode, // @, =, or &
         lastValue,
-        parentGet, parentSet, compare;
+        parentGet, parentSet, compare, removeWatch;
 
         switch (mode) {
 
@@ -18027,10 +18729,15 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
               }
             });
             attrs.$$observers[attrName].$$scope = scope;
-            if (isString(attrs[attrName])) {
+            lastValue = attrs[attrName];
+            if (isString(lastValue)) {
               // If the attribute has been provided then we trigger an interpolation to ensure
               // the value is there for use in the link fn
-              destination[scopeName] = $interpolate(attrs[attrName])(scope);
+              destination[scopeName] = $interpolate(lastValue)(scope);
+            } else if (isBoolean(lastValue)) {
+              // If the attributes is one of the BOOLEAN_ATTR then Angular will have converted
+              // the value to boolean rather than a string, so we special case this situation
+              destination[scopeName] = lastValue;
             }
             break;
 
@@ -18051,8 +18758,8 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
               // reset the change, or we will throw this exception on every $digest
               lastValue = destination[scopeName] = parentGet(scope);
               throw $compileMinErr('nonassign',
-                  "Expression '{0}' used with directive '{1}' is non-assignable!",
-                  attrs[attrName], directive.name);
+                  "Expression '{0}' in attribute '{1}' used with directive '{2}' is non-assignable!",
+                  attrs[attrName], attrName, directive.name);
             };
             lastValue = destination[scopeName] = parentGet(scope);
             var parentValueWatch = function parentValueWatch(parentValue) {
@@ -18069,14 +18776,30 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
               return lastValue = parentValue;
             };
             parentValueWatch.$stateful = true;
-            var unwatch;
             if (definition.collection) {
-              unwatch = scope.$watchCollection(attrs[attrName], parentValueWatch);
+              removeWatch = scope.$watchCollection(attrs[attrName], parentValueWatch);
             } else {
-              unwatch = scope.$watch($parse(attrs[attrName], parentValueWatch), null, parentGet.literal);
+              removeWatch = scope.$watch($parse(attrs[attrName], parentValueWatch), null, parentGet.literal);
             }
-            onNewScopeDestroyed = (onNewScopeDestroyed || []);
-            onNewScopeDestroyed.push(unwatch);
+            removeWatchCollection.push(removeWatch);
+            break;
+
+          case '<':
+            if (!hasOwnProperty.call(attrs, attrName)) {
+              if (optional) break;
+              attrs[attrName] = void 0;
+            }
+            if (optional && !attrs[attrName]) break;
+
+            parentGet = $parse(attrs[attrName]);
+
+            destination[scopeName] = parentGet(scope);
+
+            removeWatch = scope.$watch(parentGet, function parentValueWatchAction(newParentValue) {
+              destination[scopeName] = newParentValue;
+            }, parentGet.literal);
+
+            removeWatchCollection.push(removeWatch);
             break;
 
           case '&':
@@ -18092,16 +18815,12 @@ function $CompileProvider($provide, $$sanitizeUriProvider) {
             break;
         }
       });
-      var destroyBindings = onNewScopeDestroyed ? function destroyBindings() {
-        for (var i = 0, ii = onNewScopeDestroyed.length; i < ii; ++i) {
-          onNewScopeDestroyed[i]();
+
+      return removeWatchCollection.length && function removeWatches() {
+        for (var i = 0, ii = removeWatchCollection.length; i < ii; ++i) {
+          removeWatchCollection[i]();
         }
-      } : noop;
-      if (newScope && destroyBindings !== noop) {
-        newScope.$on('$destroy', destroyBindings);
-        return noop;
-      }
-      return destroyBindings;
+      };
     }
   }];
 }
@@ -18211,7 +18930,7 @@ function removeComments(jqNodes) {
 var $controllerMinErr = minErr('$controller');
 
 
-var CNTRL_REG = /^(\S+)(\s+as\s+(\w+))?$/;
+var CNTRL_REG = /^(\S+)(\s+as\s+([\w$]+))?$/;
 function identifierForController(controller, ident) {
   if (ident && isString(ident)) return ident;
   if (isString(controller)) {
@@ -18826,9 +19545,9 @@ function $HttpProvider() {
    * Configure `$http` service to return promises without the shorthand methods `success` and `error`.
    * This should be used to make sure that applications work without these methods.
    *
-   * Defaults to false. If no value is specified, returns the current configured value.
+   * Defaults to true. If no value is specified, returns the current configured value.
    *
-   * @param {boolean=} value If true, `$http` will return a normal promise without the `success` and `error` methods.
+   * @param {boolean=} value If true, `$http` will return a promise with the deprecated legacy `success` and `error` methods.
    *
    * @returns {boolean|Object} If a value is specified, returns the $httpProvider for chaining.
    *    otherwise, returns the current configured value.
@@ -19002,7 +19721,7 @@ function $HttpProvider() {
      *
      * ```
      * module.run(function($http) {
-     *   $http.defaults.headers.common.Authorization = 'Basic YmVlcDpib29w'
+     *   $http.defaults.headers.common.Authorization = 'Basic YmVlcDpib29w';
      * });
      * ```
      *
@@ -19230,13 +19949,13 @@ function $HttpProvider() {
      *
      * ### Cross Site Request Forgery (XSRF) Protection
      *
-     * [XSRF](http://en.wikipedia.org/wiki/Cross-site_request_forgery) is a technique by which
-     * an unauthorized site can gain your user's private data. Angular provides a mechanism
-     * to counter XSRF. When performing XHR requests, the $http service reads a token from a cookie
-     * (by default, `XSRF-TOKEN`) and sets it as an HTTP header (`X-XSRF-TOKEN`). Since only
-     * JavaScript that runs on your domain could read the cookie, your server can be assured that
-     * the XHR came from JavaScript running on your domain. The header will not be set for
-     * cross-domain requests.
+     * [XSRF](http://en.wikipedia.org/wiki/Cross-site_request_forgery) is an attack technique by
+     * which the attacker can trick an authenticated user into unknowingly executing actions on your
+     * website. Angular provides a mechanism to counter XSRF. When performing XHR requests, the
+     * $http service reads a token from a cookie (by default, `XSRF-TOKEN`) and sets it as an HTTP
+     * header (`X-XSRF-TOKEN`). Since only JavaScript that runs on your domain could read the
+     * cookie, your server can be assured that the XHR came from JavaScript running on your domain.
+     * The header will not be set for cross-domain requests.
      *
      * To take advantage of this, your server needs to set a token in a JavaScript readable session
      * cookie called `XSRF-TOKEN` on the first HTTP GET request. On subsequent XHR requests the
@@ -19395,8 +20114,12 @@ function $HttpProvider() {
      */
     function $http(requestConfig) {
 
-      if (!angular.isObject(requestConfig)) {
+      if (!isObject(requestConfig)) {
         throw minErr('$http')('badreq', 'Http request configuration must be an object.  Received: {0}', requestConfig);
+      }
+
+      if (!isString(requestConfig.url)) {
+        throw minErr('$http')('badreq', 'Http request configuration url must be a string.  Received: {0}', requestConfig.url);
       }
 
       var config = extend({
@@ -19480,11 +20203,8 @@ function $HttpProvider() {
       function transformResponse(response) {
         // make a copy since the response must be cacheable
         var resp = extend({}, response);
-        if (!response.data) {
-          resp.data = response.data;
-        } else {
-          resp.data = transformData(response.data, response.headers, response.status, config.transformResponse);
-        }
+        resp.data = transformData(response.data, response.headers, response.status,
+                                  config.transformResponse);
         return (isSuccess(response.status))
           ? resp
           : $q.reject(resp);
@@ -19514,7 +20234,7 @@ function $HttpProvider() {
 
         defHeaders = extend({}, defHeaders.common, defHeaders[lowercase(config.method)]);
 
-        // using for-in instead of forEach to avoid unecessary iteration after header has been found
+        // using for-in instead of forEach to avoid unnecessary iteration after header has been found
         defaultHeadersIteration:
         for (defHeaderName in defHeaders) {
           lowercaseDefHeaderName = lowercase(defHeaderName);
@@ -20013,8 +20733,16 @@ $interpolateMinErr.interr = function(text, err) {
  *
  * Used for configuring the interpolation markup. Defaults to `{{` and `}}`.
  *
+ * <div class="alert alert-danger">
+ * This feature is sometimes used to mix different markup languages, e.g. to wrap an Angular
+ * template within a Python Jinja template (or any other template language). Mixing templating
+ * languages is **very dangerous**. The embedding template language will not safely escape Angular
+ * expressions, so any user-controlled values in the template will cause Cross Site Scripting (XSS)
+ * security bugs!
+ * </div>
+ *
  * @example
-<example module="customInterpolationApp">
+<example name="custom-interpolation-markup" module="customInterpolationApp">
 <file name="index.html">
 <script>
   var customInterpolationApp = angular.module('customInterpolationApp', []);
@@ -20029,7 +20757,7 @@ $interpolateMinErr.interr = function(text, err) {
       this.label = "This binding is brought you by // interpolation symbols.";
   });
 </script>
-<div ng-app="App" ng-controller="DemoController as demo">
+<div ng-controller="DemoController as demo">
     //demo.label//
 </div>
 </file>
@@ -20111,6 +20839,15 @@ function $InterpolateProvider() {
       }
 
       return value;
+    }
+
+    //TODO: this is the same as the constantWatchDelegate in parse.js
+    function constantWatchDelegate(scope, listener, objectEquality, constantInterp) {
+      var unwatch;
+      return unwatch = scope.$watch(function constantInterpolateWatch(scope) {
+        unwatch();
+        return constantInterp(scope);
+      }, listener, objectEquality);
     }
 
     /**
@@ -20208,6 +20945,19 @@ function $InterpolateProvider() {
      * - `context`: evaluation context for all expressions embedded in the interpolated text
      */
     function $interpolate(text, mustHaveExpression, trustedContext, allOrNothing) {
+      // Provide a quick exit and simplified result function for text with no interpolation
+      if (!text.length || text.indexOf(startSymbol) === -1) {
+        var constantInterp;
+        if (!mustHaveExpression) {
+          var unescapedText = unescapeText(text);
+          constantInterp = valueFn(unescapedText);
+          constantInterp.exp = text;
+          constantInterp.expressions = [];
+          constantInterp.$$watchDelegate = constantWatchDelegate;
+        }
+        return constantInterp;
+      }
+
       allOrNothing = !!allOrNothing;
       var startIndex,
           endIndex,
@@ -20344,8 +21094,8 @@ function $InterpolateProvider() {
 }
 
 function $IntervalProvider() {
-  this.$get = ['$rootScope', '$window', '$q', '$$q',
-       function($rootScope,   $window,   $q,   $$q) {
+  this.$get = ['$rootScope', '$window', '$q', '$$q', '$browser',
+       function($rootScope,   $window,   $q,   $$q,   $browser) {
     var intervals = {};
 
 
@@ -20486,11 +21236,12 @@ function $IntervalProvider() {
 
       count = isDefined(count) ? count : 0;
 
-      promise.then(null, null, (!hasParams) ? fn : function() {
-        fn.apply(null, args);
-      });
-
       promise.$$intervalId = setInterval(function tick() {
+        if (skipApply) {
+          $browser.defer(callback);
+        } else {
+          $rootScope.$evalAsync(callback);
+        }
         deferred.notify(iteration++);
 
         if (count > 0 && iteration >= count) {
@@ -20506,6 +21257,14 @@ function $IntervalProvider() {
       intervals[promise.$$intervalId] = deferred;
 
       return promise;
+
+      function callback() {
+        if (!hasParams) {
+          fn(iteration);
+        } else {
+          fn.apply(null, args);
+        }
+      }
     }
 
 
@@ -21118,9 +21877,9 @@ var locationPrototype = {
    * @description
    * This method is getter / setter.
    *
-   * Return hash fragment when called without any parameter.
+   * Returns the hash fragment when called without any parameters.
    *
-   * Change hash fragment when called with parameter and return `$location`.
+   * Changes the hash fragment when called with a parameter and returns `$location`.
    *
    *
    * ```js
@@ -21141,8 +21900,8 @@ var locationPrototype = {
    * @name $location#replace
    *
    * @description
-   * If called, all changes to $location during current `$digest` will be replacing current history
-   * record, instead of adding new one.
+   * If called, all changes to $location during the current `$digest` will replace the current history
+   * record, instead of adding a new one.
    */
   replace: function() {
     this.$$replace = true;
@@ -21462,7 +22221,7 @@ function $LocationProvider() {
         var oldUrl = $location.absUrl();
         var oldState = $location.$$state;
         var defaultPrevented;
-
+        newUrl = trimEmptyHash(newUrl);
         $location.$$parse(newUrl);
         $location.$$state = newState;
 
@@ -21745,23 +22504,22 @@ function ensureSafeMemberName(name, fullExpression) {
   return name;
 }
 
-function getStringValue(name, fullExpression) {
-  // From the JavaScript docs:
+function getStringValue(name) {
   // Property names must be strings. This means that non-string objects cannot be used
   // as keys in an object. Any non-string object, including a number, is typecasted
   // into a string via the toString method.
+  // -- MDN, https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Operators/Property_accessors#Property_names
   //
-  // So, to ensure that we are checking the same `name` that JavaScript would use,
-  // we cast it to a string, if possible.
-  // Doing `name + ''` can cause a repl error if the result to `toString` is not a string,
-  // this is, this will handle objects that misbehave.
-  name = name + '';
-  if (!isString(name)) {
-    throw $parseMinErr('iseccst',
-        'Cannot convert object to primitive value! '
-        + 'Expression: {0}', fullExpression);
-  }
-  return name;
+  // So, to ensure that we are checking the same `name` that JavaScript would use, we cast it
+  // to a string. It's not always possible. If `name` is an object and its `toString` method is
+  // 'broken' (doesn't return a string, isn't a function, etc.), an error will be thrown:
+  //
+  // TypeError: Cannot convert object to primitive value
+  //
+  // For performance reasons, we don't catch this error here and allow it to propagate up the call
+  // stack. Note that you'll get the same error in JavaScript if you try to access a property using
+  // such a 'broken' object as a key.
+  return name + '';
 }
 
 function ensureSafeObject(obj, fullExpression) {
@@ -22022,6 +22780,7 @@ AST.ArrayExpression = 'ArrayExpression';
 AST.Property = 'Property';
 AST.ObjectExpression = 'ObjectExpression';
 AST.ThisExpression = 'ThisExpression';
+AST.LocalsExpression = 'LocalsExpression';
 
 // Internal use only
 AST.NGValueParameter = 'NGValueParameter';
@@ -22322,7 +23081,8 @@ AST.prototype = {
     'false': { type: AST.Literal, value: false },
     'null': { type: AST.Literal, value: null },
     'undefined': {type: AST.Literal, value: undefined },
-    'this': {type: AST.ThisExpression }
+    'this': {type: AST.ThisExpression },
+    '$locals': {type: AST.LocalsExpression }
   }
 };
 
@@ -22439,6 +23199,10 @@ function findConstantAndWatchExpressions(ast, $filter) {
     ast.toWatch = argsToWatch;
     break;
   case AST.ThisExpression:
+    ast.constant = false;
+    ast.toWatch = [];
+    break;
+  case AST.LocalsExpression:
     ast.constant = false;
     ast.toWatch = [];
     break;
@@ -22685,6 +23449,9 @@ ASTCompiler.prototype = {
       intoId = intoId || this.nextId();
       self.recurse(ast.object, left, undefined, function() {
         self.if_(self.notNull(left), function() {
+          if (create && create !== 1) {
+            self.addEnsureSafeAssignContext(left);
+          }
           if (ast.computed) {
             right = self.nextId();
             self.recurse(ast.property, right);
@@ -22766,7 +23533,7 @@ ASTCompiler.prototype = {
       right = this.nextId();
       left = {};
       if (!isAssignable(ast.left)) {
-        throw $parseMinErr('lval', 'Trying to assing a value to a non l-value');
+        throw $parseMinErr('lval', 'Trying to assign a value to a non l-value');
       }
       this.recurse(ast.left, undefined, left, function() {
         self.if_(self.notNull(left.context), function() {
@@ -22807,6 +23574,10 @@ ASTCompiler.prototype = {
     case AST.ThisExpression:
       this.assign(intoId, 's');
       recursionFn('s');
+      break;
+    case AST.LocalsExpression:
+      this.assign(intoId, 'l');
+      recursionFn('l');
       break;
     case AST.NGValueParameter:
       this.assign(intoId, 'v');
@@ -22915,7 +23686,7 @@ ASTCompiler.prototype = {
   },
 
   getStringValue: function(item) {
-    this.assign(item, 'getStringValue(' + item + ',text)');
+    this.assign(item, 'getStringValue(' + item + ')');
   },
 
   ensureSafeAssignContext: function(item) {
@@ -23135,6 +23906,10 @@ ASTInterpreter.prototype = {
       return function(scope) {
         return context ? {value: scope} : scope;
       };
+    case AST.LocalsExpression:
+      return function(scope, locals) {
+        return context ? {value: locals} : locals;
+      };
     case AST.NGValueParameter:
       return function(scope, locals, assign, inputs) {
         return context ? {value: assign} : assign;
@@ -23299,8 +24074,11 @@ ASTInterpreter.prototype = {
         rhs = right(scope, locals, assign, inputs);
         rhs = getStringValue(rhs);
         ensureSafeMemberName(rhs, expression);
-        if (create && create !== 1 && lhs && !(lhs[rhs])) {
-          lhs[rhs] = {};
+        if (create && create !== 1) {
+          ensureSafeAssignContext(lhs);
+          if (lhs && !(lhs[rhs])) {
+            lhs[rhs] = {};
+          }
         }
         value = lhs[rhs];
         ensureSafeObject(value, expression);
@@ -23315,8 +24093,11 @@ ASTInterpreter.prototype = {
   nonComputedMember: function(left, right, expensiveChecks, context, create, expression) {
     return function(scope, locals, assign, inputs) {
       var lhs = left(scope, locals, assign, inputs);
-      if (create && create !== 1 && lhs && !(lhs[right])) {
-        lhs[right] = {};
+      if (create && create !== 1) {
+        ensureSafeAssignContext(lhs);
+        if (lhs && !(lhs[right])) {
+          lhs[right] = {};
+        }
       }
       var value = lhs != null ? lhs[right] : undefined;
       if (expensiveChecks || isPossiblyDangerousMemberName(right)) {
@@ -23356,9 +24137,6 @@ Parser.prototype = {
     return this.astCompiler.compile(text, this.options.expensiveChecks);
   }
 };
-
-var getterFnCacheDefault = createMap();
-var getterFnCacheExpensive = createMap();
 
 function isPossiblyDangerousMemberName(name) {
   return name == 'constructor';
@@ -23435,9 +24213,18 @@ function $ParseProvider() {
           csp: noUnsafeEval,
           expensiveChecks: true
         };
+    var runningChecksEnabled = false;
 
-    return function $parse(exp, interceptorFn, expensiveChecks) {
+    $parse.$$runningExpensiveChecks = function() {
+      return runningChecksEnabled;
+    };
+
+    return $parse;
+
+    function $parse(exp, interceptorFn, expensiveChecks) {
       var parsedExpression, oneTime, cacheKey;
+
+      expensiveChecks = expensiveChecks || runningChecksEnabled;
 
       switch (typeof exp) {
         case 'string':
@@ -23464,6 +24251,9 @@ function $ParseProvider() {
             } else if (parsedExpression.inputs) {
               parsedExpression.$$watchDelegate = inputsWatchDelegate;
             }
+            if (expensiveChecks) {
+              parsedExpression = expensiveChecksInterceptor(parsedExpression);
+            }
             cache[cacheKey] = parsedExpression;
           }
           return addInterceptor(parsedExpression, interceptorFn);
@@ -23472,9 +24262,33 @@ function $ParseProvider() {
           return addInterceptor(exp, interceptorFn);
 
         default:
-          return noop;
+          return addInterceptor(noop, interceptorFn);
       }
-    };
+    }
+
+    function expensiveChecksInterceptor(fn) {
+      if (!fn) return fn;
+      expensiveCheckFn.$$watchDelegate = fn.$$watchDelegate;
+      expensiveCheckFn.assign = expensiveChecksInterceptor(fn.assign);
+      expensiveCheckFn.constant = fn.constant;
+      expensiveCheckFn.literal = fn.literal;
+      for (var i = 0; fn.inputs && i < fn.inputs.length; ++i) {
+        fn.inputs[i] = expensiveChecksInterceptor(fn.inputs[i]);
+      }
+      expensiveCheckFn.inputs = fn.inputs;
+
+      return expensiveCheckFn;
+
+      function expensiveCheckFn(scope, locals, assign, inputs) {
+        var expensiveCheckOldValue = runningChecksEnabled;
+        runningChecksEnabled = true;
+        try {
+          return fn(scope, locals, assign, inputs);
+        } finally {
+          runningChecksEnabled = expensiveCheckOldValue;
+        }
+      }
+    }
 
     function expressionInputDirtyCheck(newValue, oldValueOfValue) {
 
@@ -23591,25 +24405,22 @@ function $ParseProvider() {
     function constantWatchDelegate(scope, listener, objectEquality, parsedExpression) {
       var unwatch;
       return unwatch = scope.$watch(function constantWatch(scope) {
-        return parsedExpression(scope);
-      }, function constantListener(value, old, scope) {
-        if (isFunction(listener)) {
-          listener.apply(this, arguments);
-        }
         unwatch();
-      }, objectEquality);
+        return parsedExpression(scope);
+      }, listener, objectEquality);
     }
 
     function addInterceptor(parsedExpression, interceptorFn) {
       if (!interceptorFn) return parsedExpression;
       var watchDelegate = parsedExpression.$$watchDelegate;
+      var useInputs = false;
 
       var regularWatch =
           watchDelegate !== oneTimeLiteralWatchDelegate &&
           watchDelegate !== oneTimeWatchDelegate;
 
       var fn = regularWatch ? function regularInterceptedExpression(scope, locals, assign, inputs) {
-        var value = parsedExpression(scope, locals, assign, inputs);
+        var value = useInputs && inputs ? inputs[0] : parsedExpression(scope, locals, assign, inputs);
         return interceptorFn(value, scope, locals);
       } : function oneTimeInterceptedExpression(scope, locals, assign, inputs) {
         var value = parsedExpression(scope, locals, assign, inputs);
@@ -23627,6 +24438,7 @@ function $ParseProvider() {
         // If there is an interceptor, but no watchDelegate then treat the interceptor like
         // we treat filters - it is assumed to be a pure function unless flagged with $stateful
         fn.$$watchDelegate = inputsWatchDelegate;
+        useInputs = !parsedExpression.inputs;
         fn.inputs = parsedExpression.inputs ? parsedExpression.inputs : [parsedExpression];
       }
 
@@ -23687,6 +24499,8 @@ function $ParseProvider() {
  * ```
  *
  * Note: progress/notify callbacks are not currently supported via the ES6-style interface.
+ *
+ * Note: unlike ES6 behavior, an exception thrown in the constructor function will NOT implicitly reject the promise.
  *
  * However, the more traditional CommonJS-style usage is still available, and documented below.
  *
@@ -23876,18 +24690,6 @@ function $$QProvider() {
  */
 function qFactory(nextTick, exceptionHandler) {
   var $qMinErr = minErr('$q', TypeError);
-  function callOnce(self, resolveFn, rejectFn) {
-    var called = false;
-    function wrap(fn) {
-      return function(value) {
-        if (called) return;
-        called = true;
-        fn.call(self, value);
-      };
-    }
-
-    return [wrap(resolveFn), wrap(rejectFn)];
-  }
 
   /**
    * @ngdoc method
@@ -23900,7 +24702,12 @@ function qFactory(nextTick, exceptionHandler) {
    * @returns {Deferred} Returns a new instance of deferred.
    */
   var defer = function() {
-    return new Deferred();
+    var d = new Deferred();
+    //Necessary to support unbound execution :/
+    d.resolve = simpleBind(d, d.resolve);
+    d.reject = simpleBind(d, d.reject);
+    d.notify = simpleBind(d, d.notify);
+    return d;
   };
 
   function Promise() {
@@ -23973,10 +24780,6 @@ function qFactory(nextTick, exceptionHandler) {
 
   function Deferred() {
     this.promise = new Promise();
-    //Necessary to support unbound execution :/
-    this.resolve = simpleBind(this, this.resolve);
-    this.reject = simpleBind(this, this.reject);
-    this.notify = simpleBind(this, this.notify);
   }
 
   extend(Deferred.prototype, {
@@ -23994,22 +24797,33 @@ function qFactory(nextTick, exceptionHandler) {
     },
 
     $$resolve: function(val) {
-      var then, fns;
-
-      fns = callOnce(this, this.$$resolve, this.$$reject);
+      var then;
+      var that = this;
+      var done = false;
       try {
         if ((isObject(val) || isFunction(val))) then = val && val.then;
         if (isFunction(then)) {
           this.promise.$$state.status = -1;
-          then.call(val, fns[0], fns[1], this.notify);
+          then.call(val, resolvePromise, rejectPromise, simpleBind(this, this.notify));
         } else {
           this.promise.$$state.value = val;
           this.promise.$$state.status = 1;
           scheduleProcessQueue(this.promise.$$state);
         }
       } catch (e) {
-        fns[1](e);
+        rejectPromise(e);
         exceptionHandler(e);
+      }
+
+      function resolvePromise(val) {
+        if (done) return;
+        done = true;
+        that.$$resolve(val);
+      }
+      function rejectPromise(val) {
+        if (done) return;
+        done = true;
+        that.$$reject(val);
       }
     },
 
@@ -24199,11 +25013,6 @@ function qFactory(nextTick, exceptionHandler) {
       throw $qMinErr('norslvr', "Expected resolverFn, got '{0}'", resolver);
     }
 
-    if (!(this instanceof Q)) {
-      // More useful when $Q is the Promise itself.
-      return new Q(resolver);
-    }
-
     var deferred = new Deferred();
 
     function resolveFn(value) {
@@ -24218,6 +25027,10 @@ function qFactory(nextTick, exceptionHandler) {
 
     return deferred.promise;
   };
+
+  // Let's make the instanceof operator work for promises, so that
+  // `new $q(fn) instanceof $q` would evaluate to true.
+  $Q.prototype = Promise.prototype;
 
   $Q.defer = defer;
   $Q.reject = reject;
@@ -24272,15 +25085,15 @@ function $$RAFProvider() { //rAF
  *     exposed as $$____ properties
  *
  * Loop operations are optimized by using while(count--) { ... }
- *   - this means that in order to keep the same order of execution as addition we have to add
+ *   - This means that in order to keep the same order of execution as addition we have to add
  *     items to the array at the beginning (unshift) instead of at the end (push)
  *
  * Child scopes are created and removed often
- *   - Using an array would be slow since inserts in middle are expensive so we use linked list
+ *   - Using an array would be slow since inserts in the middle are expensive; so we use linked lists
  *
- * There are few watches then a lot of observers. This is why you don't want the observer to be
- * implemented in the same way as watch. Watch requires return of initialization function which
- * are expensive to construct.
+ * There are fewer watches than observers. This is why you don't want the observer to be implemented
+ * in the same way as watch. Watch requires return of the initialization function which is expensive
+ * to construct.
  */
 
 
@@ -24322,7 +25135,7 @@ function $$RAFProvider() { //rAF
  * Every application has a single root {@link ng.$rootScope.Scope scope}.
  * All other scopes are descendant scopes of the root scope. Scopes provide separation
  * between the model and the view, via a mechanism for watching the model for changes.
- * They also provide an event emission/broadcast and subscription facility. See the
+ * They also provide event emission/broadcast and subscription facility. See the
  * {@link guide/scope developer guide on scopes}.
  */
 function $RootScopeProvider() {
@@ -24352,11 +25165,34 @@ function $RootScopeProvider() {
     return ChildScope;
   }
 
-  this.$get = ['$injector', '$exceptionHandler', '$parse', '$browser',
-      function($injector, $exceptionHandler, $parse, $browser) {
+  this.$get = ['$exceptionHandler', '$parse', '$browser',
+      function($exceptionHandler, $parse, $browser) {
 
     function destroyChildScope($event) {
         $event.currentScope.$$destroyed = true;
+    }
+
+    function cleanUpScope($scope) {
+
+      if (msie === 9) {
+        // There is a memory leak in IE9 if all child scopes are not disconnected
+        // completely when a scope is destroyed. So this code will recurse up through
+        // all this scopes children
+        //
+        // See issue https://github.com/angular/angular.js/issues/10706
+        $scope.$$childHead && cleanUpScope($scope.$$childHead);
+        $scope.$$nextSibling && cleanUpScope($scope.$$nextSibling);
+      }
+
+      // The code below works around IE9 and V8's memory leaks
+      //
+      // See:
+      // - https://code.google.com/p/v8/issues/detail?id=2073#c26
+      // - https://github.com/angular/angular.js/issues/6794#issuecomment-38648909
+      // - https://github.com/angular/angular.js/issues/1313#issuecomment-10378451
+
+      $scope.$parent = $scope.$$nextSibling = $scope.$$prevSibling = $scope.$$childHead =
+          $scope.$$childTail = $scope.$root = $scope.$$watchers = null;
     }
 
     /**
@@ -24614,7 +25450,7 @@ function $RootScopeProvider() {
        *    - `newVal` contains the current value of the `watchExpression`
        *    - `oldVal` contains the previous value of the `watchExpression`
        *    - `scope` refers to the current scope
-       * @param {boolean=} objectEquality Compare for object equality using {@link angular.equals} instead of
+       * @param {boolean=} [objectEquality=false] Compare for object equality using {@link angular.equals} instead of
        *     comparing for reference equality.
        * @returns {function()} Returns a deregistration function for this listener.
        */
@@ -24979,7 +25815,7 @@ function $RootScopeProvider() {
        *
        */
       $digest: function() {
-        var watch, value, last,
+        var watch, value, last, fn, get,
             watchers,
             length,
             dirty, ttl = TTL,
@@ -25025,7 +25861,8 @@ function $RootScopeProvider() {
                   // Most common watches are on primitives, in which case we can short
                   // circuit it with === operator, only when === fails do we use .equals
                   if (watch) {
-                    if ((value = watch.get(current)) !== (last = watch.last) &&
+                    get = watch.get;
+                    if ((value = get(current)) !== (last = watch.last) &&
                         !(watch.eq
                             ? equals(value, last)
                             : (typeof value === 'number' && typeof last === 'number'
@@ -25033,7 +25870,8 @@ function $RootScopeProvider() {
                       dirty = true;
                       lastDirtyWatch = watch;
                       watch.last = watch.eq ? copy(value, null) : value;
-                      watch.fn(value, ((last === initWatchVal) ? value : last), current);
+                      fn = watch.fn;
+                      fn(value, ((last === initWatchVal) ? value : last), current);
                       if (ttl < 5) {
                         logIdx = 4 - ttl;
                         if (!watchLog[logIdx]) watchLog[logIdx] = [];
@@ -25155,16 +25993,9 @@ function $RootScopeProvider() {
         this.$on = this.$watch = this.$watchGroup = function() { return noop; };
         this.$$listeners = {};
 
-        // All of the code below is bogus code that works around V8's memory leak via optimized code
-        // and inline caches.
-        //
-        // see:
-        // - https://code.google.com/p/v8/issues/detail?id=2073#c26
-        // - https://github.com/angular/angular.js/issues/6794#issuecomment-38648909
-        // - https://github.com/angular/angular.js/issues/1313#issuecomment-10378451
-
-        this.$parent = this.$$nextSibling = this.$$prevSibling = this.$$childHead =
-            this.$$childTail = this.$root = this.$$watchers = null;
+        // Disconnect the next sibling to prevent `cleanUpScope` destroying those too
+        this.$$nextSibling = null;
+        cleanUpScope(this);
       },
 
       /**
@@ -25240,7 +26071,7 @@ function $RootScopeProvider() {
           });
         }
 
-        asyncQueue.push({scope: this, expression: expr, locals: locals});
+        asyncQueue.push({scope: this, expression: $parse(expr), locals: locals});
       },
 
       $$postDigest: function(fn) {
@@ -25332,6 +26163,7 @@ function $RootScopeProvider() {
       $applyAsync: function(expr) {
         var scope = this;
         expr && applyAsyncQueue.push($applyAsyncExpression);
+        expr = $parse(expr);
         scheduleApplyAsync();
 
         function $applyAsyncExpression() {
@@ -25607,6 +26439,21 @@ function $RootScopeProvider() {
 }
 
 /**
+ * @ngdoc service
+ * @name $rootElement
+ *
+ * @description
+ * The root element of Angular application. This is either the element where {@link
+ * ng.directive:ngApp ngApp} was declared or the element passed into
+ * {@link angular.bootstrap}. The element represents the root element of application. It is also the
+ * location where the application's {@link auto.$injector $injector} service gets
+ * published, and can be retrieved using `$rootElement.injector()`.
+ */
+
+
+// the implementation is in angular.bootstrap
+
+/**
  * @description
  * Private service to sanitize uris for links and images. Used by $compile and $sanitize.
  */
@@ -25820,13 +26667,15 @@ function $SceDelegateProvider() {
    * @kind function
    *
    * @param {Array=} whitelist When provided, replaces the resourceUrlWhitelist with the value
-   *     provided.  This must be an array or null.  A snapshot of this array is used so further
-   *     changes to the array are ignored.
+   *    provided.  This must be an array or null.  A snapshot of this array is used so further
+   *    changes to the array are ignored.
    *
-   *     Follow {@link ng.$sce#resourceUrlPatternItem this link} for a description of the items
-   *     allowed in this array.
+   *    Follow {@link ng.$sce#resourceUrlPatternItem this link} for a description of the items
+   *    allowed in this array.
    *
-   *     Note: **an empty whitelist array will block all URLs**!
+   *    <div class="alert alert-warning">
+   *    **Note:** an empty whitelist array will block all URLs!
+   *    </div>
    *
    * @return {Array} the currently set whitelist array.
    *
@@ -25849,17 +26698,17 @@ function $SceDelegateProvider() {
    * @kind function
    *
    * @param {Array=} blacklist When provided, replaces the resourceUrlBlacklist with the value
-   *     provided.  This must be an array or null.  A snapshot of this array is used so further
-   *     changes to the array are ignored.
+   *    provided.  This must be an array or null.  A snapshot of this array is used so further
+   *    changes to the array are ignored.
    *
-   *     Follow {@link ng.$sce#resourceUrlPatternItem this link} for a description of the items
-   *     allowed in this array.
+   *    Follow {@link ng.$sce#resourceUrlPatternItem this link} for a description of the items
+   *    allowed in this array.
    *
-   *     The typical usage for the blacklist is to **block
-   *     [open redirects](http://cwe.mitre.org/data/definitions/601.html)** served by your domain as
-   *     these would otherwise be trusted but actually return content from the redirected domain.
+   *    The typical usage for the blacklist is to **block
+   *    [open redirects](http://cwe.mitre.org/data/definitions/601.html)** served by your domain as
+   *    these would otherwise be trusted but actually return content from the redirected domain.
    *
-   *     Finally, **the blacklist overrides the whitelist** and has the final say.
+   *    Finally, **the blacklist overrides the whitelist** and has the final say.
    *
    * @return {Array} the currently set blacklist array.
    *
@@ -26018,6 +26867,11 @@ function $SceDelegateProvider() {
      * returns the originally supplied value if the queried context type is a supertype of the
      * created type.  If this condition isn't satisfied, throws an exception.
      *
+     * <div class="alert alert-danger">
+     * Disabling auto-escaping is extremely dangerous, it usually creates a Cross Site Scripting
+     * (XSS) vulnerability in your application.
+     * </div>
+     *
      * @param {string} type The kind of context in which this value is to be used.
      * @param {*} maybeTrusted The result of a prior {@link ng.$sceDelegate#trustAs
      *     `$sceDelegate.trustAs`} call.
@@ -26160,7 +27014,7 @@ function $SceDelegateProvider() {
  * By default, Angular only loads templates from the same domain and protocol as the application
  * document.  This is done by calling {@link ng.$sce#getTrustedResourceUrl
  * $sce.getTrustedResourceUrl} on the template URL.  To load templates from other domains and/or
- * protocols, you may either either {@link ng.$sceDelegateProvider#resourceUrlWhitelist whitelist
+ * protocols, you may either {@link ng.$sceDelegateProvider#resourceUrlWhitelist whitelist
  * them} or {@link ng.$sce#trustAsResourceUrl wrap it} into a trusted value.
  *
  * *Please note*:
@@ -26825,26 +27679,63 @@ function $SnifferProvider() {
 var $compileMinErr = minErr('$compile');
 
 /**
- * @ngdoc service
- * @name $templateRequest
- *
+ * @ngdoc provider
+ * @name $templateRequestProvider
  * @description
- * The `$templateRequest` service runs security checks then downloads the provided template using
- * `$http` and, upon success, stores the contents inside of `$templateCache`. If the HTTP request
- * fails or the response data of the HTTP request is empty, a `$compile` error will be thrown (the
- * exception can be thwarted by setting the 2nd parameter of the function to true). Note that the
- * contents of `$templateCache` are trusted, so the call to `$sce.getTrustedUrl(tpl)` is omitted
- * when `tpl` is of type string and `$templateCache` has the matching entry.
+ * Used to configure the options passed to the {@link $http} service when making a template request.
  *
- * @param {string|TrustedResourceUrl} tpl The HTTP request template URL
- * @param {boolean=} ignoreRequestError Whether or not to ignore the exception when the request fails or the template is empty
- *
- * @return {Promise} a promise for the HTTP response data of the given URL.
- *
- * @property {number} totalPendingRequests total amount of pending template requests being downloaded.
+ * For example, it can be used for specifying the "Accept" header that is sent to the server, when
+ * requesting a template.
  */
 function $TemplateRequestProvider() {
+
+  var httpOptions;
+
+  /**
+   * @ngdoc method
+   * @name $templateRequestProvider#httpOptions
+   * @description
+   * The options to be passed to the {@link $http} service when making the request.
+   * You can use this to override options such as the "Accept" header for template requests.
+   *
+   * The {@link $templateRequest} will set the `cache` and the `transformResponse` properties of the
+   * options if not overridden here.
+   *
+   * @param {string=} value new value for the {@link $http} options.
+   * @returns {string|self} Returns the {@link $http} options when used as getter and self if used as setter.
+   */
+  this.httpOptions = function(val) {
+    if (val) {
+      httpOptions = val;
+      return this;
+    }
+    return httpOptions;
+  };
+
+  /**
+   * @ngdoc service
+   * @name $templateRequest
+   *
+   * @description
+   * The `$templateRequest` service runs security checks then downloads the provided template using
+   * `$http` and, upon success, stores the contents inside of `$templateCache`. If the HTTP request
+   * fails or the response data of the HTTP request is empty, a `$compile` error will be thrown (the
+   * exception can be thwarted by setting the 2nd parameter of the function to true). Note that the
+   * contents of `$templateCache` are trusted, so the call to `$sce.getTrustedUrl(tpl)` is omitted
+   * when `tpl` is of type string and `$templateCache` has the matching entry.
+   *
+   * If you want to pass custom options to the `$http` service, such as setting the Accept header you
+   * can configure this via {@link $templateRequestProvider#httpOptions}.
+   *
+   * @param {string|TrustedResourceUrl} tpl The HTTP request template URL
+   * @param {boolean=} ignoreRequestError Whether or not to ignore the exception when the request fails or the template is empty
+   *
+   * @return {Promise} a promise for the HTTP response data of the given URL.
+   *
+   * @property {number} totalPendingRequests total amount of pending template requests being downloaded.
+   */
   this.$get = ['$templateCache', '$http', '$q', '$sce', function($templateCache, $http, $q, $sce) {
+
     function handleRequestFn(tpl, ignoreRequestError) {
       handleRequestFn.totalPendingRequests++;
 
@@ -26867,12 +27758,10 @@ function $TemplateRequestProvider() {
         transformResponse = null;
       }
 
-      var httpOptions = {
-        cache: $templateCache,
-        transformResponse: transformResponse
-      };
-
-      return $http.get(tpl, httpOptions)
+      return $http.get(tpl, extend({
+          cache: $templateCache,
+          transformResponse: transformResponse
+        }, httpOptions))
         ['finally'](function() {
           handleRequestFn.totalPendingRequests--;
         })
@@ -27043,8 +27932,8 @@ function $TimeoutProvider() {
       * @param {boolean=} [invokeApply=true] If set to `false` skips model dirty checking, otherwise
       *   will invoke `fn` within the {@link ng.$rootScope.Scope#$apply $apply} block.
       * @param {...*=} Pass additional parameters to the executed function.
-      * @returns {Promise} Promise that will be resolved when the timeout is reached. The value this
-      *   promise will be resolved with is the return value of the `fn` function.
+      * @returns {Promise} Promise that will be resolved when the timeout is reached. The promise
+      *   will be resolved with the return value of the `fn` function.
       *
       */
     function timeout(fn, delay, invokeApply) {
@@ -27720,6 +28609,10 @@ function getTypeForFilter(val) {
   return (val === null) ? 'null' : typeof val;
 }
 
+var MAX_DIGITS = 22;
+var DECIMAL_SEP = '.';
+var ZERO_CHAR = '0';
+
 /**
  * @ngdoc filter
  * @name currency
@@ -27809,7 +28702,7 @@ function currencyFilter($locale) {
  * @param {(number|string)=} fractionSize Number of decimal places to round the number to.
  * If this is not provided then the fraction size is computed from the current locale's number
  * formatting pattern. In the case of the default locale, it will be 3.
- * @returns {string} Number rounded to decimalPlaces and places a “,” after each third digit.
+ * @returns {string} Number rounded to fractionSize and places a “,” after each third digit.
  *
  * @example
    <example module="numberFilterExample">
@@ -27844,8 +28737,6 @@ function currencyFilter($locale) {
      </file>
    </example>
  */
-
-
 numberFilter.$inject = ['$locale'];
 function numberFilter($locale) {
   var formats = $locale.NUMBER_FORMATS;
@@ -27859,93 +28750,194 @@ function numberFilter($locale) {
   };
 }
 
-var DECIMAL_SEP = '.';
-function formatNumber(number, pattern, groupSep, decimalSep, fractionSize) {
-  if (isObject(number)) return '';
+/**
+ * Parse a number (as a string) into three components that can be used
+ * for formatting the number.
+ *
+ * (Significant bits of this parse algorithm came from https://github.com/MikeMcl/big.js/)
+ *
+ * @param  {string} numStr The number to parse
+ * @return {object} An object describing this number, containing the following keys:
+ *  - d : an array of digits containing leading zeros as necessary
+ *  - i : the number of the digits in `d` that are to the left of the decimal point
+ *  - e : the exponent for numbers that would need more than `MAX_DIGITS` digits in `d`
+ *
+ */
+function parse(numStr) {
+  var exponent = 0, digits, numberOfIntegerDigits;
+  var i, j, zeros;
 
-  var isNegative = number < 0;
-  number = Math.abs(number);
-
-  var isInfinity = number === Infinity;
-  if (!isInfinity && !isFinite(number)) return '';
-
-  var numStr = number + '',
-      formatedText = '',
-      hasExponent = false,
-      parts = [];
-
-  if (isInfinity) formatedText = '\u221e';
-
-  if (!isInfinity && numStr.indexOf('e') !== -1) {
-    var match = numStr.match(/([\d\.]+)e(-?)(\d+)/);
-    if (match && match[2] == '-' && match[3] > fractionSize + 1) {
-      number = 0;
-    } else {
-      formatedText = numStr;
-      hasExponent = true;
-    }
+  // Decimal point?
+  if ((numberOfIntegerDigits = numStr.indexOf(DECIMAL_SEP)) > -1) {
+    numStr = numStr.replace(DECIMAL_SEP, '');
   }
 
-  if (!isInfinity && !hasExponent) {
-    var fractionLen = (numStr.split(DECIMAL_SEP)[1] || '').length;
+  // Exponential form?
+  if ((i = numStr.search(/e/i)) > 0) {
+    // Work out the exponent.
+    if (numberOfIntegerDigits < 0) numberOfIntegerDigits = i;
+    numberOfIntegerDigits += +numStr.slice(i + 1);
+    numStr = numStr.substring(0, i);
+  } else if (numberOfIntegerDigits < 0) {
+    // There was no decimal point or exponent so it is an integer.
+    numberOfIntegerDigits = numStr.length;
+  }
 
-    // determine fractionSize if it is not specified
-    if (isUndefined(fractionSize)) {
-      fractionSize = Math.min(Math.max(pattern.minFrac, fractionLen), pattern.maxFrac);
-    }
+  // Count the number of leading zeros.
+  for (i = 0; numStr.charAt(i) == ZERO_CHAR; i++);
 
-    // safely round numbers in JS without hitting imprecisions of floating-point arithmetics
-    // inspired by:
-    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/round
-    number = +(Math.round(+(number.toString() + 'e' + fractionSize)).toString() + 'e' + -fractionSize);
-
-    var fraction = ('' + number).split(DECIMAL_SEP);
-    var whole = fraction[0];
-    fraction = fraction[1] || '';
-
-    var i, pos = 0,
-        lgroup = pattern.lgSize,
-        group = pattern.gSize;
-
-    if (whole.length >= (lgroup + group)) {
-      pos = whole.length - lgroup;
-      for (i = 0; i < pos; i++) {
-        if ((pos - i) % group === 0 && i !== 0) {
-          formatedText += groupSep;
-        }
-        formatedText += whole.charAt(i);
-      }
-    }
-
-    for (i = pos; i < whole.length; i++) {
-      if ((whole.length - i) % lgroup === 0 && i !== 0) {
-        formatedText += groupSep;
-      }
-      formatedText += whole.charAt(i);
-    }
-
-    // format fraction part.
-    while (fraction.length < fractionSize) {
-      fraction += '0';
-    }
-
-    if (fractionSize && fractionSize !== "0") formatedText += decimalSep + fraction.substr(0, fractionSize);
+  if (i == (zeros = numStr.length)) {
+    // The digits are all zero.
+    digits = [0];
+    numberOfIntegerDigits = 1;
   } else {
-    if (fractionSize > 0 && number < 1) {
-      formatedText = number.toFixed(fractionSize);
-      number = parseFloat(formatedText);
-      formatedText = formatedText.replace(DECIMAL_SEP, decimalSep);
+    // Count the number of trailing zeros
+    zeros--;
+    while (numStr.charAt(zeros) == ZERO_CHAR) zeros--;
+
+    // Trailing zeros are insignificant so ignore them
+    numberOfIntegerDigits -= i;
+    digits = [];
+    // Convert string to array of digits without leading/trailing zeros.
+    for (j = 0; i <= zeros; i++, j++) {
+      digits[j] = +numStr.charAt(i);
     }
   }
 
-  if (number === 0) {
-    isNegative = false;
+  // If the number overflows the maximum allowed digits then use an exponent.
+  if (numberOfIntegerDigits > MAX_DIGITS) {
+    digits = digits.splice(0, MAX_DIGITS - 1);
+    exponent = numberOfIntegerDigits - 1;
+    numberOfIntegerDigits = 1;
   }
 
-  parts.push(isNegative ? pattern.negPre : pattern.posPre,
-             formatedText,
-             isNegative ? pattern.negSuf : pattern.posSuf);
-  return parts.join('');
+  return { d: digits, e: exponent, i: numberOfIntegerDigits };
+}
+
+/**
+ * Round the parsed number to the specified number of decimal places
+ * This function changed the parsedNumber in-place
+ */
+function roundNumber(parsedNumber, fractionSize, minFrac, maxFrac) {
+    var digits = parsedNumber.d;
+    var fractionLen = digits.length - parsedNumber.i;
+
+    // determine fractionSize if it is not specified; `+fractionSize` converts it to a number
+    fractionSize = (isUndefined(fractionSize)) ? Math.min(Math.max(minFrac, fractionLen), maxFrac) : +fractionSize;
+
+    // The index of the digit to where rounding is to occur
+    var roundAt = fractionSize + parsedNumber.i;
+    var digit = digits[roundAt];
+
+    if (roundAt > 0) {
+      digits.splice(roundAt);
+    } else {
+      // We rounded to zero so reset the parsedNumber
+      parsedNumber.i = 1;
+      digits.length = roundAt = fractionSize + 1;
+      for (var i=0; i < roundAt; i++) digits[i] = 0;
+    }
+
+    if (digit >= 5) digits[roundAt - 1]++;
+
+    // Pad out with zeros to get the required fraction length
+    for (; fractionLen < fractionSize; fractionLen++) digits.push(0);
+
+
+    // Do any carrying, e.g. a digit was rounded up to 10
+    var carry = digits.reduceRight(function(carry, d, i, digits) {
+      d = d + carry;
+      digits[i] = d % 10;
+      return Math.floor(d / 10);
+    }, 0);
+    if (carry) {
+      digits.unshift(carry);
+      parsedNumber.i++;
+    }
+}
+
+/**
+ * Format a number into a string
+ * @param  {number} number       The number to format
+ * @param  {{
+ *           minFrac, // the minimum number of digits required in the fraction part of the number
+ *           maxFrac, // the maximum number of digits required in the fraction part of the number
+ *           gSize,   // number of digits in each group of separated digits
+ *           lgSize,  // number of digits in the last group of digits before the decimal separator
+ *           negPre,  // the string to go in front of a negative number (e.g. `-` or `(`))
+ *           posPre,  // the string to go in front of a positive number
+ *           negSuf,  // the string to go after a negative number (e.g. `)`)
+ *           posSuf   // the string to go after a positive number
+ *         }} pattern
+ * @param  {string} groupSep     The string to separate groups of number (e.g. `,`)
+ * @param  {string} decimalSep   The string to act as the decimal separator (e.g. `.`)
+ * @param  {[type]} fractionSize The size of the fractional part of the number
+ * @return {string}              The number formatted as a string
+ */
+function formatNumber(number, pattern, groupSep, decimalSep, fractionSize) {
+
+  if (!(isString(number) || isNumber(number)) || isNaN(number)) return '';
+
+  var isInfinity = !isFinite(number);
+  var isZero = false;
+  var numStr = Math.abs(number) + '',
+      formattedText = '',
+      parsedNumber;
+
+  if (isInfinity) {
+    formattedText = '\u221e';
+  } else {
+    parsedNumber = parse(numStr);
+
+    roundNumber(parsedNumber, fractionSize, pattern.minFrac, pattern.maxFrac);
+
+    var digits = parsedNumber.d;
+    var integerLen = parsedNumber.i;
+    var exponent = parsedNumber.e;
+    var decimals = [];
+    isZero = digits.reduce(function(isZero, d) { return isZero && !d; }, true);
+
+    // pad zeros for small numbers
+    while (integerLen < 0) {
+      digits.unshift(0);
+      integerLen++;
+    }
+
+    // extract decimals digits
+    if (integerLen > 0) {
+      decimals = digits.splice(integerLen);
+    } else {
+      decimals = digits;
+      digits = [0];
+    }
+
+    // format the integer digits with grouping separators
+    var groups = [];
+    if (digits.length > pattern.lgSize) {
+      groups.unshift(digits.splice(-pattern.lgSize).join(''));
+    }
+    while (digits.length > pattern.gSize) {
+      groups.unshift(digits.splice(-pattern.gSize).join(''));
+    }
+    if (digits.length) {
+      groups.unshift(digits.join(''));
+    }
+    formattedText = groups.join(groupSep);
+
+    // append the decimal digits
+    if (decimals.length) {
+      formattedText += decimalSep + decimals.join('');
+    }
+
+    if (exponent) {
+      formattedText += 'e+' + exponent;
+    }
+  }
+  if (number < 0 && !isZero) {
+    return pattern.negPre + formattedText + pattern.negSuf;
+  } else {
+    return pattern.posPre + formattedText + pattern.posSuf;
+  }
 }
 
 function padNumber(num, digits, trim) {
@@ -27955,7 +28947,7 @@ function padNumber(num, digits, trim) {
     num = -num;
   }
   num = '' + num;
-  while (num.length < digits) num = '0' + num;
+  while (num.length < digits) num = ZERO_CHAR + num;
   if (trim) {
     num = num.substr(num.length - digits);
   }
@@ -28224,13 +29216,13 @@ function dateFilter($locale) {
 
     var dateTimezoneOffset = date.getTimezoneOffset();
     if (timezone) {
-      dateTimezoneOffset = timezoneToOffset(timezone, date.getTimezoneOffset());
+      dateTimezoneOffset = timezoneToOffset(timezone, dateTimezoneOffset);
       date = convertTimezoneToLocal(date, timezone, true);
     }
     forEach(parts, function(value) {
       fn = DATE_FORMATS[value];
       text += fn ? fn(date, $locale.DATETIME_FORMATS, dateTimezoneOffset)
-                 : value.replace(/(^'|'$)/g, '').replace(/''/g, "'");
+                 : value === "''" ? "'" : value.replace(/(^'|'$)/g, '').replace(/''/g, "'");
     });
 
     return text;
@@ -28411,7 +29403,7 @@ function limitToFilter() {
     if (!isArray(input) && !isString(input)) return input;
 
     begin = (!begin || isNaN(begin)) ? 0 : toInt(begin);
-    begin = (begin < 0 && begin >= -input.length) ? input.length + begin : begin;
+    begin = (begin < 0) ? Math.max(0, input.length + begin) : begin;
 
     if (limit >= 0) {
       return input.slice(begin, begin + limit);
@@ -28434,8 +29426,9 @@ function limitToFilter() {
  * Orders a specified `array` by the `expression` predicate. It is ordered alphabetically
  * for strings and numerically for numbers. Note: if you notice numbers are not being sorted
  * as expected, make sure they are actually being saved as numbers and not strings.
+ * Array-like values (e.g. NodeLists, jQuery objects, TypedArrays, Strings, etc) are also supported.
  *
- * @param {Array} array The array to sort.
+ * @param {Array} array The array (or array-like object) to sort.
  * @param {function(*)|string|Array.<(function(*)|string)>=} expression A predicate to be
  *    used by the comparator to determine the order of elements.
  *
@@ -28466,17 +29459,6 @@ function limitToFilter() {
  * `reverse` is not set, which means it defaults to `false`.
    <example module="orderByExample">
      <file name="index.html">
-       <script>
-         angular.module('orderByExample', [])
-           .controller('ExampleController', ['$scope', function($scope) {
-             $scope.friends =
-                 [{name:'John', phone:'555-1212', age:10},
-                  {name:'Mary', phone:'555-9876', age:19},
-                  {name:'Mike', phone:'555-4321', age:21},
-                  {name:'Adam', phone:'555-5678', age:35},
-                  {name:'Julie', phone:'555-8765', age:29}];
-           }]);
-       </script>
        <div ng-controller="ExampleController">
          <table class="friend">
            <tr>
@@ -28492,6 +29474,17 @@ function limitToFilter() {
          </table>
        </div>
      </file>
+     <file name="script.js">
+       angular.module('orderByExample', [])
+         .controller('ExampleController', ['$scope', function($scope) {
+           $scope.friends =
+               [{name:'John', phone:'555-1212', age:10},
+                {name:'Mary', phone:'555-9876', age:19},
+                {name:'Mike', phone:'555-4321', age:21},
+                {name:'Adam', phone:'555-5678', age:35},
+                {name:'Julie', phone:'555-8765', age:29}];
+         }]);
+     </file>
    </example>
  *
  * The predicate and reverse parameters can be controlled dynamically through scope properties,
@@ -28499,49 +29492,24 @@ function limitToFilter() {
  * @example
    <example module="orderByExample">
      <file name="index.html">
-       <script>
-         angular.module('orderByExample', [])
-           .controller('ExampleController', ['$scope', function($scope) {
-             $scope.friends =
-                 [{name:'John', phone:'555-1212', age:10},
-                  {name:'Mary', phone:'555-9876', age:19},
-                  {name:'Mike', phone:'555-4321', age:21},
-                  {name:'Adam', phone:'555-5678', age:35},
-                  {name:'Julie', phone:'555-8765', age:29}];
-             $scope.predicate = 'age';
-             $scope.reverse = true;
-             $scope.order = function(predicate) {
-               $scope.reverse = ($scope.predicate === predicate) ? !$scope.reverse : false;
-               $scope.predicate = predicate;
-             };
-           }]);
-       </script>
-       <style type="text/css">
-         .sortorder:after {
-           content: '\25b2';
-         }
-         .sortorder.reverse:after {
-           content: '\25bc';
-         }
-       </style>
        <div ng-controller="ExampleController">
          <pre>Sorting predicate = {{predicate}}; reverse = {{reverse}}</pre>
          <hr/>
-         [ <a href="" ng-click="predicate=''">unsorted</a> ]
+         <button ng-click="predicate=''">Set to unsorted</button>
          <table class="friend">
            <tr>
-             <th>
-               <a href="" ng-click="order('name')">Name</a>
-               <span class="sortorder" ng-show="predicate === 'name'" ng-class="{reverse:reverse}"></span>
-             </th>
-             <th>
-               <a href="" ng-click="order('phone')">Phone Number</a>
-               <span class="sortorder" ng-show="predicate === 'phone'" ng-class="{reverse:reverse}"></span>
-             </th>
-             <th>
-               <a href="" ng-click="order('age')">Age</a>
-               <span class="sortorder" ng-show="predicate === 'age'" ng-class="{reverse:reverse}"></span>
-             </th>
+            <th>
+                <button ng-click="order('name')">Name</button>
+                <span class="sortorder" ng-show="predicate === 'name'" ng-class="{reverse:reverse}"></span>
+            </th>
+            <th>
+                <button ng-click="order('phone')">Phone Number</button>
+                <span class="sortorder" ng-show="predicate === 'phone'" ng-class="{reverse:reverse}"></span>
+            </th>
+            <th>
+                <button ng-click="order('age')">Age</button>
+                <span class="sortorder" ng-show="predicate === 'age'" ng-class="{reverse:reverse}"></span>
+            </th>
            </tr>
            <tr ng-repeat="friend in friends | orderBy:predicate:reverse">
              <td>{{friend.name}}</td>
@@ -28550,6 +29518,31 @@ function limitToFilter() {
            </tr>
          </table>
        </div>
+     </file>
+     <file name="script.js">
+       angular.module('orderByExample', [])
+         .controller('ExampleController', ['$scope', function($scope) {
+           $scope.friends =
+               [{name:'John', phone:'555-1212', age:10},
+                {name:'Mary', phone:'555-9876', age:19},
+                {name:'Mike', phone:'555-4321', age:21},
+                {name:'Adam', phone:'555-5678', age:35},
+                {name:'Julie', phone:'555-8765', age:29}];
+           $scope.predicate = 'age';
+           $scope.reverse = true;
+           $scope.order = function(predicate) {
+             $scope.reverse = ($scope.predicate === predicate) ? !$scope.reverse : false;
+             $scope.predicate = predicate;
+           };
+         }]);
+      </file>
+     <file name="style.css">
+       .sortorder:after {
+         content: '\25b2';
+       }
+       .sortorder.reverse:after {
+         content: '\25bc';
+       }
      </file>
    </example>
  *
@@ -28562,21 +29555,30 @@ function limitToFilter() {
  * @example
   <example module="orderByExample">
     <file name="index.html">
-      <div ng-controller="ExampleController">
-        <table class="friend">
-          <tr>
-            <th><a href="" ng-click="reverse=false;order('name', false)">Name</a>
-              (<a href="" ng-click="order('-name',false)">^</a>)</th>
-            <th><a href="" ng-click="reverse=!reverse;order('phone', reverse)">Phone Number</a></th>
-            <th><a href="" ng-click="reverse=!reverse;order('age',reverse)">Age</a></th>
-          </tr>
-          <tr ng-repeat="friend in friends">
-            <td>{{friend.name}}</td>
-            <td>{{friend.phone}}</td>
-            <td>{{friend.age}}</td>
-          </tr>
-        </table>
-      </div>
+    <div ng-controller="ExampleController">
+      <pre>Sorting predicate = {{predicate}}; reverse = {{reverse}}</pre>
+      <table class="friend">
+        <tr>
+          <th>
+              <button ng-click="order('name')">Name</button>
+              <span class="sortorder" ng-show="predicate === 'name'" ng-class="{reverse:reverse}"></span>
+          </th>
+          <th>
+              <button ng-click="order('phone')">Phone Number</button>
+              <span class="sortorder" ng-show="predicate === 'phone'" ng-class="{reverse:reverse}"></span>
+          </th>
+          <th>
+              <button ng-click="order('age')">Age</button>
+              <span class="sortorder" ng-show="predicate === 'age'" ng-class="{reverse:reverse}"></span>
+          </th>
+        </tr>
+        <tr ng-repeat="friend in friends">
+          <td>{{friend.name}}</td>
+          <td>{{friend.phone}}</td>
+          <td>{{friend.age}}</td>
+        </tr>
+      </table>
+    </div>
     </file>
 
     <file name="script.js">
@@ -28590,11 +29592,22 @@ function limitToFilter() {
             { name: 'Adam',    phone: '555-5678',    age: 35 },
             { name: 'Julie',   phone: '555-8765',    age: 29 }
           ];
-          $scope.order = function(predicate, reverse) {
-            $scope.friends = orderBy($scope.friends, predicate, reverse);
+          $scope.order = function(predicate) {
+            $scope.predicate = predicate;
+            $scope.reverse = ($scope.predicate === predicate) ? !$scope.reverse : false;
+            $scope.friends = orderBy($scope.friends, predicate, $scope.reverse);
           };
-          $scope.order('-age',false);
+          $scope.order('age', true);
         }]);
+    </file>
+
+    <file name="style.css">
+       .sortorder:after {
+         content: '\25b2';
+       }
+       .sortorder.reverse:after {
+         content: '\25bc';
+       }
     </file>
 </example>
  */
@@ -28602,7 +29615,10 @@ orderByFilter.$inject = ['$parse'];
 function orderByFilter($parse) {
   return function(array, sortPredicate, reverseOrder) {
 
-    if (!(isArrayLike(array))) return array;
+    if (array == null) return array;
+    if (!isArrayLike(array)) {
+      throw minErr('orderBy')('notarray', 'Expected array but received: {0}', array);
+    }
 
     if (!isArray(sortPredicate)) { sortPredicate = [sortPredicate]; }
     if (sortPredicate.length === 0) { sortPredicate = ['+']; }
@@ -28925,20 +29941,7 @@ var htmlAnchorDirective = valueFn({
  * {@link guide/expression expression} inside `ngDisabled` evaluates to truthy.
  *
  * A special directive is necessary because we cannot use interpolation inside the `disabled`
- * attribute.  The following example would make the button enabled on Chrome/Firefox
- * but not on older IEs:
- *
- * ```html
- * <!-- See below for an example of ng-disabled being used correctly -->
- * <div ng-init="isDisabled = false">
- *  <button disabled="{{isDisabled}}">Disabled</button>
- * </div>
- * ```
- *
- * This is because the HTML specification does not require browsers to preserve the values of
- * boolean attributes such as `disabled` (Their presence means true and their absence means false.)
- * If we put an Angular interpolation expression into such an attribute then the
- * binding information would be lost when the browser removes the attribute.
+ * attribute. See the {@link guide/interpolation interpolation guide} for more info.
  *
  * @example
     <example>
@@ -28973,15 +29976,9 @@ var htmlAnchorDirective = valueFn({
  * Note that this directive should not be used together with {@link ngModel `ngModel`},
  * as this can lead to unexpected behavior.
  *
- * ### Why do we need `ngChecked`?
+ * A special directive is necessary because we cannot use interpolation inside the `checked`
+ * attribute. See the {@link guide/interpolation interpolation guide} for more info.
  *
- * The HTML specification does not require browsers to preserve the values of boolean attributes
- * such as checked. (Their presence means true and their absence means false.)
- * If we put an Angular interpolation expression into such an attribute then the
- * binding information would be lost when the browser removes the attribute.
- * The `ngChecked` directive solves this problem for the `checked` attribute.
- * This complementary directive is not removed by the browser and so provides
- * a permanent reliable place to store the binding information.
  * @example
     <example>
       <file name="index.html">
@@ -29010,13 +30007,12 @@ var htmlAnchorDirective = valueFn({
  * @priority 100
  *
  * @description
- * The HTML specification does not require browsers to preserve the values of boolean attributes
- * such as readonly. (Their presence means true and their absence means false.)
- * If we put an Angular interpolation expression into such an attribute then the
- * binding information would be lost when the browser removes the attribute.
- * The `ngReadonly` directive solves this problem for the `readonly` attribute.
- * This complementary directive is not removed by the browser and so provides
- * a permanent reliable place to store the binding information.
+ *
+ * Sets the `readOnly` attribute on the element, if the expression inside `ngReadonly` is truthy.
+ *
+ * A special directive is necessary because we cannot use interpolation inside the `readOnly`
+ * attribute. See the {@link guide/interpolation interpolation guide} for more info.
+ *
  * @example
     <example>
       <file name="index.html">
@@ -29045,13 +30041,11 @@ var htmlAnchorDirective = valueFn({
  * @priority 100
  *
  * @description
- * The HTML specification does not require browsers to preserve the values of boolean attributes
- * such as selected. (Their presence means true and their absence means false.)
- * If we put an Angular interpolation expression into such an attribute then the
- * binding information would be lost when the browser removes the attribute.
- * The `ngSelected` directive solves this problem for the `selected` attribute.
- * This complementary directive is not removed by the browser and so provides
- * a permanent reliable place to store the binding information.
+ *
+ * Sets the `selected` attribute on the element, if the expression inside `ngSelected` is truthy.
+ *
+ * A special directive is necessary because we cannot use interpolation inside the `selected`
+ * attribute. See the {@link guide/interpolation interpolation guide} for more info.
  *
  * @example
     <example>
@@ -29083,13 +30077,12 @@ var htmlAnchorDirective = valueFn({
  * @priority 100
  *
  * @description
- * The HTML specification does not require browsers to preserve the values of boolean attributes
- * such as open. (Their presence means true and their absence means false.)
- * If we put an Angular interpolation expression into such an attribute then the
- * binding information would be lost when the browser removes the attribute.
- * The `ngOpen` directive solves this problem for the `open` attribute.
- * This complementary directive is not removed by the browser and so provides
- * a permanent reliable place to store the binding information.
+ *
+ * Sets the `open` attribute on the element, if the expression inside `ngOpen` is truthy.
+ *
+ * A special directive is necessary because we cannot use interpolation inside the `open`
+ * attribute. See the {@link guide/interpolation interpolation guide} for more info.
+ *
  * @example
      <example>
        <file name="index.html">
@@ -29335,7 +30328,7 @@ function FormController(element, attrs, $scope, $animate, $interpolate) {
    *
    * However, if the method is used programmatically, for example by adding dynamically created controls,
    * or controls that have been previously removed without destroying their corresponding DOM element,
-   * it's the developers responsiblity to make sure the current state propagates to the parent form.
+   * it's the developers responsibility to make sure the current state propagates to the parent form.
    *
    * For example, if an input control is added that is already `$dirty` and has `$error` properties,
    * calling `$setDirty()` and `$validate()` afterwards will propagate the state to the parent form.
@@ -29545,13 +30538,9 @@ function FormController(element, attrs, $scope, $animate, $interpolate) {
  *
  * In Angular, forms can be nested. This means that the outer form is valid when all of the child
  * forms are valid as well. However, browsers do not allow nesting of `<form>` elements, so
- * Angular provides the {@link ng.directive:ngForm `ngForm`} directive which behaves identically to
- * `<form>` but can be nested.  This allows you to have nested forms, which is very useful when
- * using Angular validation directives in forms that are dynamically generated using the
- * {@link ng.directive:ngRepeat `ngRepeat`} directive. Since you cannot dynamically generate the `name`
- * attribute of input elements using interpolation, you have to wrap each set of repeated inputs in an
- * `ngForm` directive and nest these in an outer `form` element.
- *
+ * Angular provides the {@link ng.directive:ngForm `ngForm`} directive, which behaves identically to
+ * `form` but can be nested. Nested forms can be useful, for example, if the validity of a sub-group
+ * of controls needs to be determined.
  *
  * # CSS classes
  *  - `ng-valid` is set if the form is valid.
@@ -29771,7 +30760,19 @@ var ngFormDirective = formDirectiveFactory(true);
 
 // Regex code is obtained from SO: https://stackoverflow.com/questions/3143070/javascript-regex-iso-datetime#answer-3143231
 var ISO_DATE_REGEXP = /\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z)/;
-var URL_REGEXP = /^(ftp|http|https):\/\/(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?$/;
+// See valid URLs in RFC3987 (http://tools.ietf.org/html/rfc3987)
+// Note: We are being more lenient, because browsers are too.
+//   1. Scheme
+//   2. Slashes
+//   3. Username
+//   4. Password
+//   5. Hostname
+//   6. Port
+//   7. Path
+//   8. Query
+//   9. Fragment
+//                 1111111111111111 222   333333    44444        555555555555555555555555    666     77777777     8888888     999
+var URL_REGEXP = /^[a-z][a-z\d.+-]*:\/*(?:[^:@]+(?::[^@]+)?@)?(?:[^\s:/?#]+|\[[a-f\d:]+\])(?::\d+)?(?:\/[^?#]*)?(?:\?[^#]*)?(?:#.*)?$/i;
 var EMAIL_REGEXP = /^[a-z0-9!#$%&'*+\/=?^_`{|}~.-]+@[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/i;
 var NUMBER_REGEXP = /^\s*(\-|\+)?(\d+|(\d*(\.\d*)))([eE][+-]?\d+)?\s*$/;
 var DATE_REGEXP = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -29804,8 +30805,8 @@ var inputType = {
    * @param {string=} pattern Similar to `ngPattern` except that the attribute value is the actual string
    *    that contains the regular expression body that will be converted to a regular expression
    *    as in the ngPattern directive.
-   * @param {string=} ngPattern Sets `pattern` validation error key if the ngModel value does not match
-   *    a RegExp found by evaluating the Angular expression given in the attribute value.
+   * @param {string=} ngPattern Sets `pattern` validation error key if the ngModel {@link ngModel.NgModelController#$viewValue $viewValue}
+   *    does not match a RegExp found by evaluating the Angular expression given in the attribute value.
    *    If the expression evaluates to a RegExp object, then this is used directly.
    *    If the expression evaluates to a string, then it will be converted to a RegExp
    *    after wrapping it in `^` and `$` characters. For instance, `"abc"` will be converted to
@@ -30092,7 +31093,7 @@ var inputType = {
    *
    * @description
    * Input with time validation and transformation. In browsers that do not yet support
-   * the HTML5 date input, a text element will be used. In that case, the text must be entered in a valid ISO-8601
+   * the HTML5 time input, a text element will be used. In that case, the text must be entered in a valid ISO-8601
    * local time format (HH:mm:ss), for example: `14:57:00`. Model must be a Date object. This binding will always output a
    * Date object to the model of January 1, 1970, or local date `new Date(1970, 0, 1, HH, mm, ss)`.
    *
@@ -30439,8 +31440,8 @@ var inputType = {
    * @param {string=} pattern Similar to `ngPattern` except that the attribute value is the actual string
    *    that contains the regular expression body that will be converted to a regular expression
    *    as in the ngPattern directive.
-   * @param {string=} ngPattern Sets `pattern` validation error key if the ngModel value does not match
-   *    a RegExp found by evaluating the Angular expression given in the attribute value.
+   * @param {string=} ngPattern Sets `pattern` validation error key if the ngModel {@link ngModel.NgModelController#$viewValue $viewValue}
+   *    does not match a RegExp found by evaluating the Angular expression given in the attribute value.
    *    If the expression evaluates to a RegExp object, then this is used directly.
    *    If the expression evaluates to a string, then it will be converted to a RegExp
    *    after wrapping it in `^` and `$` characters. For instance, `"abc"` will be converted to
@@ -30537,8 +31538,8 @@ var inputType = {
    * @param {string=} pattern Similar to `ngPattern` except that the attribute value is the actual string
    *    that contains the regular expression body that will be converted to a regular expression
    *    as in the ngPattern directive.
-   * @param {string=} ngPattern Sets `pattern` validation error key if the ngModel value does not match
-   *    a RegExp found by evaluating the Angular expression given in the attribute value.
+   * @param {string=} ngPattern Sets `pattern` validation error key if the ngModel {@link ngModel.NgModelController#$viewValue $viewValue}
+   *    does not match a RegExp found by evaluating the Angular expression given in the attribute value.
    *    If the expression evaluates to a RegExp object, then this is used directly.
    *    If the expression evaluates to a string, then it will be converted to a RegExp
    *    after wrapping it in `^` and `$` characters. For instance, `"abc"` will be converted to
@@ -30636,8 +31637,8 @@ var inputType = {
    * @param {string=} pattern Similar to `ngPattern` except that the attribute value is the actual string
    *    that contains the regular expression body that will be converted to a regular expression
    *    as in the ngPattern directive.
-   * @param {string=} ngPattern Sets `pattern` validation error key if the ngModel value does not match
-   *    a RegExp found by evaluating the Angular expression given in the attribute value.
+   * @param {string=} ngPattern Sets `pattern` validation error key if the ngModel {@link ngModel.NgModelController#$viewValue $viewValue}
+   *    does not match a RegExp found by evaluating the Angular expression given in the attribute value.
    *    If the expression evaluates to a RegExp object, then this is used directly.
    *    If the expression evaluates to a string, then it will be converted to a RegExp
    *    after wrapping it in `^` and `$` characters. For instance, `"abc"` will be converted to
@@ -31097,11 +32098,7 @@ function badInputChecker(scope, element, attr, ctrl) {
   if (nativeValidation) {
     ctrl.$parsers.push(function(value) {
       var validity = element.prop(VALIDITY_STATE_PROPERTY) || {};
-      // Detect bug in FF35 for input[email] (https://bugzilla.mozilla.org/show_bug.cgi?id=1064430):
-      // - also sets validity.badInput (should only be validity.typeMismatch).
-      // - see http://www.whatwg.org/specs/web-apps/current-work/multipage/forms.html#e-mail-state-(type=email)
-      // - can ignore this case as we can still read out the erroneous email...
-      return validity.badInput && !validity.typeMismatch ? undefined : value;
+      return validity.badInput || validity.typeMismatch ? undefined : value;
     });
   }
 }
@@ -31273,8 +32270,8 @@ function checkboxInputType(scope, element, attr, ctrl, $sniffer, $browser, $filt
  * @param {number=} ngMaxlength Sets `maxlength` validation error key if the value is longer than
  *    maxlength. Setting the attribute to a negative or non-numeric value, allows view values of any
  *    length.
- * @param {string=} ngPattern Sets `pattern` validation error key if the ngModel value does not match
- *    a RegExp found by evaluating the Angular expression given in the attribute value.
+ * @param {string=} ngPattern Sets `pattern` validation error key if the ngModel {@link ngModel.NgModelController#$viewValue $viewValue}
+ *    does not match a RegExp found by evaluating the Angular expression given in the attribute value.
  *    If the expression evaluates to a RegExp object, then this is used directly.
  *    If the expression evaluates to a string, then it will be converted to a RegExp
  *    after wrapping it in `^` and `$` characters. For instance, `"abc"` will be converted to
@@ -31312,8 +32309,8 @@ function checkboxInputType(scope, element, attr, ctrl, $sniffer, $browser, $filt
  * @param {number=} ngMaxlength Sets `maxlength` validation error key if the value is longer than
  *    maxlength. Setting the attribute to a negative or non-numeric value, allows view values of any
  *    length.
- * @param {string=} ngPattern Sets `pattern` validation error key if the ngModel value does not match
- *    a RegExp found by evaluating the Angular expression given in the attribute value.
+ * @param {string=} ngPattern Sets `pattern` validation error key if the ngModel {@link ngModel.NgModelController#$viewValue $viewValue}
+ *    value does not match a RegExp found by evaluating the Angular expression given in the attribute value.
  *    If the expression evaluates to a RegExp object, then this is used directly.
  *    If the expression evaluates to a string, then it will be converted to a RegExp
  *    after wrapping it in `^` and `$` characters. For instance, `"abc"` will be converted to
@@ -32539,7 +33536,7 @@ var ngControllerDirective = [function() {
  *
  * * no-inline-style: this stops Angular from injecting CSS styles into the DOM
  *
- * * no-unsafe-eval: this stops Angular from optimising $parse with unsafe eval of strings
+ * * no-unsafe-eval: this stops Angular from optimizing $parse with unsafe eval of strings
  *
  * You can use these values in the following combinations:
  *
@@ -32556,7 +33553,7 @@ var ngControllerDirective = [function() {
  * inline styles. E.g. `<body ng-csp="no-unsafe-eval">`.
  *
  * * Specifying only `no-inline-style` tells Angular that we must not inject styles, but that we can
- * run eval - no automcatic check for unsafe eval will occur. E.g. `<body ng-csp="no-inline-style">`
+ * run eval - no automatic check for unsafe eval will occur. E.g. `<body ng-csp="no-inline-style">`
  *
  * * Specifying both `no-unsafe-eval` and `no-inline-style` tells Angular that we must not inject
  * styles nor use eval, which is the same as an empty: ng-csp.
@@ -33337,7 +34334,13 @@ var ngIfDirective = ['$animate', function($animate) {
  * @param {string} ngInclude|src angular expression evaluating to URL. If the source is a string constant,
  *                 make sure you wrap it in **single** quotes, e.g. `src="'myPartialTemplate.html'"`.
  * @param {string=} onload Expression to evaluate when a new partial is loaded.
- *
+ *                  <div class="alert alert-warning">
+ *                  **Note:** When using onload on SVG elements in IE11, the browser will try to call
+ *                  a function with the name on the window element, which will usually throw a
+ *                  "function is undefined" error. To fix this, you can instead use `data-onload` or a
+ *                  different form that {@link guide/directive#normalization matches} `onload`.
+ *                  </div>
+   *
  * @param {string=} autoscroll Whether `ngInclude` should call {@link ng.$anchorScroll
  *                  $anchorScroll} to scroll the viewport after the content is loaded.
  *
@@ -33529,6 +34532,8 @@ var ngIncludeDirective = ['$templateRequest', '$anchorScroll', '$animate',
             //set the 2nd param to true to ignore the template request error so that the inner
             //contents and scope can be cleaned up.
             $templateRequest(src, true).then(function(response) {
+              if (scope.$$destroyed) return;
+
               if (thisChangeId !== changeCounter) return;
               var newScope = scope.$new();
               ctrl.template = response;
@@ -33550,6 +34555,8 @@ var ngIncludeDirective = ['$templateRequest', '$anchorScroll', '$animate',
               currentScope.$emit('$includeContentLoaded', src);
               scope.$eval(onloadExp);
             }, function() {
+              if (scope.$$destroyed) return;
+
               if (thisChangeId === changeCounter) {
                 cleanupLastIncludeContent();
                 scope.$emit('$includeContentError', src);
@@ -33578,7 +34585,7 @@ var ngIncludeFillContentDirective = ['$compile',
       priority: -400,
       require: 'ngInclude',
       link: function(scope, $element, $attr, ctrl) {
-        if (/SVG/.test($element[0].toString())) {
+        if (toString.call($element[0]).match(/SVG/)) {
           // WebKit: https://bugs.webkit.org/show_bug.cgi?id=135698 --- SVG elements do not
           // support innerHTML, so detect this here and try to generate the contents
           // specially.
@@ -33807,7 +34814,9 @@ var VALID_CLASS = 'ng-valid',
     DIRTY_CLASS = 'ng-dirty',
     UNTOUCHED_CLASS = 'ng-untouched',
     TOUCHED_CLASS = 'ng-touched',
-    PENDING_CLASS = 'ng-pending';
+    PENDING_CLASS = 'ng-pending',
+    EMPTY_CLASS = 'ng-empty',
+    NOT_EMPTY_CLASS = 'ng-not-empty';
 
 var ngModelMinErr = minErr('ngModel');
 
@@ -34111,6 +35120,17 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
     return isUndefined(value) || value === '' || value === null || value !== value;
   };
 
+  this.$$updateEmptyClasses = function(value) {
+    if (ctrl.$isEmpty(value)) {
+      $animate.removeClass($element, NOT_EMPTY_CLASS);
+      $animate.addClass($element, EMPTY_CLASS);
+    } else {
+      $animate.removeClass($element, EMPTY_CLASS);
+      $animate.addClass($element, NOT_EMPTY_CLASS);
+    }
+  };
+
+
   var currentValidationRunId = 0;
 
   /**
@@ -34228,11 +35248,14 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
    * which may be caused by a pending debounced event or because the input is waiting for a some
    * future event.
    *
-   * If you have an input that uses `ng-model-options` to set up debounced events or events such
-   * as blur you can have a situation where there is a period when the `$viewValue`
-   * is out of synch with the ngModel's `$modelValue`.
+   * If you have an input that uses `ng-model-options` to set up debounced updates or updates that
+   * depend on special events such as blur, you can have a situation where there is a period when
+   * the `$viewValue` is out of sync with the ngModel's `$modelValue`.
    *
-   * In this case, you can run into difficulties if you try to update the ngModel's `$modelValue`
+   * In this case, you can use `$rollbackViewValue()` to manually cancel the debounced / future update
+   * and reset the input to the last committed view value.
+   *
+   * It is also possible that you run into difficulties if you try to update the ngModel's `$modelValue`
    * programmatically before these debounced/future events have resolved/occurred, because Angular's
    * dirty checking mechanism is not able to tell whether the model has actually changed or not.
    *
@@ -34245,39 +35268,63 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
    *     angular.module('cancel-update-example', [])
    *
    *     .controller('CancelUpdateController', ['$scope', function($scope) {
-   *       $scope.resetWithCancel = function(e) {
+   *       $scope.model = {};
+   *
+   *       $scope.setEmpty = function(e, value, rollback) {
    *         if (e.keyCode == 27) {
-   *           $scope.myForm.myInput1.$rollbackViewValue();
-   *           $scope.myValue = '';
-   *         }
-   *       };
-   *       $scope.resetWithoutCancel = function(e) {
-   *         if (e.keyCode == 27) {
-   *           $scope.myValue = '';
+   *           e.preventDefault();
+   *           if (rollback) {
+   *             $scope.myForm[value].$rollbackViewValue();
+   *           }
+   *           $scope.model[value] = '';
    *         }
    *       };
    *     }]);
    *   </file>
    *   <file name="index.html">
    *     <div ng-controller="CancelUpdateController">
-   *       <p>Try typing something in each input.  See that the model only updates when you
-   *          blur off the input.
-   *        </p>
-   *        <p>Now see what happens if you start typing then press the Escape key</p>
+   *        <p>Both of these inputs are only updated if they are blurred. Hitting escape should
+   *        empty them. Follow these steps and observe the difference:</p>
+   *       <ol>
+   *         <li>Type something in the input. You will see that the model is not yet updated</li>
+   *         <li>Press the Escape key.
+   *           <ol>
+   *             <li> In the first example, nothing happens, because the model is already '', and no
+   *             update is detected. If you blur the input, the model will be set to the current view.
+   *             </li>
+   *             <li> In the second example, the pending update is cancelled, and the input is set back
+   *             to the last committed view value (''). Blurring the input does nothing.
+   *             </li>
+   *           </ol>
+   *         </li>
+   *       </ol>
    *
    *       <form name="myForm" ng-model-options="{ updateOn: 'blur' }">
-   *         <p id="inputDescription1">With $rollbackViewValue()</p>
-   *         <input name="myInput1" aria-describedby="inputDescription1" ng-model="myValue"
-   *                ng-keydown="resetWithCancel($event)"><br/>
-   *         myValue: "{{ myValue }}"
+   *         <div>
+   *        <p id="inputDescription1">Without $rollbackViewValue():</p>
+   *         <input name="value1" aria-describedby="inputDescription1" ng-model="model.value1"
+   *                ng-keydown="setEmpty($event, 'value1')">
+   *         value1: "{{ model.value1 }}"
+   *         </div>
    *
-   *         <p id="inputDescription2">Without $rollbackViewValue()</p>
-   *         <input name="myInput2" aria-describedby="inputDescription2" ng-model="myValue"
-   *                ng-keydown="resetWithoutCancel($event)"><br/>
-   *         myValue: "{{ myValue }}"
+   *         <div>
+   *        <p id="inputDescription2">With $rollbackViewValue():</p>
+   *         <input name="value2" aria-describedby="inputDescription2" ng-model="model.value2"
+   *                ng-keydown="setEmpty($event, 'value2', true)">
+   *         value2: "{{ model.value2 }}"
+   *         </div>
    *       </form>
    *     </div>
    *   </file>
+       <file name="style.css">
+          div {
+            display: table-cell;
+          }
+          div:nth-child(1) {
+            padding-right: 30px;
+          }
+
+        </file>
    * </example>
    */
   this.$rollbackViewValue = function() {
@@ -34391,7 +35438,7 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
       forEach(ctrl.$asyncValidators, function(validator, name) {
         var promise = validator(modelValue, viewValue);
         if (!isPromiseLike(promise)) {
-          throw ngModelMinErr("$asyncValidators",
+          throw ngModelMinErr('nopromise',
             "Expected asynchronous validator to return a promise but got '{0}' instead.", promise);
         }
         setValidity(name, undefined);
@@ -34447,6 +35494,7 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
     if (ctrl.$$lastCommittedViewValue === viewValue && (viewValue !== '' || !ctrl.$$hasNativeValidators)) {
       return;
     }
+    ctrl.$$updateEmptyClasses(viewValue);
     ctrl.$$lastCommittedViewValue = viewValue;
 
     // change to dirty
@@ -34545,7 +35593,7 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
    * However, custom controls might also pass objects to this method. In this case, we should make
    * a copy of the object before passing it to `$setViewValue`. This is because `ngModel` does not
    * perform a deep watch of objects, it only looks for a change of identity. If you only change
-   * the property of the object then ngModel will not realise that the object has changed and
+   * the property of the object then ngModel will not realize that the object has changed and
    * will not invoke the `$parsers` and `$validators` pipelines. For this reason, you should
    * not change properties of the copy once it has been passed to `$setViewValue`.
    * Otherwise you may cause the model value on the scope to change incorrectly.
@@ -34629,6 +35677,7 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
         viewValue = formatters[idx](viewValue);
       }
       if (ctrl.$viewValue !== viewValue) {
+        ctrl.$$updateEmptyClasses(viewValue);
         ctrl.$viewValue = ctrl.$$lastCommittedViewValue = viewValue;
         ctrl.$render();
 
@@ -34659,7 +35708,8 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
  *   require.
  * - Providing validation behavior (i.e. required, number, email, url).
  * - Keeping the state of the control (valid/invalid, dirty/pristine, touched/untouched, validation errors).
- * - Setting related css classes on the element (`ng-valid`, `ng-invalid`, `ng-dirty`, `ng-pristine`, `ng-touched`, `ng-untouched`) including animations.
+ * - Setting related css classes on the element (`ng-valid`, `ng-invalid`, `ng-dirty`, `ng-pristine`, `ng-touched`,
+ *   `ng-untouched`, `ng-empty`, `ng-not-empty`) including animations.
  * - Registering the control with its parent {@link ng.directive:form form}.
  *
  * Note: `ngModel` will try to bind to the property given by evaluating the expression on the
@@ -34687,6 +35737,22 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
  *  - {@link ng.directive:select select}
  *  - {@link ng.directive:textarea textarea}
  *
+ * # Complex Models (objects or collections)
+ *
+ * By default, `ngModel` watches the model by reference, not value. This is important to know when
+ * binding inputs to models that are objects (e.g. `Date`) or collections (e.g. arrays). If only properties of the
+ * object or collection change, `ngModel` will not be notified and so the input will not be  re-rendered.
+ *
+ * The model must be assigned an entirely new object or collection before a re-rendering will occur.
+ *
+ * Some directives have options that will cause them to use a custom `$watchCollection` on the model expression
+ * - for example, `ngOptions` will do so when a `track by` clause is included in the comprehension expression or
+ * if the select is given the `multiple` attribute.
+ *
+ * The `$watchCollection()` method only does a shallow comparison, meaning that changing properties deeper than the
+ * first level of the object (or only changing the properties of an item in the collection if it's an array) will still
+ * not trigger a re-rendering of the model.
+ *
  * # CSS classes
  * The following CSS classes are added and removed on the associated input/select/textarea element
  * depending on the validity of the model.
@@ -34700,13 +35766,16 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
  *  - `ng-touched`: the control has been blurred
  *  - `ng-untouched`: the control hasn't been blurred
  *  - `ng-pending`: any `$asyncValidators` are unfulfilled
+ *  - `ng-empty`: the view does not contain a value or the value is deemed "empty", as defined
+ *     by the {@link ngModel.NgModelController#$isEmpty} method
+ *  - `ng-not-empty`: the view contains a non-empty value
  *
  * Keep in mind that ngAnimate can detect each of these classes when added and removed.
  *
  * ## Animation Hooks
  *
  * Animations within models are triggered when any of the associated CSS classes are added and removed
- * on the input element which is attached to the model. These classes are: `.ng-pristine`, `.ng-dirty`,
+ * on the input element which is attached to the model. These classes include: `.ng-pristine`, `.ng-dirty`,
  * `.ng-invalid` and `.ng-valid` as well as any other validations that are performed on the model itself.
  * The animations that are triggered within ngModel are similar to how they work in ngClass and
  * animations can be hooked into using CSS transitions, keyframes as well as JS animations.
@@ -34930,12 +35999,13 @@ var DEFAULT_REGEXP = /(\s+|^)default(\s+|$)/;
           </label><br />
         </form>
         <pre>user.name = <span ng-bind="user.name"></span></pre>
+        <pre>user.data = <span ng-bind="user.data"></span></pre>
       </div>
     </file>
     <file name="app.js">
       angular.module('optionsExample', [])
         .controller('ExampleController', ['$scope', function($scope) {
-          $scope.user = { name: 'say', data: '' };
+          $scope.user = { name: 'John', data: '' };
 
           $scope.cancel = function(e) {
             if (e.keyCode == 27) {
@@ -34950,20 +36020,20 @@ var DEFAULT_REGEXP = /(\s+|^)default(\s+|$)/;
       var other = element(by.model('user.data'));
 
       it('should allow custom events', function() {
-        input.sendKeys(' hello');
+        input.sendKeys(' Doe');
         input.click();
-        expect(model.getText()).toEqual('say');
+        expect(model.getText()).toEqual('John');
         other.click();
-        expect(model.getText()).toEqual('say hello');
+        expect(model.getText()).toEqual('John Doe');
       });
 
       it('should $rollbackViewValue when model changes', function() {
-        input.sendKeys(' hello');
-        expect(input.getAttribute('value')).toEqual('say hello');
+        input.sendKeys(' Doe');
+        expect(input.getAttribute('value')).toEqual('John Doe');
         input.sendKeys(protractor.Key.ESCAPE);
-        expect(input.getAttribute('value')).toEqual('say');
+        expect(input.getAttribute('value')).toEqual('John');
         other.click();
-        expect(model.getText()).toEqual('say');
+        expect(model.getText()).toEqual('John');
       });
     </file>
   </example>
@@ -34989,7 +36059,7 @@ var DEFAULT_REGEXP = /(\s+|^)default(\s+|$)/;
     <file name="app.js">
       angular.module('optionsExample', [])
         .controller('ExampleController', ['$scope', function($scope) {
-          $scope.user = { name: 'say' };
+          $scope.user = { name: 'Igor' };
         }]);
     </file>
   </example>
@@ -35222,19 +36292,27 @@ var ngOptionsMinErr = minErr('ngOptions');
  *
  * ## Complex Models (objects or collections)
  *
- * **Note:** By default, `ngModel` watches the model by reference, not value. This is important when
- * binding any input directive to a model that is an object or a collection.
+ * By default, `ngModel` watches the model by reference, not value. This is important to know when
+ * binding the select to a model that is an object or a collection.
  *
- * Since this is a common situation for `ngOptions` the directive additionally watches the model using
- * `$watchCollection` when the select has the `multiple` attribute or when there is a `track by` clause in
- * the options expression. This allows ngOptions to trigger a re-rendering of the options even if the actual
- * object/collection has not changed identity but only a property on the object or an item in the collection
- * changes.
+ * One issue occurs if you want to preselect an option. For example, if you set
+ * the model to an object that is equal to an object in your collection, `ngOptions` won't be able to set the selection,
+ * because the objects are not identical. So by default, you should always reference the item in your collection
+ * for preselections, e.g.: `$scope.selected = $scope.collection[3]`.
+ *
+ * Another solution is to use a `track by` clause, because then `ngOptions` will track the identity
+ * of the item not by reference, but by the result of the `track by` expression. For example, if your
+ * collection items have an id property, you would `track by item.id`.
+ *
+ * A different issue with objects or collections is that ngModel won't detect if an object property or
+ * a collection item changes. For that reason, `ngOptions` additionally watches the model using
+ * `$watchCollection`, when the expression contains a `track by` clause or the the select has the `multiple` attribute.
+ * This allows ngOptions to trigger a re-rendering of the options even if the actual object/collection
+ * has not changed identity, but only a property on the object or an item in the collection changes.
  *
  * Note that `$watchCollection` does a shallow comparison of the properties of the object (or the items in the collection
- * if the model is an array). This means that changing a property deeper inside the object/collection that the
- * first level will not trigger a re-rendering.
- *
+ * if the model is an array). This means that changing a property deeper than the first level inside the
+ * object/collection will not trigger a re-rendering.
  *
  * ## `select` **`as`**
  *
@@ -35247,17 +36325,13 @@ var ngOptionsMinErr = minErr('ngOptions');
  * ### `select` **`as`** and **`track by`**
  *
  * <div class="alert alert-warning">
- * Do not use `select` **`as`** and **`track by`** in the same expression. They are not designed to work together.
+ * Be careful when using `select` **`as`** and **`track by`** in the same expression.
  * </div>
  *
- * Consider the following example:
- *
- * ```html
- * <select ng-options="item.subItem as item.label for item in values track by item.id" ng-model="selected"></select>
- * ```
+ * Given this array of items on the $scope:
  *
  * ```js
- * $scope.values = [{
+ * $scope.items = [{
  *   id: 1,
  *   label: 'aLabel',
  *   subItem: { name: 'aSubItem' }
@@ -35266,20 +36340,33 @@ var ngOptionsMinErr = minErr('ngOptions');
  *   label: 'bLabel',
  *   subItem: { name: 'bSubItem' }
  * }];
- *
- * $scope.selected = { name: 'aSubItem' };
  * ```
  *
- * With the purpose of preserving the selection, the **`track by`** expression is always applied to the element
- * of the data source (to `item` in this example). To calculate whether an element is selected, we do the
- * following:
+ * This will work:
  *
- * 1. Apply **`track by`** to the elements in the array. In the example: `[1, 2]`
- * 2. Apply **`track by`** to the already selected value in `ngModel`.
- *    In the example: this is not possible as **`track by`** refers to `item.id`, but the selected
- *    value from `ngModel` is `{name: 'aSubItem'}`, so the **`track by`** expression is applied to
- *    a wrong object, the selected element can't be found, `<select>` is always reset to the "not
- *    selected" option.
+ * ```html
+ * <select ng-options="item as item.label for item in items track by item.id" ng-model="selected"></select>
+ * ```
+ * ```js
+ * $scope.selected = $scope.items[0];
+ * ```
+ *
+ * but this will not work:
+ *
+ * ```html
+ * <select ng-options="item.subItem as item.label for item in items track by item.id" ng-model="selected"></select>
+ * ```
+ * ```js
+ * $scope.selected = $scope.items[0].subItem;
+ * ```
+ *
+ * In both examples, the **`track by`** expression is applied successfully to each `item` in the
+ * `items` array. Because the selected option has been set programmatically in the controller, the
+ * **`track by`** expression is also applied to the `ngModel` value. In the first example, the
+ * `ngModel` value is `items[0]` and the **`track by`** expression evaluates to `items[0].id` with
+ * no issue. In the second example, the `ngModel` value is `items[0].subItem` and the **`track by`**
+ * expression evaluates to `items[0].subItem.id` (which is undefined). As a result, the model value
+ * is not matched against any `<option>` and the `<select>` appears as having no selected value.
  *
  *
  * @param {string} ngModel Assignable angular expression to data-bind to.
@@ -35581,17 +36668,10 @@ var ngOptionsDirective = ['$compile', '$parse', function($compile, $parse) {
   var optionTemplate = document.createElement('option'),
       optGroupTemplate = document.createElement('optgroup');
 
-  return {
-    restrict: 'A',
-    terminal: true,
-    require: ['select', '?ngModel'],
-    link: function(scope, selectElement, attr, ctrls) {
-
-      // if ngModel is not defined, we don't need to do anything
-      var ngModelCtrl = ctrls[1];
-      if (!ngModelCtrl) return;
+    function ngOptionsPostLink(scope, selectElement, attr, ctrls) {
 
       var selectCtrl = ctrls[0];
+      var ngModelCtrl = ctrls[1];
       var multiple = attr.multiple;
 
       // The emptyOption allows the application developer to provide their own custom "empty"
@@ -35639,7 +36719,6 @@ var ngOptionsDirective = ['$compile', '$parse', function($compile, $parse) {
       var removeUnknownOption = function() {
         unknownOption.remove();
       };
-
 
       // Update the controller methods for multiple selectable options
       if (!multiple) {
@@ -35815,13 +36894,15 @@ var ngOptionsDirective = ['$compile', '$parse', function($compile, $parse) {
         var emptyOption_ = emptyOption && emptyOption[0];
         var unknownOption_ = unknownOption && unknownOption[0];
 
+        // We cannot rely on the extracted empty option being the same as the compiled empty option,
+        // because the compiled empty option might have been replaced by a comment because
+        // it had an "element" transclusion directive on it (such as ngIf)
         if (emptyOption_ || unknownOption_) {
           while (current &&
                 (current === emptyOption_ ||
                 current === unknownOption_ ||
-                emptyOption_ && emptyOption_.nodeType === NODE_TYPE_COMMENT)) {
-            // Empty options might have directives that transclude
-            // and insert comments (e.g. ngIf)
+                current.nodeType === NODE_TYPE_COMMENT ||
+                (nodeName_(current) === 'option' && current.value === ''))) {
             current = current.nextSibling;
           }
         }
@@ -35850,7 +36931,7 @@ var ngOptionsDirective = ['$compile', '$parse', function($compile, $parse) {
           var groupElement;
           var optionElement;
 
-          if (option.group) {
+          if (isDefined(option.group)) {
 
             // This option is to live in a group
             // See if we have already created this group
@@ -35911,14 +36992,28 @@ var ngOptionsDirective = ['$compile', '$parse', function($compile, $parse) {
         // Check to see if the value has changed due to the update to the options
         if (!ngModelCtrl.$isEmpty(previousValue)) {
           var nextValue = selectCtrl.readValue();
-          if (ngOptions.trackBy ? !equals(previousValue, nextValue) : previousValue !== nextValue) {
+          var isNotPrimitive = ngOptions.trackBy || multiple;
+          if (isNotPrimitive ? !equals(previousValue, nextValue) : previousValue !== nextValue) {
             ngModelCtrl.$setViewValue(nextValue);
             ngModelCtrl.$render();
           }
         }
 
       }
+  }
 
+  return {
+    restrict: 'A',
+    terminal: true,
+    require: ['select', 'ngModel'],
+    link: {
+      pre: function ngOptionsPreLink(scope, selectElement, attr, ctrls) {
+        // Deactivate the SelectController.register method to prevent
+        // option directives from accidentally registering themselves
+        // (and unwanted $destroy handlers etc.)
+        ctrls[0].registerOption = noop;
+      },
+      post: ngOptionsPostLink
     }
   };
 }];
@@ -36138,7 +37233,7 @@ var ngPluralizeDirective = ['$locale', '$interpolate', '$log', function($locale,
         }
 
         // If both `count` and `lastCount` are NaN, we don't need to re-register a watch.
-        // In JS `NaN !== NaN`, so we have to exlicitly check.
+        // In JS `NaN !== NaN`, so we have to explicitly check.
         if ((count !== lastCount) && !(countIsNaN && isNumber(lastCount) && isNaN(lastCount))) {
           watchRemover();
           var whenExpFn = whensExpFns[count];
@@ -36205,7 +37300,7 @@ var ngPluralizeDirective = ['$locale', '$interpolate', '$log', function($locale,
  * Version 1.4 removed the alphabetic sorting. We now rely on the order returned by the browser
  * when running `for key in myObj`. It seems that browsers generally follow the strategy of providing
  * keys in the order in which they were defined, although there are exceptions when keys are deleted
- * and reinstated. See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/delete#Cross-browser_issues
+ * and reinstated. See the [MDN page on `delete` for more info](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/delete#Cross-browser_notes).
  *
  * If this is not desired, the recommended workaround is to convert your object into an array
  * that is sorted into the order that you prefer before providing it to `ngRepeat`.  You could
@@ -36215,15 +37310,21 @@ var ngPluralizeDirective = ['$locale', '$interpolate', '$log', function($locale,
  *
  * # Tracking and Duplicates
  *
- * When the contents of the collection change, `ngRepeat` makes the corresponding changes to the DOM:
+ * `ngRepeat` uses {@link $rootScope.Scope#$watchCollection $watchCollection} to detect changes in
+ * the collection. When a change happens, ngRepeat then makes the corresponding changes to the DOM:
  *
  * * When an item is added, a new instance of the template is added to the DOM.
  * * When an item is removed, its template instance is removed from the DOM.
  * * When items are reordered, their respective templates are reordered in the DOM.
  *
- * By default, `ngRepeat` does not allow duplicate items in arrays. This is because when
- * there are duplicates, it is not possible to maintain a one-to-one mapping between collection
- * items and DOM elements.
+ * To minimize creation of DOM elements, `ngRepeat` uses a function
+ * to "keep track" of all items in the collection and their corresponding DOM elements.
+ * For example, if an item is added to the collection, ngRepeat will know that all other items
+ * already have DOM elements, and will not re-render them.
+ *
+ * The default tracking function (which tracks items by their identity) does not allow
+ * duplicate items in arrays. This is because when there are duplicates, it is not possible
+ * to maintain a one-to-one mapping between collection items and DOM elements.
  *
  * If you do need to repeat duplicate items, you can substitute the default tracking behavior
  * with your own using the `track by` expression.
@@ -36236,7 +37337,7 @@ var ngPluralizeDirective = ['$locale', '$interpolate', '$log', function($locale,
  *    </div>
  * ```
  *
- * You may use arbitrary expressions in `track by`, including references to custom functions
+ * You may also use arbitrary expressions in `track by`, including references to custom functions
  * on the scope:
  * ```html
  *    <div ng-repeat="n in [42, 42, 43, 43] track by myTrackingFunction(n)">
@@ -36244,10 +37345,14 @@ var ngPluralizeDirective = ['$locale', '$interpolate', '$log', function($locale,
  *    </div>
  * ```
  *
- * If you are working with objects that have an identifier property, you can track
+ * <div class="alert alert-success">
+ * If you are working with objects that have an identifier property, you should track
  * by the identifier instead of the whole object. Should you reload your data later, `ngRepeat`
  * will not have to rebuild the DOM elements for items it has already rendered, even if the
- * JavaScript objects in the collection have been substituted for new ones:
+ * JavaScript objects in the collection have been substituted for new ones. For large collections,
+ * this significantly improves rendering performance. If you don't have a unique identifier,
+ * `track by $index` can also provide a performance boost.
+ * </div>
  * ```html
  *    <div ng-repeat="model in collection track by model.id">
  *      {{model.name}}
@@ -36322,6 +37427,8 @@ var ngPluralizeDirective = ['$locale', '$interpolate', '$log', function($locale,
  *
  * **.move** - when an adjacent item is filtered out causing a reorder or when the item contents are reordered
  *
+ * See the example below for defining CSS animations with ngRepeat.
+ *
  * @element ANY
  * @scope
  * @priority 1000
@@ -36374,22 +37481,11 @@ var ngPluralizeDirective = ['$locale', '$interpolate', '$log', function($locale,
  *     For example: `item in items | filter : x | orderBy : order | limitTo : limit as results` .
  *
  * @example
- * This example initializes the scope to a list of names and
- * then uses `ngRepeat` to display every person:
-  <example module="ngAnimate" deps="angular-animate.js" animations="true">
+ * This example uses `ngRepeat` to display a list of people. A filter is used to restrict the displayed
+ * results by name. New (entering) and removed (leaving) items are animated.
+  <example module="ngRepeat" name="ngRepeat" deps="angular-animate.js" animations="true">
     <file name="index.html">
-      <div ng-init="friends = [
-        {name:'John', age:25, gender:'boy'},
-        {name:'Jessie', age:30, gender:'girl'},
-        {name:'Johanna', age:28, gender:'girl'},
-        {name:'Joy', age:15, gender:'girl'},
-        {name:'Mary', age:28, gender:'girl'},
-        {name:'Peter', age:95, gender:'boy'},
-        {name:'Sebastian', age:50, gender:'boy'},
-        {name:'Erika', age:27, gender:'girl'},
-        {name:'Patrick', age:40, gender:'boy'},
-        {name:'Samantha', age:60, gender:'girl'}
-      ]">
+      <div ng-controller="repeatController">
         I have {{friends.length}} friends. They are:
         <input type="search" ng-model="q" placeholder="filter friends..." aria-label="filter friends" />
         <ul class="example-animate-container">
@@ -36402,6 +37498,22 @@ var ngPluralizeDirective = ['$locale', '$interpolate', '$log', function($locale,
         </ul>
       </div>
     </file>
+    <file name="script.js">
+      angular.module('ngRepeat', ['ngAnimate']).controller('repeatController', function($scope) {
+        $scope.friends = [
+          {name:'John', age:25, gender:'boy'},
+          {name:'Jessie', age:30, gender:'girl'},
+          {name:'Johanna', age:28, gender:'girl'},
+          {name:'Joy', age:15, gender:'girl'},
+          {name:'Mary', age:28, gender:'girl'},
+          {name:'Peter', age:95, gender:'boy'},
+          {name:'Sebastian', age:50, gender:'boy'},
+          {name:'Erika', age:27, gender:'girl'},
+          {name:'Patrick', age:40, gender:'boy'},
+          {name:'Samantha', age:60, gender:'girl'}
+        ];
+      });
+    </file>
     <file name="animations.css">
       .example-animate-container {
         background:white;
@@ -36412,7 +37524,7 @@ var ngPluralizeDirective = ['$locale', '$interpolate', '$log', function($locale,
       }
 
       .animate-repeat {
-        line-height:40px;
+        line-height:30px;
         list-style:none;
         box-sizing:border-box;
       }
@@ -36434,7 +37546,7 @@ var ngPluralizeDirective = ['$locale', '$interpolate', '$log', function($locale,
       .animate-repeat.ng-move.ng-move-active,
       .animate-repeat.ng-enter.ng-enter-active {
         opacity:1;
-        max-height:40px;
+        max-height:30px;
       }
     </file>
     <file name="protractor.js" type="protractor">
@@ -37291,67 +38403,186 @@ var ngSwitchDefaultDirective = ngDirective({
  * @description
  * Directive that marks the insertion point for the transcluded DOM of the nearest parent directive that uses transclusion.
  *
- * Any existing content of the element that this directive is placed on will be removed before the transcluded content is inserted.
+ * You can specify that you want to insert a named transclusion slot, instead of the default slot, by providing the slot name
+ * as the value of the `ng-transclude` or `ng-transclude-slot` attribute.
+ *
+ * If the transcluded content is not empty (i.e. contains one or more DOM nodes, including whitespace text nodes), any existing
+ * content of this element will be removed before the transcluded content is inserted.
+ * If the transcluded content is empty, the existing content is left intact. This lets you provide fallback content in the case
+ * that no transcluded content is provided.
  *
  * @element ANY
  *
- * @example
-   <example module="transcludeExample">
-     <file name="index.html">
-       <script>
-         angular.module('transcludeExample', [])
-          .directive('pane', function(){
-             return {
-               restrict: 'E',
-               transclude: true,
-               scope: { title:'@' },
-               template: '<div style="border: 1px solid black;">' +
-                           '<div style="background-color: gray">{{title}}</div>' +
-                           '<ng-transclude></ng-transclude>' +
-                         '</div>'
-             };
-         })
-         .controller('ExampleController', ['$scope', function($scope) {
-           $scope.title = 'Lorem Ipsum';
-           $scope.text = 'Neque porro quisquam est qui dolorem ipsum quia dolor...';
-         }]);
-       </script>
-       <div ng-controller="ExampleController">
-         <input ng-model="title" aria-label="title"> <br/>
-         <textarea ng-model="text" aria-label="text"></textarea> <br/>
-         <pane title="{{title}}">{{text}}</pane>
-       </div>
-     </file>
-     <file name="protractor.js" type="protractor">
-        it('should have transcluded', function() {
-          var titleElement = element(by.model('title'));
-          titleElement.clear();
-          titleElement.sendKeys('TITLE');
-          var textElement = element(by.model('text'));
-          textElement.clear();
-          textElement.sendKeys('TEXT');
-          expect(element(by.binding('title')).getText()).toEqual('TITLE');
-          expect(element(by.binding('text')).getText()).toEqual('TEXT');
-        });
-     </file>
-   </example>
+ * @param {string} ngTransclude|ngTranscludeSlot the name of the slot to insert at this point. If this is not provided, is empty
+ *                                               or its value is the same as the name of the attribute then the default slot is used.
  *
+ * @example
+ * ### Basic transclusion
+ * This example demonstrates basic transclusion of content into a component directive.
+ * <example name="simpleTranscludeExample" module="transcludeExample">
+ *   <file name="index.html">
+ *     <script>
+ *       angular.module('transcludeExample', [])
+ *        .directive('pane', function(){
+ *           return {
+ *             restrict: 'E',
+ *             transclude: true,
+ *             scope: { title:'@' },
+ *             template: '<div style="border: 1px solid black;">' +
+ *                         '<div style="background-color: gray">{{title}}</div>' +
+ *                         '<ng-transclude></ng-transclude>' +
+ *                       '</div>'
+ *           };
+ *       })
+ *       .controller('ExampleController', ['$scope', function($scope) {
+ *         $scope.title = 'Lorem Ipsum';
+ *         $scope.text = 'Neque porro quisquam est qui dolorem ipsum quia dolor...';
+ *       }]);
+ *     </script>
+ *     <div ng-controller="ExampleController">
+ *       <input ng-model="title" aria-label="title"> <br/>
+ *       <textarea ng-model="text" aria-label="text"></textarea> <br/>
+ *       <pane title="{{title}}">{{text}}</pane>
+ *     </div>
+ *   </file>
+ *   <file name="protractor.js" type="protractor">
+ *      it('should have transcluded', function() {
+ *        var titleElement = element(by.model('title'));
+ *        titleElement.clear();
+ *        titleElement.sendKeys('TITLE');
+ *        var textElement = element(by.model('text'));
+ *        textElement.clear();
+ *        textElement.sendKeys('TEXT');
+ *        expect(element(by.binding('title')).getText()).toEqual('TITLE');
+ *        expect(element(by.binding('text')).getText()).toEqual('TEXT');
+ *      });
+ *   </file>
+ * </example>
+ *
+ * @example
+ * ### Transclude fallback content
+ * This example shows how to use `NgTransclude` with fallback content, that
+ * is displayed if no transcluded content is provided.
+ *
+ * <example module="transcludeFallbackContentExample">
+ * <file name="index.html">
+ * <script>
+ * angular.module('transcludeFallbackContentExample', [])
+ * .directive('myButton', function(){
+ *             return {
+ *               restrict: 'E',
+ *               transclude: true,
+ *               scope: true,
+ *               template: '<button style="cursor: pointer;">' +
+ *                           '<ng-transclude>' +
+ *                             '<b style="color: red;">Button1</b>' +
+ *                           '</ng-transclude>' +
+ *                         '</button>'
+ *             };
+ *         });
+ * </script>
+ * <!-- fallback button content -->
+ * <my-button id="fallback"></my-button>
+ * <!-- modified button content -->
+ * <my-button id="modified">
+ *   <i style="color: green;">Button2</i>
+ * </my-button>
+ * </file>
+ * <file name="protractor.js" type="protractor">
+ * it('should have different transclude element content', function() {
+ *          expect(element(by.id('fallback')).getText()).toBe('Button1');
+ *          expect(element(by.id('modified')).getText()).toBe('Button2');
+ *        });
+ * </file>
+ * </example>
+ *
+ * @example
+ * ### Multi-slot transclusion
+ * This example demonstrates using multi-slot transclusion in a component directive.
+ * <example name="multiSlotTranscludeExample" module="multiSlotTranscludeExample">
+ *   <file name="index.html">
+ *    <style>
+ *      .title, .footer {
+ *        background-color: gray
+ *      }
+ *    </style>
+ *    <div ng-controller="ExampleController">
+ *      <input ng-model="title" aria-label="title"> <br/>
+ *      <textarea ng-model="text" aria-label="text"></textarea> <br/>
+ *      <pane>
+ *        <pane-title><a ng-href="{{link}}">{{title}}</a></pane-title>
+ *        <pane-body><p>{{text}}</p></pane-body>
+ *      </pane>
+ *    </div>
+ *   </file>
+ *   <file name="app.js">
+ *    angular.module('multiSlotTranscludeExample', [])
+ *     .directive('pane', function(){
+ *        return {
+ *          restrict: 'E',
+ *          transclude: {
+ *            'title': '?paneTitle',
+ *            'body': 'paneBody',
+ *            'footer': '?paneFooter'
+ *          },
+ *          template: '<div style="border: 1px solid black;">' +
+ *                      '<div class="title" ng-transclude="title">Fallback Title</div>' +
+ *                      '<div ng-transclude="body"></div>' +
+ *                      '<div class="footer" ng-transclude="footer">Fallback Footer</div>' +
+ *                    '</div>'
+ *        };
+ *    })
+ *    .controller('ExampleController', ['$scope', function($scope) {
+ *      $scope.title = 'Lorem Ipsum';
+ *      $scope.link = "https://google.com";
+ *      $scope.text = 'Neque porro quisquam est qui dolorem ipsum quia dolor...';
+ *    }]);
+ *   </file>
+ *   <file name="protractor.js" type="protractor">
+ *      it('should have transcluded the title and the body', function() {
+ *        var titleElement = element(by.model('title'));
+ *        titleElement.clear();
+ *        titleElement.sendKeys('TITLE');
+ *        var textElement = element(by.model('text'));
+ *        textElement.clear();
+ *        textElement.sendKeys('TEXT');
+ *        expect(element(by.css('.title')).getText()).toEqual('TITLE');
+ *        expect(element(by.binding('text')).getText()).toEqual('TEXT');
+ *        expect(element(by.css('.footer')).getText()).toEqual('Fallback Footer');
+ *      });
+ *   </file>
+ * </example>
  */
+var ngTranscludeMinErr = minErr('ngTransclude');
 var ngTranscludeDirective = ngDirective({
   restrict: 'EAC',
   link: function($scope, $element, $attrs, controller, $transclude) {
+
+    if ($attrs.ngTransclude === $attrs.$attr.ngTransclude) {
+      // If the attribute is of the form: `ng-transclude="ng-transclude"`
+      // then treat it like the default
+      $attrs.ngTransclude = '';
+    }
+
+    function ngTranscludeCloneAttachFn(clone) {
+      if (clone.length) {
+        $element.empty();
+        $element.append(clone);
+      }
+    }
+
     if (!$transclude) {
-      throw minErr('ngTransclude')('orphan',
+      throw ngTranscludeMinErr('orphan',
        'Illegal use of ngTransclude directive in the template! ' +
        'No parent directive that requires a transclusion found. ' +
        'Element: {0}',
        startingTag($element));
     }
 
-    $transclude(function(clone) {
-      $element.empty();
-      $element.append(clone);
-    });
+    // If there is no slot name defined or the slot name is not optional
+    // then transclude the slot
+    var slotName = $attrs.ngTransclude || $attrs.ngTranscludeSlot;
+    $transclude(ngTranscludeCloneAttachFn, null, slotName);
   }
 });
 
@@ -37404,6 +38635,15 @@ var scriptDirective = ['$templateCache', function($templateCache) {
 }];
 
 var noopNgModelController = { $setViewValue: noop, $render: noop };
+
+function chromeHack(optionElement) {
+  // Workaround for https://code.google.com/p/chromium/issues/detail?id=381459
+  // Adding an <option selected="selected"> element to a <select required="required"> should
+  // automatically select the new element
+  if (optionElement[0].hasAttribute('selected')) {
+    optionElement[0].selected = true;
+  }
+}
 
 /**
  * @ngdoc type
@@ -37474,12 +38714,17 @@ var SelectController =
 
   // Tell the select control that an option, with the given value, has been added
   self.addOption = function(value, element) {
+    // Skip comment nodes, as they only pollute the `optionsMap`
+    if (element[0].nodeType === NODE_TYPE_COMMENT) return;
+
     assertNotHasOwnProperty(value, '"option value"');
     if (value === '') {
       self.emptyOption = element;
     }
     var count = optionsMap.get(value) || 0;
     optionsMap.put(value, count + 1);
+    self.ngModelCtrl.$render();
+    chromeHack(element);
   };
 
   // Tell the select control that an option, with the given value, has been removed
@@ -37501,6 +38746,39 @@ var SelectController =
   self.hasOption = function(value) {
     return !!optionsMap.get(value);
   };
+
+
+  self.registerOption = function(optionScope, optionElement, optionAttrs, interpolateValueFn, interpolateTextFn) {
+
+    if (interpolateValueFn) {
+      // The value attribute is interpolated
+      var oldVal;
+      optionAttrs.$observe('value', function valueAttributeObserveAction(newVal) {
+        if (isDefined(oldVal)) {
+          self.removeOption(oldVal);
+        }
+        oldVal = newVal;
+        self.addOption(newVal, optionElement);
+      });
+    } else if (interpolateTextFn) {
+      // The text content is interpolated
+      optionScope.$watch(interpolateTextFn, function interpolateWatchAction(newVal, oldVal) {
+        optionAttrs.$set('value', newVal);
+        if (oldVal !== newVal) {
+          self.removeOption(oldVal);
+        }
+        self.addOption(newVal, optionElement);
+      });
+    } else {
+      // The value attribute is static
+      self.addOption(optionAttrs.value, optionElement);
+    }
+
+    optionElement.on('$destroy', function() {
+      self.removeOption(optionAttrs.value);
+      self.ngModelCtrl.$render();
+    });
+  };
 }];
 
 /**
@@ -37513,7 +38791,7 @@ var SelectController =
  *
  * The `select` directive is used together with {@link ngModel `ngModel`} to provide data-binding
  * between the scope and the `<select>` control (including setting default values).
- * Ìt also handles dynamic `<option>` elements, which can be added using the {@link ngRepeat `ngRepeat}` or
+ * It also handles dynamic `<option>` elements, which can be added using the {@link ngRepeat `ngRepeat}` or
  * {@link ngOptions `ngOptions`} directives.
  *
  * When an item in the `<select>` menu is selected, the value of the selected option will be bound
@@ -37523,7 +38801,7 @@ var SelectController =
  *
  * <div class="alert alert-warning">
  * Note that the value of a `select` directive used without `ngOptions` is always a string.
- * When the model needs to be bound to a non-string value, you must either explictly convert it
+ * When the model needs to be bound to a non-string value, you must either explicitly convert it
  * using a directive (see example below) or use `ngOptions` to specify the set of options.
  * This is because an option element can only be bound to string values at present.
  * </div>
@@ -37546,6 +38824,8 @@ var SelectController =
  *
  * @param {string} ngModel Assignable angular expression to data-bind to.
  * @param {string=} name Property name of the form under which the control is published.
+ * @param {string=} multiple Allows multiple options to be selected. The selected values will be
+ *     bound to the model as an array.
  * @param {string=} required Sets `required` validation error key if the value is not entered.
  * @param {string=} ngRequired Adds required attribute and required validation constraint to
  * the element when the ngRequired expression evaluates to true. Use ngRequired instead of required
@@ -37711,7 +38991,14 @@ var selectDirective = function() {
     restrict: 'E',
     require: ['select', '?ngModel'],
     controller: SelectController,
-    link: function(scope, element, attr, ctrls) {
+    priority: 1,
+    link: {
+      pre: selectPreLink,
+      post: selectPostLink
+    }
+  };
+
+  function selectPreLink(scope, element, attr, ctrls) {
 
       // if ngModel is not defined, we don't need to do anything
       var ngModelCtrl = ctrls[1];
@@ -37720,13 +39007,6 @@ var selectDirective = function() {
       var selectCtrl = ctrls[0];
 
       selectCtrl.ngModelCtrl = ngModelCtrl;
-
-      // We delegate rendering to the `writeValue` method, which can be changed
-      // if the select can have multiple selected values or if the options are being
-      // generated by `ngOptions`
-      ngModelCtrl.$render = function() {
-        selectCtrl.writeValue(ngModelCtrl.$viewValue);
-      };
 
       // When the selected item(s) changes we delegate getting the value of the select control
       // to the `readValue` method, which can be changed if the select can have multiple
@@ -37781,7 +39061,23 @@ var selectDirective = function() {
 
       }
     }
-  };
+
+    function selectPostLink(scope, element, attrs, ctrls) {
+      // if ngModel is not defined, we don't need to do anything
+      var ngModelCtrl = ctrls[1];
+      if (!ngModelCtrl) return;
+
+      var selectCtrl = ctrls[0];
+
+      // We delegate rendering to the `writeValue` method, which can be changed
+      // if the select can have multiple selected values or if the options are being
+      // generated by `ngOptions`.
+      // This must be done in the postLink fn to prevent $render to be called before
+      // all nodes have been linked correctly.
+      ngModelCtrl.$render = function() {
+        selectCtrl.writeValue(ngModelCtrl.$viewValue);
+      };
+    }
 };
 
 
@@ -37789,35 +39085,23 @@ var selectDirective = function() {
 // of dynamically created (and destroyed) option elements to their containing select
 // directive via its controller.
 var optionDirective = ['$interpolate', function($interpolate) {
-
-  function chromeHack(optionElement) {
-    // Workaround for https://code.google.com/p/chromium/issues/detail?id=381459
-    // Adding an <option selected="selected"> element to a <select required="required"> should
-    // automatically select the new element
-    if (optionElement[0].hasAttribute('selected')) {
-      optionElement[0].selected = true;
-    }
-  }
-
   return {
     restrict: 'E',
     priority: 100,
     compile: function(element, attr) {
-
       if (isDefined(attr.value)) {
         // If the value attribute is defined, check if it contains an interpolation
-        var valueInterpolated = $interpolate(attr.value, true);
+        var interpolateValueFn = $interpolate(attr.value, true);
       } else {
         // If the value attribute is not defined then we fall back to the
         // text content of the option element, which may be interpolated
-        var interpolateFn = $interpolate(element.text(), true);
-        if (!interpolateFn) {
+        var interpolateTextFn = $interpolate(element.text(), true);
+        if (!interpolateTextFn) {
           attr.$set('value', element.text());
         }
       }
 
       return function(scope, element, attr) {
-
         // This is an optimization over using ^^ since we don't want to have to search
         // all the way to the root of the DOM for every single option element
         var selectCtrlName = '$selectController',
@@ -37825,44 +39109,8 @@ var optionDirective = ['$interpolate', function($interpolate) {
             selectCtrl = parent.data(selectCtrlName) ||
               parent.parent().data(selectCtrlName); // in case we are in optgroup
 
-        function addOption(optionValue) {
-          selectCtrl.addOption(optionValue, element);
-          selectCtrl.ngModelCtrl.$render();
-          chromeHack(element);
-        }
-
-        // Only update trigger option updates if this is an option within a `select`
-        // that also has `ngModel` attached
-        if (selectCtrl && selectCtrl.ngModelCtrl) {
-
-          if (valueInterpolated) {
-            // The value attribute is interpolated
-            var oldVal;
-            attr.$observe('value', function valueAttributeObserveAction(newVal) {
-              if (isDefined(oldVal)) {
-                selectCtrl.removeOption(oldVal);
-              }
-              oldVal = newVal;
-              addOption(newVal);
-            });
-          } else if (interpolateFn) {
-            // The text content is interpolated
-            scope.$watch(interpolateFn, function interpolateWatchAction(newVal, oldVal) {
-              attr.$set('value', newVal);
-              if (oldVal !== newVal) {
-                selectCtrl.removeOption(oldVal);
-              }
-              addOption(newVal);
-            });
-          } else {
-            // The value attribute is static
-            addOption(attr.value);
-          }
-
-          element.on('$destroy', function() {
-            selectCtrl.removeOption(attr.value);
-            selectCtrl.ngModelCtrl.$render();
-          });
+        if (selectCtrl) {
+          selectCtrl.registerOption(scope, element, attr, interpolateValueFn, interpolateTextFn);
         }
       };
     }
@@ -37874,6 +39122,64 @@ var styleDirective = valueFn({
   terminal: false
 });
 
+/**
+ * @ngdoc directive
+ * @name ngRequired
+ *
+ * @description
+ *
+ * ngRequired adds the required {@link ngModel.NgModelController#$validators `validator`} to {@link ngModel `ngModel`}.
+ * It is most often used for {@link input `input`} and {@link select `select`} controls, but can also be
+ * applied to custom controls.
+ *
+ * The directive sets the `required` attribute on the element if the Angular expression inside
+ * `ngRequired` evaluates to true. A special directive for setting `required` is necessary because we
+ * cannot use interpolation inside `required`. See the {@link guide/interpolation interpolation guide}
+ * for more info.
+ *
+ * The validator will set the `required` error key to true if the `required` attribute is set and
+ * calling {@link ngModel.NgModelController#$isEmpty `NgModelController.$isEmpty`} with the
+ * {@link ngModel.NgModelController#$viewValue `ngModel.$viewValue`} returns `true`. For example, the
+ * `$isEmpty()` implementation for `input[text]` checks the length of the `$viewValue`. When developing
+ * custom controls, `$isEmpty()` can be overwritten to account for a $viewValue that is not string-based.
+ *
+ * @example
+ * <example name="ngRequiredDirective" module="ngRequiredExample">
+ *   <file name="index.html">
+ *     <script>
+ *       angular.module('ngRequiredExample', [])
+ *         .controller('ExampleController', ['$scope', function($scope) {
+ *           $scope.required = true;
+ *         }]);
+ *     </script>
+ *     <div ng-controller="ExampleController">
+ *       <form name="form">
+ *         <label for="required">Toggle required: </label>
+ *         <input type="checkbox" ng-model="required" id="required" />
+ *         <br>
+ *         <label for="input">This input must be filled if `required` is true: </label>
+ *         <input type="text" ng-model="model" id="input" name="input" ng-required="required" /><br>
+ *         <hr>
+ *         required error set? = <code>{{form.input.$error.required}}</code><br>
+ *         model = <code>{{model}}</code>
+ *       </form>
+ *     </div>
+ *   </file>
+ *   <file name="protractor.js" type="protractor">
+       var required = element(by.binding('form.input.$error.required'));
+       var model = element(by.binding('model'));
+       var input = element(by.id('input'));
+
+       it('should set the required error', function() {
+         expect(required.getText()).toContain('true');
+
+         input.sendKeys('123');
+         expect(required.getText()).not.toContain('true');
+         expect(model.getText()).toContain('123');
+       });
+ *   </file>
+ * </example>
+ */
 var requiredDirective = function() {
   return {
     restrict: 'A',
@@ -37893,7 +39199,81 @@ var requiredDirective = function() {
   };
 };
 
+/**
+ * @ngdoc directive
+ * @name ngPattern
+ *
+ * @description
+ *
+ * ngPattern adds the pattern {@link ngModel.NgModelController#$validators `validator`} to {@link ngModel `ngModel`}.
+ * It is most often used for text-based {@link input `input`} controls, but can also be applied to custom text-based controls.
+ *
+ * The validator sets the `pattern` error key if the {@link ngModel.NgModelController#$viewValue `ngModel.$viewValue`}
+ * does not match a RegExp which is obtained by evaluating the Angular expression given in the
+ * `ngPattern` attribute value:
+ * * If the expression evaluates to a RegExp object, then this is used directly.
+ * * If the expression evaluates to a string, then it will be converted to a RegExp after wrapping it
+ * in `^` and `$` characters. For instance, `"abc"` will be converted to `new RegExp('^abc$')`.
+ *
+ * <div class="alert alert-info">
+ * **Note:** Avoid using the `g` flag on the RegExp, as it will cause each successive search to
+ * start at the index of the last search's match, thus not taking the whole input value into
+ * account.
+ * </div>
+ *
+ * <div class="alert alert-info">
+ * **Note:** This directive is also added when the plain `pattern` attribute is used, with two
+ * differences:
+ * <ol>
+ *   <li>
+ *     `ngPattern` does not set the `pattern` attribute and therefore HTML5 constraint validation is
+ *     not available.
+ *   </li>
+ *   <li>
+ *     The `ngPattern` attribute must be an expression, while the `pattern` value must be
+ *     interpolated.
+ *   </li>
+ * </ol>
+ * </div>
+ *
+ * @example
+ * <example name="ngPatternDirective" module="ngPatternExample">
+ *   <file name="index.html">
+ *     <script>
+ *       angular.module('ngPatternExample', [])
+ *         .controller('ExampleController', ['$scope', function($scope) {
+ *           $scope.regex = '\\d+';
+ *         }]);
+ *     </script>
+ *     <div ng-controller="ExampleController">
+ *       <form name="form">
+ *         <label for="regex">Set a pattern (regex string): </label>
+ *         <input type="text" ng-model="regex" id="regex" />
+ *         <br>
+ *         <label for="input">This input is restricted by the current pattern: </label>
+ *         <input type="text" ng-model="model" id="input" name="input" ng-pattern="regex" /><br>
+ *         <hr>
+ *         input valid? = <code>{{form.input.$valid}}</code><br>
+ *         model = <code>{{model}}</code>
+ *       </form>
+ *     </div>
+ *   </file>
+ *   <file name="protractor.js" type="protractor">
+       var model = element(by.binding('model'));
+       var input = element(by.id('input'));
 
+       it('should validate the input with the default pattern', function() {
+         input.sendKeys('aaa');
+         expect(model.getText()).not.toContain('aaa');
+
+         input.clear().then(function() {
+           input.sendKeys('123');
+           expect(model.getText()).toContain('123');
+         });
+       });
+ *   </file>
+ * </example>
+ */
 var patternDirective = function() {
   return {
     restrict: 'A',
@@ -37925,7 +39305,72 @@ var patternDirective = function() {
   };
 };
 
+/**
+ * @ngdoc directive
+ * @name ngMaxlength
+ *
+ * @description
+ *
+ * ngMaxlength adds the maxlength {@link ngModel.NgModelController#$validators `validator`} to {@link ngModel `ngModel`}.
+ * It is most often used for text-based {@link input `input`} controls, but can also be applied to custom text-based controls.
+ *
+ * The validator sets the `maxlength` error key if the {@link ngModel.NgModelController#$viewValue `ngModel.$viewValue`}
+ * is longer than the integer obtained by evaluating the Angular expression given in the
+ * `ngMaxlength` attribute value.
+ *
+ * <div class="alert alert-info">
+ * **Note:** This directive is also added when the plain `maxlength` attribute is used, with two
+ * differences:
+ * <ol>
+ *   <li>
+ *     `ngMaxlength` does not set the `maxlength` attribute and therefore HTML5 constraint
+ *     validation is not available.
+ *   </li>
+ *   <li>
+ *     The `ngMaxlength` attribute must be an expression, while the `maxlength` value must be
+ *     interpolated.
+ *   </li>
+ * </ol>
+ * </div>
+ *
+ * @example
+ * <example name="ngMaxlengthDirective" module="ngMaxlengthExample">
+ *   <file name="index.html">
+ *     <script>
+ *       angular.module('ngMaxlengthExample', [])
+ *         .controller('ExampleController', ['$scope', function($scope) {
+ *           $scope.maxlength = 5;
+ *         }]);
+ *     </script>
+ *     <div ng-controller="ExampleController">
+ *       <form name="form">
+ *         <label for="maxlength">Set a maxlength: </label>
+ *         <input type="number" ng-model="maxlength" id="maxlength" />
+ *         <br>
+ *         <label for="input">This input is restricted by the current maxlength: </label>
+ *         <input type="text" ng-model="model" id="input" name="input" ng-maxlength="maxlength" /><br>
+ *         <hr>
+ *         input valid? = <code>{{form.input.$valid}}</code><br>
+ *         model = <code>{{model}}</code>
+ *       </form>
+ *     </div>
+ *   </file>
+ *   <file name="protractor.js" type="protractor">
+       var model = element(by.binding('model'));
+       var input = element(by.id('input'));
 
+       it('should validate the input with the default maxlength', function() {
+         input.sendKeys('abcdef');
+         expect(model.getText()).not.toContain('abcdef');
+
+         input.clear().then(function() {
+           input.sendKeys('abcde');
+           expect(model.getText()).toContain('abcde');
+         });
+       });
+ *   </file>
+ * </example>
+ */
 var maxlengthDirective = function() {
   return {
     restrict: 'A',
@@ -37946,6 +39391,70 @@ var maxlengthDirective = function() {
   };
 };
 
+/**
+ * @ngdoc directive
+ * @name ngMinlength
+ *
+ * @description
+ *
+ * ngMinlength adds the minlength {@link ngModel.NgModelController#$validators `validator`} to {@link ngModel `ngModel`}.
+ * It is most often used for text-based {@link input `input`} controls, but can also be applied to custom text-based controls.
+ *
+ * The validator sets the `minlength` error key if the {@link ngModel.NgModelController#$viewValue `ngModel.$viewValue`}
+ * is shorter than the integer obtained by evaluating the Angular expression given in the
+ * `ngMinlength` attribute value.
+ *
+ * <div class="alert alert-info">
+ * **Note:** This directive is also added when the plain `minlength` attribute is used, with two
+ * differences:
+ * <ol>
+ *   <li>
+ *     `ngMinlength` does not set the `minlength` attribute and therefore HTML5 constraint
+ *     validation is not available.
+ *   </li>
+ *   <li>
+ *     The `ngMinlength` value must be an expression, while the `minlength` value must be
+ *     interpolated.
+ *   </li>
+ * </ol>
+ * </div>
+ *
+ * @example
+ * <example name="ngMinlengthDirective" module="ngMinlengthExample">
+ *   <file name="index.html">
+ *     <script>
+ *       angular.module('ngMinlengthExample', [])
+ *         .controller('ExampleController', ['$scope', function($scope) {
+ *           $scope.minlength = 3;
+ *         }]);
+ *     </script>
+ *     <div ng-controller="ExampleController">
+ *       <form name="form">
+ *         <label for="minlength">Set a minlength: </label>
+ *         <input type="number" ng-model="minlength" id="minlength" />
+ *         <br>
+ *         <label for="input">This input is restricted by the current minlength: </label>
+ *         <input type="text" ng-model="model" id="input" name="input" ng-minlength="minlength" /><br>
+ *         <hr>
+ *         input valid? = <code>{{form.input.$valid}}</code><br>
+ *         model = <code>{{model}}</code>
+ *       </form>
+ *     </div>
+ *   </file>
+ *   <file name="protractor.js" type="protractor">
+       var model = element(by.binding('model'));
+       var input = element(by.id('input'));
+
+       it('should validate the input with the default minlength', function() {
+         input.sendKeys('ab');
+         expect(model.getText()).not.toContain('ab');
+
+         input.sendKeys('abc');
+         expect(model.getText()).toContain('abc');
+       });
+ *   </file>
+ * </example>
+ */
 var minlengthDirective = function() {
   return {
     restrict: 'A',
@@ -38058,6 +39567,20 @@ $provide.value("$locale", {
       "Nov",
       "Dec"
     ],
+    "STANDALONEMONTH": [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December"
+    ],
     "WEEKENDRANGE": [
       5,
       6
@@ -38101,6 +39624,7 @@ $provide.value("$locale", {
     ]
   },
   "id": "en-us",
+  "localeID": "en_US",
   "pluralCat": function(n, opt_precision) {  var i = n | 0;  var vf = getVF(n, opt_precision);  if (i == 1 && vf.v == 0) {    return PLURAL_CATEGORY.ONE;  }  return PLURAL_CATEGORY.OTHER;}
 });
 }]);
@@ -38112,8 +39636,8 @@ $provide.value("$locale", {
 })(window, document);
 
 !window.angular.$$csp().noInlineStyle && window.angular.element(document.head).prepend('<style type="text/css">@charset "UTF-8";[ng\\:cloak],[ng-cloak],[data-ng-cloak],[x-ng-cloak],.ng-cloak,.x-ng-cloak,.ng-hide:not(.ng-hide-animate){display:none !important;}ng\\:form{display:block;}.ng-animate-shim{visibility:hidden;}.ng-anchor{position:absolute;}</style>');;/**
- * @license AngularJS v1.4.7
- * (c) 2010-2015 Google, Inc. http://angularjs.org
+ * @license AngularJS v1.5.0
+ * (c) 2010-2016 Google, Inc. http://angularjs.org
  * License: MIT
  */
 (function(window, angular, undefined) {'use strict';
@@ -38218,8 +39742,17 @@ function $RouteProvider() {
    *      If all the promises are resolved successfully, the values of the resolved promises are
    *      injected and {@link ngRoute.$route#$routeChangeSuccess $routeChangeSuccess} event is
    *      fired. If any of the promises are rejected the
-   *      {@link ngRoute.$route#$routeChangeError $routeChangeError} event is fired. The map object
-   *      is:
+   *      {@link ngRoute.$route#$routeChangeError $routeChangeError} event is fired.
+   *      For easier access to the resolved dependencies from the template, the `resolve` map will
+   *      be available on the scope of the route, under `$resolve` (by default) or a custom name
+   *      specified by the `resolveAs` property (see below). This can be particularly useful, when
+   *      working with {@link angular.Module#component components} as route templates.<br />
+   *      <div class="alert alert-warning">
+   *        **Note:** If your scope already contains a property with this name, it will be hidden
+   *        or overwritten. Make sure, you specify an appropriate name for this property, that
+   *        does not collide with other properties on the scope.
+   *      </div>
+   *      The map object is:
    *
    *      - `key` – `{string}`: a name of a dependency to be injected into the controller.
    *      - `factory` - `{string|function}`: If `string` then it is an alias for a service.
@@ -38229,7 +39762,10 @@ function $RouteProvider() {
    *        `ngRoute.$routeParams` will still refer to the previous route within these resolve
    *        functions.  Use `$route.current.params` to access the new route parameters, instead.
    *
-   *    - `redirectTo` – {(string|function())=} – value to update
+   *    - `resolveAs` - `{string=}` - The name under which the `resolve` map will be available on
+   *      the scope of the route. If omitted, defaults to `$resolve`.
+   *
+   *    - `redirectTo` – `{(string|function())=}` – value to update
    *      {@link ng.$location $location} path with and trigger route redirection.
    *
    *      If `redirectTo` is a function, it will be called with the following parameters:
@@ -38242,13 +39778,13 @@ function $RouteProvider() {
    *      The custom `redirectTo` function is expected to return a string which will be used
    *      to update `$location.path()` and `$location.search()`.
    *
-   *    - `[reloadOnSearch=true]` - {boolean=} - reload route when only `$location.search()`
+   *    - `[reloadOnSearch=true]` - `{boolean=}` - reload route when only `$location.search()`
    *      or `$location.hash()` changes.
    *
    *      If the option is set to `false` and url in the browser changes, then
    *      `$routeUpdate` event is broadcasted on the root scope.
    *
-   *    - `[caseInsensitiveMatch=false]` - {boolean=} - match routes without being case sensitive
+   *    - `[caseInsensitiveMatch=false]` - `{boolean=}` - match routes without being case sensitive
    *
    *      If the option is set to `true`, then the particular route can be matched without being
    *      case sensitive
@@ -38378,13 +39914,17 @@ function $RouteProvider() {
      * @property {Object} current Reference to the current route definition.
      * The route definition contains:
      *
-     *   - `controller`: The controller constructor as define in route definition.
+     *   - `controller`: The controller constructor as defined in the route definition.
      *   - `locals`: A map of locals which is used by {@link ng.$controller $controller} service for
      *     controller instantiation. The `locals` contain
      *     the resolved values of the `resolve` map. Additionally the `locals` also contain:
      *
      *     - `$scope` - The current route scope.
      *     - `$template` - The current route template HTML.
+     *
+     *     The `locals` will be assigned to the route scope's `$resolve` property. You can override
+     *     the property name, using `resolveAs` in the route definition. See
+     *     {@link ngRoute.$routeProvider $routeProvider} for more info.
      *
      * @property {Object} routes Object with all route configuration Objects as its properties.
      *
@@ -38581,10 +40121,18 @@ function $RouteProvider() {
            */
           reload: function() {
             forceReload = true;
+
+            var fakeLocationEvent = {
+              defaultPrevented: false,
+              preventDefault: function fakePreventDefault() {
+                this.defaultPrevented = true;
+                forceReload = false;
+              }
+            };
+
             $rootScope.$evalAsync(function() {
-              // Don't support cancellation of a reload for now...
-              prepareRoute();
-              commitRoute();
+              prepareRoute(fakeLocationEvent);
+              if (!fakeLocationEvent.defaultPrevented) commitRoute();
             });
           },
 
@@ -39094,6 +40642,7 @@ function ngViewFillContentFactory($compile, $controller, $route) {
         $element.data('$ngControllerController', controller);
         $element.children().data('$ngControllerController', controller);
       }
+      scope[current.resolveAs || '$resolve'] = locals;
 
       link(scope);
     }
@@ -39103,8 +40652,8 @@ function ngViewFillContentFactory($compile, $controller, $route) {
 
 })(window, window.angular);
 ;/**
- * @license AngularJS v1.4.7
- * (c) 2010-2015 Google, Inc. http://angularjs.org
+ * @license AngularJS v1.5.0
+ * (c) 2010-2016 Google, Inc. http://angularjs.org
  * License: MIT
  */
 (function(window, angular, undefined) {'use strict';
@@ -39137,36 +40686,23 @@ var $sanitizeMinErr = angular.$$minErr('$sanitize');
  * See {@link ngSanitize.$sanitize `$sanitize`} for usage.
  */
 
-/*
- * HTML Parser By Misko Hevery (misko@hevery.com)
- * based on:  HTML Parser By John Resig (ejohn.org)
- * Original code by Erik Arvidsson, Mozilla Public License
- * http://erik.eae.net/simplehtmlparser/simplehtmlparser.js
- *
- * // Use like so:
- * htmlParser(htmlString, {
- *     start: function(tag, attrs, unary) {},
- *     end: function(tag) {},
- *     chars: function(text) {},
- *     comment: function(text) {}
- * });
- *
- */
-
-
 /**
  * @ngdoc service
  * @name $sanitize
  * @kind function
  *
  * @description
+ *   Sanitizes an html string by stripping all potentially dangerous tokens.
+ *
  *   The input is sanitized by parsing the HTML into tokens. All safe tokens (from a whitelist) are
  *   then serialized back to properly escaped html string. This means that no unsafe input can make
- *   it into the returned string, however, since our parser is more strict than a typical browser
- *   parser, it's possible that some obscure input, which would be recognized as valid HTML by a
- *   browser, won't make it through the sanitizer. The input may also contain SVG markup.
- *   The whitelist is configured using the functions `aHrefSanitizationWhitelist` and
- *   `imgSrcSanitizationWhitelist` of {@link ng.$compileProvider `$compileProvider`}.
+ *   it into the returned string.
+ *
+ *   The whitelist for URL sanitization of attribute values is configured using the functions
+ *   `aHrefSanitizationWhitelist` and `imgSrcSanitizationWhitelist` of {@link ng.$compileProvider
+ *   `$compileProvider`}.
+ *
+ *   The input may also contain SVG markup if this is enabled via {@link $sanitizeProvider}.
  *
  * @param {string} html HTML input.
  * @returns {string} Sanitized HTML.
@@ -39252,16 +40788,70 @@ var $sanitizeMinErr = angular.$$minErr('$sanitize');
    </file>
    </example>
  */
+
+
+/**
+ * @ngdoc provider
+ * @name $sanitizeProvider
+ *
+ * @description
+ * Creates and configures {@link $sanitize} instance.
+ */
 function $SanitizeProvider() {
+  var svgEnabled = false;
+
   this.$get = ['$$sanitizeUri', function($$sanitizeUri) {
+    if (svgEnabled) {
+      angular.extend(validElements, svgElements);
+    }
     return function(html) {
       var buf = [];
       htmlParser(html, htmlSanitizeWriter(buf, function(uri, isImage) {
-        return !/^unsafe/.test($$sanitizeUri(uri, isImage));
+        return !/^unsafe:/.test($$sanitizeUri(uri, isImage));
       }));
       return buf.join('');
     };
   }];
+
+
+  /**
+   * @ngdoc method
+   * @name $sanitizeProvider#enableSvg
+   * @kind function
+   *
+   * @description
+   * Enables a subset of svg to be supported by the sanitizer.
+   *
+   * <div class="alert alert-warning">
+   *   <p>By enabling this setting without taking other precautions, you might expose your
+   *   application to click-hijacking attacks. In these attacks, sanitized svg elements could be positioned
+   *   outside of the containing element and be rendered over other elements on the page (e.g. a login
+   *   link). Such behavior can then result in phishing incidents.</p>
+   *
+   *   <p>To protect against these, explicitly setup `overflow: hidden` css rule for all potential svg
+   *   tags within the sanitized content:</p>
+   *
+   *   <br>
+   *
+   *   <pre><code>
+   *   .rootOfTheIncludedContent svg {
+   *     overflow: hidden !important;
+   *   }
+   *   </code></pre>
+   * </div>
+   *
+   * @param {boolean=} regexp New regexp to whitelist urls with.
+   * @returns {boolean|ng.$sanitizeProvider} Returns the currently configured value if called
+   *    without an argument or self for chaining otherwise.
+   */
+  this.enableSvg = function(enableSvg) {
+    if (angular.isDefined(enableSvg)) {
+      svgEnabled = enableSvg;
+      return this;
+    } else {
+      return svgEnabled;
+    }
+  };
 }
 
 function sanitizeText(chars) {
@@ -39273,18 +40863,9 @@ function sanitizeText(chars) {
 
 
 // Regular Expressions for parsing tags and attributes
-var START_TAG_REGEXP =
-       /^<((?:[a-zA-Z])[\w:-]*)((?:\s+[\w:-]+(?:\s*=\s*(?:(?:"[^"]*")|(?:'[^']*')|[^>\s]+))?)*)\s*(\/?)\s*(>?)/,
-  END_TAG_REGEXP = /^<\/\s*([\w:-]+)[^>]*>/,
-  ATTR_REGEXP = /([\w:-]+)(?:\s*=\s*(?:(?:"((?:[^"])*)")|(?:'((?:[^'])*)')|([^>\s]+)))?/g,
-  BEGIN_TAG_REGEXP = /^</,
-  BEGING_END_TAGE_REGEXP = /^<\//,
-  COMMENT_REGEXP = /<!--(.*?)-->/g,
-  DOCTYPE_REGEXP = /<!DOCTYPE([^>]*?)>/i,
-  CDATA_REGEXP = /<!\[CDATA\[(.*?)]]>/g,
-  SURROGATE_PAIR_REGEXP = /[\uD800-\uDBFF][\uDC00-\uDFFF]/g,
+var SURROGATE_PAIR_REGEXP = /[\uD800-\uDBFF][\uDC00-\uDFFF]/g,
   // Match everything outside of normal chars and " (quote character)
-  NON_ALPHANUMERIC_REGEXP = /([^\#-~| |!])/g;
+  NON_ALPHANUMERIC_REGEXP = /([^\#-~ |!])/g;
 
 
 // Good source of info about elements and attributes
@@ -39293,23 +40874,23 @@ var START_TAG_REGEXP =
 
 // Safe Void Elements - HTML5
 // http://dev.w3.org/html5/spec/Overview.html#void-elements
-var voidElements = makeMap("area,br,col,hr,img,wbr");
+var voidElements = toMap("area,br,col,hr,img,wbr");
 
 // Elements that you can, intentionally, leave open (and which close themselves)
 // http://dev.w3.org/html5/spec/Overview.html#optional-tags
-var optionalEndTagBlockElements = makeMap("colgroup,dd,dt,li,p,tbody,td,tfoot,th,thead,tr"),
-    optionalEndTagInlineElements = makeMap("rp,rt"),
+var optionalEndTagBlockElements = toMap("colgroup,dd,dt,li,p,tbody,td,tfoot,th,thead,tr"),
+    optionalEndTagInlineElements = toMap("rp,rt"),
     optionalEndTagElements = angular.extend({},
                                             optionalEndTagInlineElements,
                                             optionalEndTagBlockElements);
 
 // Safe Block Elements - HTML5
-var blockElements = angular.extend({}, optionalEndTagBlockElements, makeMap("address,article," +
+var blockElements = angular.extend({}, optionalEndTagBlockElements, toMap("address,article," +
         "aside,blockquote,caption,center,del,dir,div,dl,figure,figcaption,footer,h1,h2,h3,h4,h5," +
-        "h6,header,hgroup,hr,ins,map,menu,nav,ol,pre,script,section,table,ul"));
+        "h6,header,hgroup,hr,ins,map,menu,nav,ol,pre,section,table,ul"));
 
 // Inline Elements - HTML5
-var inlineElements = angular.extend({}, optionalEndTagInlineElements, makeMap("a,abbr,acronym,b," +
+var inlineElements = angular.extend({}, optionalEndTagInlineElements, toMap("a,abbr,acronym,b," +
         "bdi,bdo,big,br,cite,code,del,dfn,em,font,i,img,ins,kbd,label,map,mark,q,ruby,rp,rt,s," +
         "samp,small,span,strike,strong,sub,sup,time,tt,u,var"));
 
@@ -39317,24 +40898,23 @@ var inlineElements = angular.extend({}, optionalEndTagInlineElements, makeMap("a
 // https://wiki.whatwg.org/wiki/Sanitization_rules#svg_Elements
 // Note: the elements animate,animateColor,animateMotion,animateTransform,set are intentionally omitted.
 // They can potentially allow for arbitrary javascript to be executed. See #11290
-var svgElements = makeMap("circle,defs,desc,ellipse,font-face,font-face-name,font-face-src,g,glyph," +
+var svgElements = toMap("circle,defs,desc,ellipse,font-face,font-face-name,font-face-src,g,glyph," +
         "hkern,image,linearGradient,line,marker,metadata,missing-glyph,mpath,path,polygon,polyline," +
-        "radialGradient,rect,stop,svg,switch,text,title,tspan,use");
+        "radialGradient,rect,stop,svg,switch,text,title,tspan");
 
-// Special Elements (can contain anything)
-var specialElements = makeMap("script,style");
+// Blocked Elements (will be stripped)
+var blockedElements = toMap("script,style");
 
 var validElements = angular.extend({},
                                    voidElements,
                                    blockElements,
                                    inlineElements,
-                                   optionalEndTagElements,
-                                   svgElements);
+                                   optionalEndTagElements);
 
 //Attributes that have href and hence need to be sanitized
-var uriAttrs = makeMap("background,cite,href,longdesc,src,usemap,xlink:href");
+var uriAttrs = toMap("background,cite,href,longdesc,src,xlink:href");
 
-var htmlAttrs = makeMap('abbr,align,alt,axis,bgcolor,border,cellpadding,cellspacing,class,clear,' +
+var htmlAttrs = toMap('abbr,align,alt,axis,bgcolor,border,cellpadding,cellspacing,class,clear,' +
     'color,cols,colspan,compact,coords,dir,face,headers,height,hreflang,hspace,' +
     'ismap,lang,language,nohref,nowrap,rel,rev,rows,rowspan,rules,' +
     'scope,scrolling,shape,size,span,start,summary,tabindex,target,title,type,' +
@@ -39342,7 +40922,7 @@ var htmlAttrs = makeMap('abbr,align,alt,axis,bgcolor,border,cellpadding,cellspac
 
 // SVG attributes (without "id" and "name" attributes)
 // https://wiki.whatwg.org/wiki/Sanitization_rules#svg_Attributes
-var svgAttrs = makeMap('accent-height,accumulate,additive,alphabetic,arabic-form,ascent,' +
+var svgAttrs = toMap('accent-height,accumulate,additive,alphabetic,arabic-form,ascent,' +
     'baseProfile,bbox,begin,by,calcMode,cap-height,class,color,color-rendering,content,' +
     'cx,cy,d,dx,dy,descent,display,dur,end,fill,fill-rule,font-family,font-size,font-stretch,' +
     'font-style,font-variant,font-weight,from,fx,fy,g1,g2,glyph-name,gradientUnits,hanging,' +
@@ -39363,7 +40943,7 @@ var validAttrs = angular.extend({},
                                 svgAttrs,
                                 htmlAttrs);
 
-function makeMap(str, lowercaseKeys) {
+function toMap(str, lowercaseKeys) {
   var obj = {}, items = str.split(','), i;
   for (i = 0; i < items.length; i++) {
     obj[lowercaseKeys ? angular.lowercase(items[i]) : items[i]] = true;
@@ -39371,11 +40951,32 @@ function makeMap(str, lowercaseKeys) {
   return obj;
 }
 
+var inertBodyElement;
+(function(window) {
+  var doc;
+  if (window.document && window.document.implementation) {
+    doc = window.document.implementation.createHTMLDocument("inert");
+  } else {
+    throw $sanitizeMinErr('noinert', "Can't create an inert html document");
+  }
+  var docElement = doc.documentElement || doc.getDocumentElement();
+  var bodyElements = docElement.getElementsByTagName('body');
+
+  // usually there should be only one body element in the document, but IE doesn't have any, so we need to create one
+  if (bodyElements.length === 1) {
+    inertBodyElement = bodyElements[0];
+  } else {
+    var html = doc.createElement('html');
+    inertBodyElement = doc.createElement('body');
+    html.appendChild(inertBodyElement);
+    doc.appendChild(html);
+  }
+})(window);
 
 /**
  * @example
  * htmlParser(htmlString, {
- *     start: function(tag, attrs, unary) {},
+ *     start: function(tag, attrs) {},
  *     end: function(tag) {},
  *     chars: function(text) {},
  *     comment: function(text) {}
@@ -39385,169 +40986,74 @@ function makeMap(str, lowercaseKeys) {
  * @param {object} handler
  */
 function htmlParser(html, handler) {
-  if (typeof html !== 'string') {
-    if (html === null || typeof html === 'undefined') {
-      html = '';
-    } else {
-      html = '' + html;
-    }
+  if (html === null || html === undefined) {
+    html = '';
+  } else if (typeof html !== 'string') {
+    html = '' + html;
   }
-  var index, chars, match, stack = [], last = html, text;
-  stack.last = function() { return stack[stack.length - 1]; };
+  inertBodyElement.innerHTML = html;
 
-  while (html) {
-    text = '';
-    chars = true;
+  //mXSS protection
+  var mXSSAttempts = 5;
+  do {
+    if (mXSSAttempts === 0) {
+      throw $sanitizeMinErr('uinput', "Failed to sanitize html because the input is unstable");
+    }
+    mXSSAttempts--;
 
-    // Make sure we're not in a script or style element
-    if (!stack.last() || !specialElements[stack.last()]) {
+    // strip custom-namespaced attributes on IE<=11
+    if (document.documentMode <= 11) {
+      stripCustomNsAttrs(inertBodyElement);
+    }
+    html = inertBodyElement.innerHTML; //trigger mXSS
+    inertBodyElement.innerHTML = html;
+  } while (html !== inertBodyElement.innerHTML);
 
-      // Comment
-      if (html.indexOf("<!--") === 0) {
-        // comments containing -- are not allowed unless they terminate the comment
-        index = html.indexOf("--", 4);
+  var node = inertBodyElement.firstChild;
+  while (node) {
+    switch (node.nodeType) {
+      case 1: // ELEMENT_NODE
+        handler.start(node.nodeName.toLowerCase(), attrToMap(node.attributes));
+        break;
+      case 3: // TEXT NODE
+        handler.chars(node.textContent);
+        break;
+    }
 
-        if (index >= 0 && html.lastIndexOf("-->", index) === index) {
-          if (handler.comment) handler.comment(html.substring(4, index));
-          html = html.substring(index + 3);
-          chars = false;
-        }
-      // DOCTYPE
-      } else if (DOCTYPE_REGEXP.test(html)) {
-        match = html.match(DOCTYPE_REGEXP);
-
-        if (match) {
-          html = html.replace(match[0], '');
-          chars = false;
-        }
-      // end tag
-      } else if (BEGING_END_TAGE_REGEXP.test(html)) {
-        match = html.match(END_TAG_REGEXP);
-
-        if (match) {
-          html = html.substring(match[0].length);
-          match[0].replace(END_TAG_REGEXP, parseEndTag);
-          chars = false;
-        }
-
-      // start tag
-      } else if (BEGIN_TAG_REGEXP.test(html)) {
-        match = html.match(START_TAG_REGEXP);
-
-        if (match) {
-          // We only have a valid start-tag if there is a '>'.
-          if (match[4]) {
-            html = html.substring(match[0].length);
-            match[0].replace(START_TAG_REGEXP, parseStartTag);
+    var nextNode;
+    if (!(nextNode = node.firstChild)) {
+      if (node.nodeType == 1) {
+        handler.end(node.nodeName.toLowerCase());
+      }
+      nextNode = node.nextSibling;
+      if (!nextNode) {
+        while (nextNode == null) {
+          node = node.parentNode;
+          if (node === inertBodyElement) break;
+          nextNode = node.nextSibling;
+          if (node.nodeType == 1) {
+            handler.end(node.nodeName.toLowerCase());
           }
-          chars = false;
-        } else {
-          // no ending tag found --- this piece should be encoded as an entity.
-          text += '<';
-          html = html.substring(1);
         }
       }
-
-      if (chars) {
-        index = html.indexOf("<");
-
-        text += index < 0 ? html : html.substring(0, index);
-        html = index < 0 ? "" : html.substring(index);
-
-        if (handler.chars) handler.chars(decodeEntities(text));
-      }
-
-    } else {
-      // IE versions 9 and 10 do not understand the regex '[^]', so using a workaround with [\W\w].
-      html = html.replace(new RegExp("([\\W\\w]*)<\\s*\\/\\s*" + stack.last() + "[^>]*>", 'i'),
-        function(all, text) {
-          text = text.replace(COMMENT_REGEXP, "$1").replace(CDATA_REGEXP, "$1");
-
-          if (handler.chars) handler.chars(decodeEntities(text));
-
-          return "";
-      });
-
-      parseEndTag("", stack.last());
     }
-
-    if (html == last) {
-      throw $sanitizeMinErr('badparse', "The sanitizer was unable to parse the following block " +
-                                        "of html: {0}", html);
-    }
-    last = html;
+    node = nextNode;
   }
 
-  // Clean up any remaining tags
-  parseEndTag();
-
-  function parseStartTag(tag, tagName, rest, unary) {
-    tagName = angular.lowercase(tagName);
-    if (blockElements[tagName]) {
-      while (stack.last() && inlineElements[stack.last()]) {
-        parseEndTag("", stack.last());
-      }
-    }
-
-    if (optionalEndTagElements[tagName] && stack.last() == tagName) {
-      parseEndTag("", tagName);
-    }
-
-    unary = voidElements[tagName] || !!unary;
-
-    if (!unary) {
-      stack.push(tagName);
-    }
-
-    var attrs = {};
-
-    rest.replace(ATTR_REGEXP,
-      function(match, name, doubleQuotedValue, singleQuotedValue, unquotedValue) {
-        var value = doubleQuotedValue
-          || singleQuotedValue
-          || unquotedValue
-          || '';
-
-        attrs[name] = decodeEntities(value);
-    });
-    if (handler.start) handler.start(tagName, attrs, unary);
-  }
-
-  function parseEndTag(tag, tagName) {
-    var pos = 0, i;
-    tagName = angular.lowercase(tagName);
-    if (tagName) {
-      // Find the closest opened tag of the same type
-      for (pos = stack.length - 1; pos >= 0; pos--) {
-        if (stack[pos] == tagName) break;
-      }
-    }
-
-    if (pos >= 0) {
-      // Close all the open elements, up the stack
-      for (i = stack.length - 1; i >= pos; i--)
-        if (handler.end) handler.end(stack[i]);
-
-      // Remove the open elements from the stack
-      stack.length = pos;
-    }
+  while (node = inertBodyElement.firstChild) {
+    inertBodyElement.removeChild(node);
   }
 }
 
-var hiddenPre=document.createElement("pre");
-/**
- * decodes all entities into regular string
- * @param value
- * @returns {string} A string with decoded entities.
- */
-function decodeEntities(value) {
-  if (!value) { return ''; }
-
-  hiddenPre.innerHTML = value.replace(/</g,"&lt;");
-  // innerText depends on styling as it doesn't display hidden elements.
-  // Therefore, it's better to use textContent not to cause unnecessary reflows.
-  return hiddenPre.textContent;
+function attrToMap(attrs) {
+  var map = {};
+  for (var i = 0, ii = attrs.length; i < ii; i++) {
+    var attr = attrs[i];
+    map[attr.name] = attr.value;
+  }
+  return map;
 }
+
 
 /**
  * Escapes all potentially dangerous characters, so that the
@@ -39573,24 +41079,24 @@ function encodeEntities(value) {
 
 /**
  * create an HTML/XML writer which writes to buffer
- * @param {Array} buf use buf.jain('') to get out sanitized html string
+ * @param {Array} buf use buf.join('') to get out sanitized html string
  * @returns {object} in the form of {
- *     start: function(tag, attrs, unary) {},
+ *     start: function(tag, attrs) {},
  *     end: function(tag) {},
  *     chars: function(text) {},
  *     comment: function(text) {}
  * }
  */
 function htmlSanitizeWriter(buf, uriValidator) {
-  var ignore = false;
+  var ignoreCurrentElement = false;
   var out = angular.bind(buf, buf.push);
   return {
-    start: function(tag, attrs, unary) {
+    start: function(tag, attrs) {
       tag = angular.lowercase(tag);
-      if (!ignore && specialElements[tag]) {
-        ignore = tag;
+      if (!ignoreCurrentElement && blockedElements[tag]) {
+        ignoreCurrentElement = tag;
       }
-      if (!ignore && validElements[tag] === true) {
+      if (!ignoreCurrentElement && validElements[tag] === true) {
         out('<');
         out(tag);
         angular.forEach(attrs, function(value, key) {
@@ -39605,27 +41111,61 @@ function htmlSanitizeWriter(buf, uriValidator) {
             out('"');
           }
         });
-        out(unary ? '/>' : '>');
+        out('>');
       }
     },
     end: function(tag) {
-        tag = angular.lowercase(tag);
-        if (!ignore && validElements[tag] === true) {
-          out('</');
-          out(tag);
-          out('>');
-        }
-        if (tag == ignore) {
-          ignore = false;
-        }
-      },
-    chars: function(chars) {
-        if (!ignore) {
-          out(encodeEntities(chars));
-        }
+      tag = angular.lowercase(tag);
+      if (!ignoreCurrentElement && validElements[tag] === true && voidElements[tag] !== true) {
+        out('</');
+        out(tag);
+        out('>');
       }
+      if (tag == ignoreCurrentElement) {
+        ignoreCurrentElement = false;
+      }
+    },
+    chars: function(chars) {
+      if (!ignoreCurrentElement) {
+        out(encodeEntities(chars));
+      }
+    }
   };
 }
+
+
+/**
+ * When IE9-11 comes across an unknown namespaced attribute e.g. 'xlink:foo' it adds 'xmlns:ns1' attribute to declare
+ * ns1 namespace and prefixes the attribute with 'ns1' (e.g. 'ns1:xlink:foo'). This is undesirable since we don't want
+ * to allow any of these custom attributes. This method strips them all.
+ *
+ * @param node Root element to process
+ */
+function stripCustomNsAttrs(node) {
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    var attrs = node.attributes;
+    for (var i = 0, l = attrs.length; i < l; i++) {
+      var attrNode = attrs[i];
+      var attrName = attrNode.name.toLowerCase();
+      if (attrName === 'xmlns:ns1' || attrName.indexOf('ns1:') === 0) {
+        node.removeAttributeNode(attrNode);
+        i--;
+        l--;
+      }
+    }
+  }
+
+  var nextNode = node.firstChild;
+  if (nextNode) {
+    stripCustomNsAttrs(nextNode);
+  }
+
+  nextNode = node.nextSibling;
+  if (nextNode) {
+    stripCustomNsAttrs(nextNode);
+  }
+}
+
 
 
 // define ngSanitize module and register $sanitize service
@@ -39639,14 +41179,25 @@ angular.module('ngSanitize', []).provider('$sanitize', $SanitizeProvider);
  * @kind function
  *
  * @description
- * Finds links in text input and turns them into html links. Supports http/https/ftp/mailto and
+ * Finds links in text input and turns them into html links. Supports `http/https/ftp/mailto` and
  * plain email address links.
  *
  * Requires the {@link ngSanitize `ngSanitize`} module to be installed.
  *
  * @param {string} text Input text.
- * @param {string} target Window (_blank|_self|_parent|_top) or named frame to open links in.
- * @returns {string} Html-linkified text.
+ * @param {string} target Window (`_blank|_self|_parent|_top`) or named frame to open links in.
+ * @param {object|function(url)} [attributes] Add custom attributes to the link element.
+ *
+ *    Can be one of:
+ *
+ *    - `object`: A map of attributes
+ *    - `function`: Takes the url as a parameter and returns a map of attributes
+ *
+ *    If the map of attributes contains a value for `target`, it overrides the value of
+ *    the target parameter.
+ *
+ *
+ * @returns {string} Html-linkified and {@link $sanitize sanitized} text.
  *
  * @usage
    <span ng-bind-html="linky_expression | linky"></span>
@@ -39654,25 +41205,13 @@ angular.module('ngSanitize', []).provider('$sanitize', $SanitizeProvider);
  * @example
    <example module="linkyExample" deps="angular-sanitize.js">
      <file name="index.html">
-       <script>
-         angular.module('linkyExample', ['ngSanitize'])
-           .controller('ExampleController', ['$scope', function($scope) {
-             $scope.snippet =
-               'Pretty text with some links:\n'+
-               'http://angularjs.org/,\n'+
-               'mailto:us@somewhere.org,\n'+
-               'another@somewhere.org,\n'+
-               'and one more: ftp://127.0.0.1/.';
-             $scope.snippetWithTarget = 'http://angularjs.org/';
-           }]);
-       </script>
        <div ng-controller="ExampleController">
        Snippet: <textarea ng-model="snippet" cols="60" rows="3"></textarea>
        <table>
          <tr>
-           <td>Filter</td>
-           <td>Source</td>
-           <td>Rendered</td>
+           <th>Filter</th>
+           <th>Source</th>
+           <th>Rendered</th>
          </tr>
          <tr id="linky-filter">
            <td>linky filter</td>
@@ -39686,10 +41225,19 @@ angular.module('ngSanitize', []).provider('$sanitize', $SanitizeProvider);
          <tr id="linky-target">
           <td>linky target</td>
           <td>
-            <pre>&lt;div ng-bind-html="snippetWithTarget | linky:'_blank'"&gt;<br>&lt;/div&gt;</pre>
+            <pre>&lt;div ng-bind-html="snippetWithSingleURL | linky:'_blank'"&gt;<br>&lt;/div&gt;</pre>
           </td>
           <td>
-            <div ng-bind-html="snippetWithTarget | linky:'_blank'"></div>
+            <div ng-bind-html="snippetWithSingleURL | linky:'_blank'"></div>
+          </td>
+         </tr>
+         <tr id="linky-custom-attributes">
+          <td>linky custom attributes</td>
+          <td>
+            <pre>&lt;div ng-bind-html="snippetWithSingleURL | linky:'_self':{rel: 'nofollow'}"&gt;<br>&lt;/div&gt;</pre>
+          </td>
+          <td>
+            <div ng-bind-html="snippetWithSingleURL | linky:'_self':{rel: 'nofollow'}"></div>
           </td>
          </tr>
          <tr id="escaped-html">
@@ -39698,6 +41246,18 @@ angular.module('ngSanitize', []).provider('$sanitize', $SanitizeProvider);
            <td><div ng-bind="snippet"></div></td>
          </tr>
        </table>
+     </file>
+     <file name="script.js">
+       angular.module('linkyExample', ['ngSanitize'])
+         .controller('ExampleController', ['$scope', function($scope) {
+           $scope.snippet =
+             'Pretty text with some links:\n'+
+             'http://angularjs.org/,\n'+
+             'mailto:us@somewhere.org,\n'+
+             'another@somewhere.org,\n'+
+             'and one more: ftp://127.0.0.1/.';
+           $scope.snippetWithSingleURL = 'http://angularjs.org/';
+         }]);
      </file>
      <file name="protractor.js" type="protractor">
        it('should linkify the snippet with urls', function() {
@@ -39726,9 +41286,16 @@ angular.module('ngSanitize', []).provider('$sanitize', $SanitizeProvider);
 
        it('should work with the target property', function() {
         expect(element(by.id('linky-target')).
-            element(by.binding("snippetWithTarget | linky:'_blank'")).getText()).
+            element(by.binding("snippetWithSingleURL | linky:'_blank'")).getText()).
             toBe('http://angularjs.org/');
         expect(element(by.css('#linky-target a')).getAttribute('target')).toEqual('_blank');
+       });
+
+       it('should optionally add custom attributes', function() {
+        expect(element(by.id('linky-custom-attributes')).
+            element(by.binding("snippetWithSingleURL | linky:'_self':{rel: 'nofollow'}")).getText()).
+            toBe('http://angularjs.org/');
+        expect(element(by.css('#linky-custom-attributes a')).getAttribute('rel')).toEqual('nofollow');
        });
      </file>
    </example>
@@ -39738,8 +41305,13 @@ angular.module('ngSanitize').filter('linky', ['$sanitize', function($sanitize) {
         /((ftp|https?):\/\/|(www\.)|(mailto:)?[A-Za-z0-9._%+-]+@)\S*[^\s.;,(){}<>"\u201d\u2019]/i,
       MAILTO_REGEXP = /^mailto:/i;
 
-  return function(text, target) {
-    if (!text) return text;
+  var linkyMinErr = angular.$$minErr('linky');
+  var isString = angular.isString;
+
+  return function(text, target, attributes) {
+    if (text == null || text === '') return text;
+    if (!isString(text)) throw linkyMinErr('notstring', 'Expected string but received: {0}', text);
+
     var match;
     var raw = text;
     var html = [];
@@ -39768,8 +41340,19 @@ angular.module('ngSanitize').filter('linky', ['$sanitize', function($sanitize) {
     }
 
     function addLink(url, text) {
+      var key;
       html.push('<a ');
-      if (angular.isDefined(target)) {
+      if (angular.isFunction(attributes)) {
+        attributes = attributes(url);
+      }
+      if (angular.isObject(attributes)) {
+        for (key in attributes) {
+          html.push(key + '="' + attributes[key] + '" ');
+        }
+      } else {
+        attributes = {};
+      }
+      if (angular.isDefined(target) && !('target' in attributes)) {
         html.push('target="',
                   target,
                   '" ');
@@ -39786,8 +41369,8 @@ angular.module('ngSanitize').filter('linky', ['$sanitize', function($sanitize) {
 
 })(window, window.angular);
 ;/**
- * @license AngularJS v1.4.7
- * (c) 2010-2015 Google, Inc. http://angularjs.org
+ * @license AngularJS v1.5.0
+ * (c) 2010-2016 Google, Inc. http://angularjs.org
  * License: MIT
  */
 (function(window, angular, undefined) {'use strict';
@@ -39855,6 +41438,9 @@ function shallowClearAndCopy(src, dst) {
  * @ngdoc service
  * @name $resource
  * @requires $http
+ * @requires ng.$log
+ * @requires $q
+ * @requires ng.$timeout
  *
  * @description
  * A factory which creates a resource object that lets you interact with
@@ -39889,7 +41475,7 @@ function shallowClearAndCopy(src, dst) {
  *   can escape it with `/\.`.
  *
  * @param {Object=} paramDefaults Default values for `url` parameters. These can be overridden in
- *   `actions` methods. If any of the parameter value is a function, it will be executed every time
+ *   `actions` methods. If a parameter value is a function, it will be executed every time
  *   when a param value needs to be obtained for a request (unless the param was overridden).
  *
  *   Each key value in the parameter object is first bound to url template if present and then any
@@ -39899,9 +41485,9 @@ function shallowClearAndCopy(src, dst) {
  *   URL `/path/greet?salutation=Hello`.
  *
  *   If the parameter value is prefixed with `@` then the value for that parameter will be extracted
- *   from the corresponding property on the `data` object (provided when calling an action method).  For
- *   example, if the `defaultParam` object is `{someParam: '@someProp'}` then the value of `someParam`
- *   will be `data.someProp`.
+ *   from the corresponding property on the `data` object (provided when calling an action method).
+ *   For example, if the `defaultParam` object is `{someParam: '@someProp'}` then the value of
+ *   `someParam` will be `data.someProp`.
  *
  * @param {Object.<Object>=} actions Hash with declaration of custom actions that should extend
  *   the default set of resource actions. The declaration should be created in the format of {@link
@@ -39935,15 +41521,21 @@ function shallowClearAndCopy(src, dst) {
  *     `{function(data, headersGetter)|Array.<function(data, headersGetter)>}` –
  *     transform function or an array of such functions. The transform function takes the http
  *     response body and headers and returns its transformed (typically deserialized) version.
- *     By default, transformResponse will contain one function that checks if the response looks like
- *     a JSON string and deserializes it using `angular.fromJson`. To prevent this behavior, set
- *     `transformResponse` to an empty array: `transformResponse: []`
+ *     By default, transformResponse will contain one function that checks if the response looks
+ *     like a JSON string and deserializes it using `angular.fromJson`. To prevent this behavior,
+ *     set `transformResponse` to an empty array: `transformResponse: []`
  *   - **`cache`** – `{boolean|Cache}` – If true, a default $http cache will be used to cache the
  *     GET request, otherwise if a cache instance built with
  *     {@link ng.$cacheFactory $cacheFactory}, this cache will be used for
  *     caching.
- *   - **`timeout`** – `{number|Promise}` – timeout in milliseconds, or {@link ng.$q promise} that
- *     should abort the request when resolved.
+ *   - **`timeout`** – `{number}` – timeout in milliseconds.<br />
+ *     **Note:** In contrast to {@link ng.$http#usage $http.config}, {@link ng.$q promises} are
+ *     **not** supported in $resource, because the same value would be used for multiple requests.
+ *     If you are looking for a way to cancel requests, you should use the `cancellable` option.
+ *   - **`cancellable`** – `{boolean}` – if set to true, the request made by a "non-instance" call
+ *     will be cancelled (if not already completed) by calling `$cancelRequest()` on the call's
+ *     return value. Calling `$cancelRequest()` for a non-cancellable or an already
+ *     completed/cancelled request will have no effect.<br />
  *   - **`withCredentials`** - `{boolean}` - whether to set the `withCredentials` flag on the
  *     XHR object. See
  *     [requests with credentials](https://developer.mozilla.org/en/http_access_control#section_5)
@@ -39955,12 +41547,13 @@ function shallowClearAndCopy(src, dst) {
  *     with `http response` object. See {@link ng.$http $http interceptors}.
  *
  * @param {Object} options Hash with custom settings that should extend the
- *   default `$resourceProvider` behavior.  The only supported option is
- *
- *   Where:
+ *   default `$resourceProvider` behavior.  The supported options are:
  *
  *   - **`stripTrailingSlashes`** – {boolean} – If true then the trailing
  *   slashes from any calculated URL will be stripped. (Defaults to true.)
+ *   - **`cancellable`** – {boolean} – If true, the request made by a "non-instance" call will be
+ *   cancelled (if not already completed) by calling `$cancelRequest()` on the call's return value.
+ *   This can be overwritten per action. (Defaults to false.)
  *
  * @returns {Object} A resource "class" object with methods for the default set of resource actions
  *   optionally extended with custom `actions`. The default set contains these actions:
@@ -40008,7 +41601,7 @@ function shallowClearAndCopy(src, dst) {
  *   Class actions return empty instance (with additional properties below).
  *   Instance actions return promise of the action.
  *
- *   The Resource instances and collection have these additional properties:
+ *   The Resource instances and collections have these additional properties:
  *
  *   - `$promise`: the {@link ng.$q promise} of the original server interaction that created this
  *     instance or collection.
@@ -40018,7 +41611,7 @@ function shallowClearAndCopy(src, dst) {
  *     {@link ngRoute.$routeProvider resolve section of $routeProvider.when()} to defer view
  *     rendering until the resource(s) are loaded.
  *
- *     On failure, the promise is resolved with the {@link ng.$http http response} object, without
+ *     On failure, the promise is rejected with the {@link ng.$http http response} object, without
  *     the `resource` property.
  *
  *     If an interceptor object was provided, the promise will instead be resolved with the value
@@ -40027,6 +41620,11 @@ function shallowClearAndCopy(src, dst) {
  *   - `$resolved`: `true` after first server interaction is completed (either with success or
  *      rejection), `false` before that. Knowing if the Resource has been resolved is useful in
  *      data-binding.
+ *
+ *   The Resource instances and collections have these additional methods:
+ *
+ *   - `$cancelRequest`: If there is a cancellable, pending request related to the instance or
+ *      collection, calling this method will abort the request.
  *
  * @example
  *
@@ -40072,6 +41670,11 @@ function shallowClearAndCopy(src, dst) {
  *
  * Calling these methods invoke `$http` on the `url` template with the given `method`, `params` and
  * `headers`.
+ *
+ * @example
+ *
+ * # User resource
+ *
  * When the data is returned from the server then the object is an instance of the resource type and
  * all of the non-GET methods are available with `$` prefix. This allows you to easily support CRUD
  * operations (create, read, update, delete) on server-side data.
@@ -40090,10 +41693,10 @@ function shallowClearAndCopy(src, dst) {
  *
    ```js
      var User = $resource('/user/:userId', {userId:'@id'});
-     User.get({userId:123}, function(u, getResponseHeaders){
-       u.abc = true;
-       u.$save(function(u, putResponseHeaders) {
-         //u => saved user object
+     User.get({userId:123}, function(user, getResponseHeaders){
+       user.abc = true;
+       user.$save(function(user, putResponseHeaders) {
+         //user => saved user object
          //putResponseHeaders => $http header getter
        });
      });
@@ -40108,8 +41711,11 @@ function shallowClearAndCopy(src, dst) {
            $scope.user = user;
          });
    ```
-
+ *
+ * @example
+ *
  * # Creating a custom 'PUT' request
+ *
  * In this example we create a custom method on our resource to make a PUT request
  * ```js
  *    var app = angular.module('app', ['ngResource', 'ngRoute']);
@@ -40137,6 +41743,34 @@ function shallowClearAndCopy(src, dst) {
  *    // This will PUT /notes/ID with the note object in the request payload
  *    }]);
  * ```
+ *
+ * @example
+ *
+ * # Cancelling requests
+ *
+ * If an action's configuration specifies that it is cancellable, you can cancel the request related
+ * to an instance or collection (as long as it is a result of a "non-instance" call):
+ *
+   ```js
+     // ...defining the `Hotel` resource...
+     var Hotel = $resource('/api/hotel/:id', {id: '@id'}, {
+       // Let's make the `query()` method cancellable
+       query: {method: 'get', isArray: true, cancellable: true}
+     });
+
+     // ...somewhere in the PlanVacationController...
+     ...
+     this.onDestinationChanged = function onDestinationChanged(destination) {
+       // We don't care about any pending request for hotels
+       // in a different destination any more
+       this.availableHotels.$cancelRequest();
+
+       // Let's query for hotels in '<destination>'
+       // (calls: /api/hotel?location=<destination>)
+       this.availableHotels = Hotel.query({location: destination});
+     };
+   ```
+ *
  */
 angular.module('ngResource', ['ng']).
   provider('$resource', function() {
@@ -40157,7 +41791,7 @@ angular.module('ngResource', ['ng']).
       }
     };
 
-    this.$get = ['$http', '$q', function($http, $q) {
+    this.$get = ['$http', '$log', '$q', '$timeout', function($http, $log, $q, $timeout) {
 
       var noop = angular.noop,
         forEach = angular.forEach,
@@ -40225,7 +41859,9 @@ angular.module('ngResource', ['ng']).
             }
             if (!(new RegExp("^\\d+$").test(param)) && param &&
               (new RegExp("(^|[^\\\\]):" + param + "(\\W|$)").test(url))) {
-              urlParams[param] = true;
+              urlParams[param] = {
+                isQueryParamValue: (new RegExp("\\?.*=:" + param + "(?:\\W|$)")).test(url)
+              };
             }
           });
           url = url.replace(/\\:/g, ':');
@@ -40235,10 +41871,14 @@ angular.module('ngResource', ['ng']).
           });
 
           params = params || {};
-          forEach(self.urlParams, function(_, urlParam) {
+          forEach(self.urlParams, function(paramInfo, urlParam) {
             val = params.hasOwnProperty(urlParam) ? params[urlParam] : self.defaults[urlParam];
             if (angular.isDefined(val) && val !== null) {
-              encodedVal = encodeUriSegment(val);
+              if (paramInfo.isQueryParamValue) {
+                encodedVal = encodeUriQuery(val, true);
+              } else {
+                encodedVal = encodeUriSegment(val);
+              }
               url = url.replace(new RegExp(":" + urlParam + "(\\W|$)", "g"), function(match, p1) {
                 return encodedVal + p1;
               });
@@ -40310,6 +41950,20 @@ angular.module('ngResource', ['ng']).
 
         forEach(actions, function(action, name) {
           var hasBody = /^(POST|PUT|PATCH)$/i.test(action.method);
+          var numericTimeout = action.timeout;
+          var cancellable = angular.isDefined(action.cancellable) ? action.cancellable :
+              (options && angular.isDefined(options.cancellable)) ? options.cancellable :
+              provider.defaults.cancellable;
+
+          if (numericTimeout && !angular.isNumber(numericTimeout)) {
+            $log.debug('ngResource:\n' +
+                       '  Only numeric values are allowed as `timeout`.\n' +
+                       '  Promises are not supported in $resource, because the same value would ' +
+                       'be used for multiple requests. If you are looking for a way to cancel ' +
+                       'requests, you should use the `cancellable` option.');
+            delete action.timeout;
+            numericTimeout = null;
+          }
 
           Resource[name] = function(a1, a2, a3, a4) {
             var params = {}, data, success, error;
@@ -40358,12 +42012,30 @@ angular.module('ngResource', ['ng']).
               defaultResponseInterceptor;
             var responseErrorInterceptor = action.interceptor && action.interceptor.responseError ||
               undefined;
+            var timeoutDeferred;
+            var numericTimeoutPromise;
 
             forEach(action, function(value, key) {
-              if (key != 'params' && key != 'isArray' && key != 'interceptor') {
-                httpConfig[key] = copy(value);
+              switch (key) {
+                default:
+                  httpConfig[key] = copy(value);
+                  break;
+                case 'params':
+                case 'isArray':
+                case 'interceptor':
+                case 'cancellable':
+                  break;
               }
             });
+
+            if (!isInstanceCall && cancellable) {
+              timeoutDeferred = $q.defer();
+              httpConfig.timeout = timeoutDeferred.promise;
+
+              if (numericTimeout) {
+                numericTimeoutPromise = $timeout(timeoutDeferred.resolve, numericTimeout);
+              }
+            }
 
             if (hasBody) httpConfig.data = data;
             route.setUrlParams(httpConfig,
@@ -40371,8 +42043,7 @@ angular.module('ngResource', ['ng']).
               action.url);
 
             var promise = $http(httpConfig).then(function(response) {
-              var data = response.data,
-                promise = value.$promise;
+              var data = response.data;
 
               if (data) {
                 // Need to convert action.isArray to boolean in case it is undefined
@@ -40397,22 +42068,26 @@ angular.module('ngResource', ['ng']).
                     }
                   });
                 } else {
+                  var promise = value.$promise;     // Save the promise
                   shallowClearAndCopy(data, value);
-                  value.$promise = promise;
+                  value.$promise = promise;         // Restore the promise
                 }
               }
-
-              value.$resolved = true;
-
               response.resource = value;
 
               return response;
             }, function(response) {
-              value.$resolved = true;
-
               (error || noop)(response);
-
               return $q.reject(response);
+            });
+
+            promise.finally(function() {
+              value.$resolved = true;
+              if (!isInstanceCall && cancellable) {
+                value.$cancelRequest = angular.noop;
+                $timeout.cancel(numericTimeoutPromise);
+                timeoutDeferred = numericTimeoutPromise = httpConfig.timeout = null;
+              }
             });
 
             promise = promise.then(
@@ -40429,6 +42104,7 @@ angular.module('ngResource', ['ng']).
               // - return the instance / collection
               value.$promise = promise;
               value.$resolved = false;
+              if (cancellable) value.$cancelRequest = timeoutDeferred.resolve;
 
               return value;
             }
@@ -43149,9 +44825,9 @@ if (typeof jQuery === 'undefined') {
 })(jQuery, window, document);
 ;/* globals jQuery */
 
-(function($) {
+(function ($) {
   // Selector to select only not already processed elements
-  $.expr[":"].notmdproc = function(obj){
+  $.expr[":"].notmdproc = function (obj) {
     if ($(obj).data("mdproc")) {
       return false;
     } else {
@@ -43163,22 +44839,48 @@ if (typeof jQuery === 'undefined') {
     if (typeof evt.which == "undefined") {
       return true;
     } else if (typeof evt.which == "number" && evt.which > 0) {
-      return !evt.ctrlKey && !evt.metaKey && !evt.altKey && evt.which != 8 && evt.which != 9;
+      return (
+        !evt.ctrlKey
+        && !evt.metaKey
+        && !evt.altKey
+        && evt.which != 8  // backspace
+        && evt.which != 9  // tab
+        && evt.which != 13 // enter
+        && evt.which != 16 // shift
+        && evt.which != 17 // ctrl
+        && evt.which != 20 // caps lock
+        && evt.which != 27 // escape
+      );
     }
     return false;
   }
-  
-  function _addFormGroupFocus(element){
-    $(element).closest(".form-group").addClass("is-focused");
+
+  function _addFormGroupFocus(element) {
+    var $element = $(element);
+    if (!$element.prop('disabled')) {  // this is showing as undefined on chrome but works fine on firefox??
+      $element.closest(".form-group").addClass("is-focused");
+    }
   }
-  
-  function _removeFormGroupFocus(element){
+
+  function _toggleTypeFocus($input) {
+    $input.closest('label').hover(function () {
+      var $i = $(this).find('input');
+      if (!$i.prop('disabled')) { // hack because the _addFormGroupFocus() wasn't identifying the property on chrome
+        _addFormGroupFocus($i);     // need to find the input so we can check disablement
+      }
+    }, function () {
+      _removeFormGroupFocus($(this).find('input'));
+    });
+  }
+
+  function _removeFormGroupFocus(element) {
     $(element).closest(".form-group").removeClass("is-focused"); // remove class from form-group
   }
 
-  $.material =  {
+  $.material = {
     "options": {
       // These options set what will be started by $.material.init()
+      "validate": true,
       "input": true,
       "ripples": true,
       "checkbox": true,
@@ -43201,173 +44903,177 @@ if (typeof jQuery === 'undefined') {
       "togglebuttonElements": ".togglebutton > label > input[type=checkbox]",
       "radioElements": ".radio > label > input[type=radio]"
     },
-    "checkbox": function(selector) {
+    "checkbox": function (selector) {
       // Add fake-checkbox to material checkboxes
-      $((selector) ? selector : this.options.checkboxElements)
-      .filter(":notmdproc")
-      .data("mdproc", true)
-      .after("<span class='checkbox-material'><span class='check'></span></span>");
+      var $input = $((selector) ? selector : this.options.checkboxElements)
+        .filter(":notmdproc")
+        .data("mdproc", true)
+        .after("<span class='checkbox-material'><span class='check'></span></span>");
+
+      _toggleTypeFocus($input);
     },
-    "togglebutton": function(selector) {
+    "togglebutton": function (selector) {
       // Add fake-checkbox to material checkboxes
-      $((selector) ? selector : this.options.togglebuttonElements)
-      .filter(":notmdproc")
-      .data("mdproc", true)
-      .after("<span class='toggle'></span>");
+      var $input = $((selector) ? selector : this.options.togglebuttonElements)
+        .filter(":notmdproc")
+        .data("mdproc", true)
+        .after("<span class='toggle'></span>");
+
+      _toggleTypeFocus($input);
     },
-    "radio": function(selector) {
+    "radio": function (selector) {
       // Add fake-radio to material radios
-      $((selector) ? selector : this.options.radioElements)
-      .filter(":notmdproc")
-      .data("mdproc", true)
-      .after("<span class='circle'></span><span class='check'></span>");
+      var $input = $((selector) ? selector : this.options.radioElements)
+        .filter(":notmdproc")
+        .data("mdproc", true)
+        .after("<span class='circle'></span><span class='check'></span>");
+
+      _toggleTypeFocus($input);
     },
-    "input": function(selector) {
+    "input": function (selector) {
       $((selector) ? selector : this.options.inputElements)
-      .filter(":notmdproc")
-      .data("mdproc", true)
-      .each( function() {
-        var $input = $(this);
+        .filter(":notmdproc")
+        .data("mdproc", true)
+        .each(function () {
+          var $input = $(this);
 
-        // Requires form-group standard markup (will add it if necessary)
-        var $formGroup = $input.closest(".form-group"); // note that form-group may be grandparent in the case of an input-group
-        if($formGroup.length === 0){
-          $input.wrap("<div class='form-group'></div>");
-          $formGroup = $input.closest(".form-group"); // find node after attached (otherwise additional attachments don't work)
-        }
-
-        // Legacy - Add hint label if using the old shorthand data-hint attribute on the input
-        if ($input.attr("data-hint")) {
-          $input.after("<p class='help-block'>" + $input.attr("data-hint") + "</p>");
-          $input.removeAttr("data-hint");
-        }
-
-        // Legacy - Change input-sm/lg to form-group-sm/lg instead (preferred standard and simpler css/less variants)
-        var legacySizes = {
-          "input-lg": "form-group-lg",
-          "input-sm": "form-group-sm"
-        };
-        $.each( legacySizes, function( legacySize, standardSize ) {
-          if ($input.hasClass(legacySize)) {
-            $input.removeClass(legacySize);
-            $formGroup.addClass(standardSize);
+          // Requires form-group standard markup (will add it if necessary)
+          var $formGroup = $input.closest(".form-group"); // note that form-group may be grandparent in the case of an input-group
+          if ($formGroup.length === 0) {
+            $input.wrap("<div class='form-group'></div>");
+            $formGroup = $input.closest(".form-group"); // find node after attached (otherwise additional attachments don't work)
           }
-        });
 
-        // Legacy - Add label-floating if using old shorthand <input class="floating-label" placeholder="foo">
-        if ($input.hasClass("floating-label")) {
-          var placeholder = $input.attr("placeholder");
-          $input.attr("placeholder", null).removeClass("floating-label");
-          var id = $input.attr("id");
-          var forAttribute = "";
-          if(id) {
-            forAttribute = "for='" + id + "'";
+          // Legacy - Add hint label if using the old shorthand data-hint attribute on the input
+          if ($input.attr("data-hint")) {
+            $input.after("<p class='help-block'>" + $input.attr("data-hint") + "</p>");
+            $input.removeAttr("data-hint");
           }
-          $formGroup.addClass("label-floating");
-          $input.after("<label " + forAttribute + "class='control-label'>" + placeholder + "</label>");
-        }
 
-        // Set as empty if is empty (damn I must improve this...)
-        if ($input.val() === null || $input.val() == "undefined" || $input.val() === "") {
-          $formGroup.addClass("is-empty");
-        }
+          // Legacy - Change input-sm/lg to form-group-sm/lg instead (preferred standard and simpler css/less variants)
+          var legacySizes = {
+            "input-lg": "form-group-lg",
+            "input-sm": "form-group-sm"
+          };
+          $.each(legacySizes, function (legacySize, standardSize) {
+            if ($input.hasClass(legacySize)) {
+              $input.removeClass(legacySize);
+              $formGroup.addClass(standardSize);
+            }
+          });
+
+          // Legacy - Add label-floating if using old shorthand <input class="floating-label" placeholder="foo">
+          if ($input.hasClass("floating-label")) {
+            var placeholder = $input.attr("placeholder");
+            $input.attr("placeholder", null).removeClass("floating-label");
+            var id = $input.attr("id");
+            var forAttribute = "";
+            if (id) {
+              forAttribute = "for='" + id + "'";
+            }
+            $formGroup.addClass("label-floating");
+            $input.after("<label " + forAttribute + "class='control-label'>" + placeholder + "</label>");
+          }
+
+          // Set as empty if is empty (damn I must improve this...)
+          if ($input.val() === null || $input.val() == "undefined" || $input.val() === "") {
+            $formGroup.addClass("is-empty");
+          }
 
           // Add at the end of the form-group
-        $formGroup.append("<span class='material-input'></span>");
+          $formGroup.append("<span class='material-input'></span>");
 
-        // Support for file input
-        if ($formGroup.find("input[type=file]").length > 0) {
-          $formGroup.addClass("is-fileinput");
-        }
-      });
+          // Support for file input
+          if ($formGroup.find("input[type=file]").length > 0) {
+            $formGroup.addClass("is-fileinput");
+          }
+        });
     },
-    "attachInputEventHandlers": function() {
-
-      // checkboxes didn't appear to bubble to the document, so we'll bind these directly
-      $(".form-group .checkbox label").hover(function() {
-        _addFormGroupFocus(this);
-      }, function() {
-        _removeFormGroupFocus(this);
-      });
+    "attachInputEventHandlers": function () {
+      var validate = this.options.validate;
 
       $(document)
-      .on("change", ".checkbox input[type=checkbox]", function() { $(this).blur(); })
-      .on("keydown paste", ".form-control", function(e) {
-        if(_isChar(e)) {
-          $(this).closest(".form-group").removeClass("is-empty");
-        }
-      })
-      .on("keyup change", ".form-control", function() {
-        var $input = $(this);
-        var $formGroup = $input.closest(".form-group");
-        var isValid = (typeof $input[0].checkValidity === "undefined" || $input[0].checkValidity());
+        .on("change", ".checkbox input[type=checkbox]", function () {
+          $(this).blur();
+        })
+        .on("keydown paste", ".form-control", function (e) {
+          if (_isChar(e)) {
+            $(this).closest(".form-group").removeClass("is-empty");
+          }
+        })
+        .on("keyup change", ".form-control", function () {
+          var $input = $(this);
+          var $formGroup = $input.closest(".form-group");
+          var isValid = (typeof $input[0].checkValidity === "undefined" || $input[0].checkValidity());
 
-        if ($input.val() === "" && isValid) {
-          $formGroup.addClass("is-empty");
-        }
-        else {
-          $formGroup.removeClass("is-empty");
-        }
+          if ($input.val() === "") {
+            $formGroup.addClass("is-empty");
+          }
+          else {
+            $formGroup.removeClass("is-empty");
+          }
 
-        // Validation events do not bubble, so they must be attached directly to the input: http://jsfiddle.net/PEpRM/1/
-        //  Further, even the bind method is being caught, but since we are already calling #checkValidity here, just alter
-        //  the form-group on change.
-        //
-        // NOTE: I'm not sure we should be intervening regarding validation, this seems better as a README and snippet of code.
-        //        BUT, I've left it here for backwards compatibility.
-        if(isValid){
-          $formGroup.removeClass("has-error");
-        }
-        else{
-          $formGroup.addClass("has-error");
-        }
-      })
-      .on("focus", ".form-control, .form-group.is-fileinput", function() {
-        _addFormGroupFocus(this);
-      })
-      .on("blur", ".form-control, .form-group.is-fileinput", function() {
-        _removeFormGroupFocus(this);
-      })
-      // make sure empty is added back when there is a programmatic value change.
-      //  NOTE: programmatic changing of value using $.val() must trigger the change event i.e. $.val('x').trigger('change')
-      .on("change", ".form-group input", function() {
-        var $input = $(this);
-        if($input.attr("type") == "file") {
-          return;
-        }
+          // Validation events do not bubble, so they must be attached directly to the input: http://jsfiddle.net/PEpRM/1/
+          //  Further, even the bind method is being caught, but since we are already calling #checkValidity here, just alter
+          //  the form-group on change.
+          //
+          // NOTE: I'm not sure we should be intervening regarding validation, this seems better as a README and snippet of code.
+          //        BUT, I've left it here for backwards compatibility.
+          if (validate) {
+            if (isValid) {
+              $formGroup.removeClass("has-error");
+            }
+            else {
+              $formGroup.addClass("has-error");
+            }
+          }
+        })
+        .on("focus", ".form-control, .form-group.is-fileinput", function () {
+          _addFormGroupFocus(this);
+        })
+        .on("blur", ".form-control, .form-group.is-fileinput", function () {
+          _removeFormGroupFocus(this);
+        })
+        // make sure empty is added back when there is a programmatic value change.
+        //  NOTE: programmatic changing of value using $.val() must trigger the change event i.e. $.val('x').trigger('change')
+        .on("change", ".form-group input", function () {
+          var $input = $(this);
+          if ($input.attr("type") == "file") {
+            return;
+          }
 
-        var $formGroup = $input.closest(".form-group");
-        var value = $input.val();
-        if (value) {
-          $formGroup.removeClass("is-empty");
-        } else {
-          $formGroup.addClass("is-empty");
-        }
-      })
-      // set the fileinput readonly field with the name of the file
-      .on("change", ".form-group.is-fileinput input[type='file']", function() {
-        var $input = $(this);
-        var $formGroup = $input.closest(".form-group");
-        var value = "";
-        $.each(this.files, function(i, file) {
-          value += file.name + ", ";
+          var $formGroup = $input.closest(".form-group");
+          var value = $input.val();
+          if (value) {
+            $formGroup.removeClass("is-empty");
+          } else {
+            $formGroup.addClass("is-empty");
+          }
+        })
+        // set the fileinput readonly field with the name of the file
+        .on("change", ".form-group.is-fileinput input[type='file']", function () {
+          var $input = $(this);
+          var $formGroup = $input.closest(".form-group");
+          var value = "";
+          $.each(this.files, function (i, file) {
+            value += file.name + ", ";
+          });
+          value = value.substring(0, value.length - 2);
+          if (value) {
+            $formGroup.removeClass("is-empty");
+          } else {
+            $formGroup.addClass("is-empty");
+          }
+          $formGroup.find("input.form-control[readonly]").val(value);
         });
-        value = value.substring(0, value.length - 2);
-        if (value) {
-          $formGroup.removeClass("is-empty");
-        } else {
-          $formGroup.addClass("is-empty");
-        }
-        $formGroup.find("input.form-control[readonly]").val(value);
-      });
     },
-    "ripples": function(selector) {
+    "ripples": function (selector) {
       $((selector) ? selector : this.options.withRipples).ripples();
     },
-    "autofill": function() {
+    "autofill": function () {
       // This part of code will detect autofill when the page is loading (username and password inputs for example)
-      var loading = setInterval(function() {
-        $("input[type!=checkbox]").each(function() {
+      var loading = setInterval(function () {
+        $("input[type!=checkbox]").each(function () {
           var $this = $(this);
           if ($this.val() && $this.val() !== $this.attr("value")) {
             $this.trigger("change");
@@ -43376,30 +45082,31 @@ if (typeof jQuery === 'undefined') {
       }, 100);
 
       // After 10 seconds we are quite sure all the needed inputs are autofilled then we can stop checking them
-      setTimeout(function() {
+      setTimeout(function () {
         clearInterval(loading);
       }, 10000);
     },
-    "attachAutofillEventHandlers": function() {
+    "attachAutofillEventHandlers": function () {
       // Listen on inputs of the focused form (because user can select from the autofill dropdown only when the input has focus)
       var focused;
       $(document)
-      .on("focus", "input", function() {
-        var $inputs = $(this).parents("form").find("input").not("[type=file]");
-        focused = setInterval(function() {
-          $inputs.each(function() {
-            var $this = $(this);
-            if ($this.val() !== $this.attr("value")) {
-              $this.trigger("change");
-            }
-          });
-        }, 100);
-      })
-      .on("blur", ".form-group input", function() {
-        clearInterval(focused);
-      });
+        .on("focus", "input", function () {
+          var $inputs = $(this).parents("form").find("input").not("[type=file]");
+          focused = setInterval(function () {
+            $inputs.each(function () {
+              var $this = $(this);
+              if ($this.val() !== $this.attr("value")) {
+                $this.trigger("change");
+              }
+            });
+          }, 100);
+        })
+        .on("blur", ".form-group input", function () {
+          clearInterval(focused);
+        });
     },
-    "init": function() {
+    "init": function (options) {
+      this.options = $.extend({}, this.options, options);
       var $document = $(document);
 
       if ($.fn.ripples && this.options.ripples) {
@@ -43425,27 +45132,27 @@ if (typeof jQuery === 'undefined') {
 
       if (document.arrive && this.options.arrive) {
         if ($.fn.ripples && this.options.ripples) {
-          $document.arrive(this.options.withRipples, function() {
+          $document.arrive(this.options.withRipples, function () {
             $.material.ripples($(this));
           });
         }
         if (this.options.input) {
-          $document.arrive(this.options.inputElements, function() {
+          $document.arrive(this.options.inputElements, function () {
             $.material.input($(this));
           });
         }
         if (this.options.checkbox) {
-          $document.arrive(this.options.checkboxElements, function() {
+          $document.arrive(this.options.checkboxElements, function () {
             $.material.checkbox($(this));
           });
         }
         if (this.options.radio) {
-          $document.arrive(this.options.radioElements, function() {
+          $document.arrive(this.options.radioElements, function () {
             $.material.radio($(this));
           });
         }
         if (this.options.togglebutton) {
-          $document.arrive(this.options.togglebuttonElements, function() {
+          $document.arrive(this.options.togglebuttonElements, function () {
             $.material.togglebutton($(this));
           });
         }
@@ -43459,40 +45166,60 @@ if (typeof jQuery === 'undefined') {
  * angular-ui-bootstrap
  * http://angular-ui.github.io/bootstrap/
 
- * Version: 0.14.3 - 2015-10-23
+ * Version: 1.1.2 - 2016-02-01
  * License: MIT
- */
-angular.module("ui.bootstrap", ["ui.bootstrap.tpls", "ui.bootstrap.collapse","ui.bootstrap.accordion","ui.bootstrap.alert","ui.bootstrap.buttons","ui.bootstrap.carousel","ui.bootstrap.dateparser","ui.bootstrap.position","ui.bootstrap.datepicker","ui.bootstrap.dropdown","ui.bootstrap.stackedMap","ui.bootstrap.modal","ui.bootstrap.pagination","ui.bootstrap.tooltip","ui.bootstrap.popover","ui.bootstrap.progressbar","ui.bootstrap.rating","ui.bootstrap.tabs","ui.bootstrap.timepicker","ui.bootstrap.typeahead"]);
-angular.module("ui.bootstrap.tpls", ["template/accordion/accordion-group.html","template/accordion/accordion.html","template/alert/alert.html","template/carousel/carousel.html","template/carousel/slide.html","template/datepicker/datepicker.html","template/datepicker/day.html","template/datepicker/month.html","template/datepicker/popup.html","template/datepicker/year.html","template/modal/backdrop.html","template/modal/window.html","template/pagination/pager.html","template/pagination/pagination.html","template/tooltip/tooltip-html-popup.html","template/tooltip/tooltip-popup.html","template/tooltip/tooltip-template-popup.html","template/popover/popover-html.html","template/popover/popover-template.html","template/popover/popover.html","template/progressbar/bar.html","template/progressbar/progress.html","template/progressbar/progressbar.html","template/rating/rating.html","template/tabs/tab.html","template/tabs/tabset.html","template/timepicker/timepicker.html","template/typeahead/typeahead-match.html","template/typeahead/typeahead-popup.html"]);
+ */angular.module("ui.bootstrap", ["ui.bootstrap.tpls", "ui.bootstrap.collapse","ui.bootstrap.accordion","ui.bootstrap.alert","ui.bootstrap.buttons","ui.bootstrap.carousel","ui.bootstrap.dateparser","ui.bootstrap.isClass","ui.bootstrap.position","ui.bootstrap.datepicker","ui.bootstrap.debounce","ui.bootstrap.dropdown","ui.bootstrap.stackedMap","ui.bootstrap.modal","ui.bootstrap.paging","ui.bootstrap.pager","ui.bootstrap.pagination","ui.bootstrap.tooltip","ui.bootstrap.popover","ui.bootstrap.progressbar","ui.bootstrap.rating","ui.bootstrap.tabs","ui.bootstrap.timepicker","ui.bootstrap.typeahead"]);
+angular.module("ui.bootstrap.tpls", ["uib/template/accordion/accordion-group.html","uib/template/accordion/accordion.html","uib/template/alert/alert.html","uib/template/carousel/carousel.html","uib/template/carousel/slide.html","uib/template/datepicker/datepicker.html","uib/template/datepicker/day.html","uib/template/datepicker/month.html","uib/template/datepicker/popup.html","uib/template/datepicker/year.html","uib/template/modal/backdrop.html","uib/template/modal/window.html","uib/template/pager/pager.html","uib/template/pagination/pagination.html","uib/template/tooltip/tooltip-html-popup.html","uib/template/tooltip/tooltip-popup.html","uib/template/tooltip/tooltip-template-popup.html","uib/template/popover/popover-html.html","uib/template/popover/popover-template.html","uib/template/popover/popover.html","uib/template/progressbar/bar.html","uib/template/progressbar/progress.html","uib/template/progressbar/progressbar.html","uib/template/rating/rating.html","uib/template/tabs/tab.html","uib/template/tabs/tabset.html","uib/template/timepicker/timepicker.html","uib/template/typeahead/typeahead-match.html","uib/template/typeahead/typeahead-popup.html"]);
 angular.module('ui.bootstrap.collapse', [])
 
-  .directive('uibCollapse', ['$animate', '$injector', function($animate, $injector) {
+  .directive('uibCollapse', ['$animate', '$q', '$parse', '$injector', function($animate, $q, $parse, $injector) {
     var $animateCss = $injector.has('$animateCss') ? $injector.get('$animateCss') : null;
     return {
       link: function(scope, element, attrs) {
-        function expand() {
-          element.removeClass('collapse')
-            .addClass('collapsing')
-            .attr('aria-expanded', true)
-            .attr('aria-hidden', false);
+        var expandingExpr = $parse(attrs.expanding),
+            expandedExpr = $parse(attrs.expanded),
+            collapsingExpr = $parse(attrs.collapsing),
+            collapsedExpr = $parse(attrs.collapsed);
 
-          if ($animateCss) {
-            $animateCss(element, {
-              addClass: 'in',
-              easing: 'ease',
-              to: { height: element[0].scrollHeight + 'px' }
-            }).start().finally(expandDone);
-          } else {
-            $animate.addClass(element, 'in', {
-              to: { height: element[0].scrollHeight + 'px' }
-            }).then(expandDone);
+        if (!scope.$eval(attrs.uibCollapse)) {
+          element.addClass('in')
+            .addClass('collapse')
+            .attr('aria-expanded', true)
+            .attr('aria-hidden', false)
+            .css({height: 'auto'});
+        }
+
+        function expand() {
+          if (element.hasClass('collapse') && element.hasClass('in')) {
+            return;
           }
+
+          $q.resolve(expandingExpr(scope))
+            .then(function() {
+              element.removeClass('collapse')
+                .addClass('collapsing')
+                .attr('aria-expanded', true)
+                .attr('aria-hidden', false);
+
+              if ($animateCss) {
+                $animateCss(element, {
+                  addClass: 'in',
+                  easing: 'ease',
+                  to: { height: element[0].scrollHeight + 'px' }
+                }).start()['finally'](expandDone);
+              } else {
+                $animate.addClass(element, 'in', {
+                  to: { height: element[0].scrollHeight + 'px' }
+                }).then(expandDone);
+              }
+            });
         }
 
         function expandDone() {
           element.removeClass('collapsing')
             .addClass('collapse')
             .css({height: 'auto'});
+          expandedExpr(scope);
         }
 
         function collapse() {
@@ -43500,120 +45227,41 @@ angular.module('ui.bootstrap.collapse', [])
             return collapseDone();
           }
 
-          element
-            // IMPORTANT: The height must be set before adding "collapsing" class.
-            // Otherwise, the browser attempts to animate from height 0 (in
-            // collapsing class) to the given height here.
-            .css({height: element[0].scrollHeight + 'px'})
-            // initially all panel collapse have the collapse class, this removal
-            // prevents the animation from jumping to collapsed state
-            .removeClass('collapse')
-            .addClass('collapsing')
-            .attr('aria-expanded', false)
-            .attr('aria-hidden', true);
+          $q.resolve(collapsingExpr(scope))
+            .then(function() {
+              element
+                // IMPORTANT: The height must be set before adding "collapsing" class.
+                // Otherwise, the browser attempts to animate from height 0 (in
+                // collapsing class) to the given height here.
+                .css({height: element[0].scrollHeight + 'px'})
+                // initially all panel collapse have the collapse class, this removal
+                // prevents the animation from jumping to collapsed state
+                .removeClass('collapse')
+                .addClass('collapsing')
+                .attr('aria-expanded', false)
+                .attr('aria-hidden', true);
 
-          if ($animateCss) {
-            $animateCss(element, {
-              removeClass: 'in',
-              to: {height: '0'}
-            }).start().finally(collapseDone);
-          } else {
-            $animate.removeClass(element, 'in', {
-              to: {height: '0'}
-            }).then(collapseDone);
-          }
+              if ($animateCss) {
+                $animateCss(element, {
+                  removeClass: 'in',
+                  to: {height: '0'}
+                }).start()['finally'](collapseDone);
+              } else {
+                $animate.removeClass(element, 'in', {
+                  to: {height: '0'}
+                }).then(collapseDone);
+              }
+            });
         }
 
         function collapseDone() {
           element.css({height: '0'}); // Required so that collapse works when animation is disabled
           element.removeClass('collapsing')
             .addClass('collapse');
+          collapsedExpr(scope);
         }
 
         scope.$watch(attrs.uibCollapse, function(shouldCollapse) {
-          if (shouldCollapse) {
-            collapse();
-          } else {
-            expand();
-          }
-        });
-      }
-    };
-  }]);
-
-/* Deprecated collapse below */
-
-angular.module('ui.bootstrap.collapse')
-
-  .value('$collapseSuppressWarning', false)
-
-  .directive('collapse', ['$animate', '$injector', '$log', '$collapseSuppressWarning', function($animate, $injector, $log, $collapseSuppressWarning) {
-    var $animateCss = $injector.has('$animateCss') ? $injector.get('$animateCss') : null;
-    return {
-      link: function(scope, element, attrs) {
-        if (!$collapseSuppressWarning) {
-          $log.warn('collapse is now deprecated. Use uib-collapse instead.');
-        }
-
-        function expand() {
-          element.removeClass('collapse')
-            .addClass('collapsing')
-            .attr('aria-expanded', true)
-            .attr('aria-hidden', false);
-
-          if ($animateCss) {
-            $animateCss(element, {
-              easing: 'ease',
-              to: { height: element[0].scrollHeight + 'px' }
-            }).start().done(expandDone);
-          } else {
-            $animate.animate(element, {}, {
-              height: element[0].scrollHeight + 'px'
-            }).then(expandDone);
-          }
-        }
-
-        function expandDone() {
-          element.removeClass('collapsing')
-            .addClass('collapse in')
-            .css({height: 'auto'});
-        }
-
-        function collapse() {
-          if (!element.hasClass('collapse') && !element.hasClass('in')) {
-            return collapseDone();
-          }
-
-          element
-            // IMPORTANT: The height must be set before adding "collapsing" class.
-            // Otherwise, the browser attempts to animate from height 0 (in
-            // collapsing class) to the given height here.
-            .css({height: element[0].scrollHeight + 'px'})
-            // initially all panel collapse have the collapse class, this removal
-            // prevents the animation from jumping to collapsed state
-            .removeClass('collapse in')
-            .addClass('collapsing')
-            .attr('aria-expanded', false)
-            .attr('aria-hidden', true);
-
-          if ($animateCss) {
-            $animateCss(element, {
-              to: {height: '0'}
-            }).start().done(collapseDone);
-          } else {
-            $animate.animate(element, {}, {
-              height: '0'
-            }).then(collapseDone);
-          }
-        }
-
-        function collapseDone() {
-          element.css({height: '0'}); // Required so that collapse works when animation is disabled
-          element.removeClass('collapsing')
-            .addClass('collapse');
-        }
-
-        scope.$watch(attrs.collapse, function(shouldCollapse) {
           if (shouldCollapse) {
             collapse();
           } else {
@@ -43664,7 +45312,6 @@ angular.module('ui.bootstrap.accordion', ['ui.bootstrap.collapse'])
       this.groups.splice(index, 1);
     }
   };
-
 }])
 
 // The accordion directive simply sets up the directive controller
@@ -43675,7 +45322,7 @@ angular.module('ui.bootstrap.accordion', ['ui.bootstrap.collapse'])
     controllerAs: 'accordion',
     transclude: true,
     templateUrl: function(element, attrs) {
-      return attrs.templateUrl || 'template/accordion/accordion.html';
+      return attrs.templateUrl || 'uib/template/accordion/accordion.html';
     }
   };
 })
@@ -43687,7 +45334,7 @@ angular.module('ui.bootstrap.accordion', ['ui.bootstrap.collapse'])
     transclude: true,              // It transcludes the contents of the directive into the template
     replace: true,                // The element containing the directive will be replaced with the template
     templateUrl: function(element, attrs) {
-      return attrs.templateUrl || 'template/accordion/accordion-group.html';
+      return attrs.templateUrl || 'uib/template/accordion/accordion-group.html';
     },
     scope: {
       heading: '@',               // Interpolate the heading attribute onto this scope
@@ -43703,7 +45350,7 @@ angular.module('ui.bootstrap.accordion', ['ui.bootstrap.collapse'])
       accordionCtrl.addGroup(scope);
 
       scope.openClass = attrs.openClass || 'panel-open';
-      scope.panelClass = attrs.panelClass;
+      scope.panelClass = attrs.panelClass || 'panel-default';
       scope.$watch('isOpen', function(value) {
         element.toggleClass(scope.openClass, !!value);
         if (value) {
@@ -43718,6 +45365,10 @@ angular.module('ui.bootstrap.accordion', ['ui.bootstrap.collapse'])
           }
         }
       };
+
+      var id = 'accordiongroup-' + scope.$id + '-' + Math.floor(Math.random() * 10000);
+      scope.headingId = id + '-tab';
+      scope.panelId = id + '-panel';
     }
   };
 })
@@ -43742,9 +45393,8 @@ angular.module('ui.bootstrap.accordion', ['ui.bootstrap.collapse'])
 // You must provide the property on the accordion-group controller that will hold the transcluded element
 .directive('uibAccordionTransclude', function() {
   return {
-    require: ['?^uibAccordionGroup', '?^accordionGroup'],
+    require: '^uibAccordionGroup',
     link: function(scope, element, attrs, controller) {
-      controller = controller[0] ? controller[0] : controller[1]; // Delete after we remove deprecation
       scope.$watch(function() { return controller[attrs.uibAccordionTransclude]; }, function(heading) {
         if (heading) {
           element.find('span').html('');
@@ -43754,125 +45404,6 @@ angular.module('ui.bootstrap.accordion', ['ui.bootstrap.collapse'])
     }
   };
 });
-
-/* Deprecated accordion below */
-
-angular.module('ui.bootstrap.accordion')
-
-  .value('$accordionSuppressWarning', false)
-
-  .controller('AccordionController', ['$scope', '$attrs', '$controller', '$log', '$accordionSuppressWarning', function($scope, $attrs, $controller, $log, $accordionSuppressWarning) {
-    if (!$accordionSuppressWarning) {
-      $log.warn('AccordionController is now deprecated. Use UibAccordionController instead.');
-    }
-
-    angular.extend(this, $controller('UibAccordionController', {
-      $scope: $scope,
-      $attrs: $attrs
-    }));
-  }])
-
-  .directive('accordion', ['$log', '$accordionSuppressWarning', function($log, $accordionSuppressWarning) {
-    return {
-      restrict: 'EA',
-      controller: 'AccordionController',
-      controllerAs: 'accordion',
-      transclude: true,
-      replace: false,
-      templateUrl: function(element, attrs) {
-        return attrs.templateUrl || 'template/accordion/accordion.html';
-      },
-      link: function() {
-        if (!$accordionSuppressWarning) {
-          $log.warn('accordion is now deprecated. Use uib-accordion instead.');
-        }
-      }
-    };
-  }])
-
-  .directive('accordionGroup', ['$log', '$accordionSuppressWarning', function($log, $accordionSuppressWarning) {
-    return {
-      require: '^accordion',         // We need this directive to be inside an accordion
-      restrict: 'EA',
-      transclude: true,              // It transcludes the contents of the directive into the template
-      replace: true,                // The element containing the directive will be replaced with the template
-      templateUrl: function(element, attrs) {
-        return attrs.templateUrl || 'template/accordion/accordion-group.html';
-      },
-      scope: {
-        heading: '@',               // Interpolate the heading attribute onto this scope
-        isOpen: '=?',
-        isDisabled: '=?'
-      },
-      controller: function() {
-        this.setHeading = function(element) {
-          this.heading = element;
-        };
-      },
-      link: function(scope, element, attrs, accordionCtrl) {
-        if (!$accordionSuppressWarning) {
-          $log.warn('accordion-group is now deprecated. Use uib-accordion-group instead.');
-        }
-
-        accordionCtrl.addGroup(scope);
-
-        scope.openClass = attrs.openClass || 'panel-open';
-        scope.panelClass = attrs.panelClass;
-        scope.$watch('isOpen', function(value) {
-          element.toggleClass(scope.openClass, !!value);
-          if (value) {
-            accordionCtrl.closeOthers(scope);
-          }
-        });
-
-        scope.toggleOpen = function($event) {
-          if (!scope.isDisabled) {
-            if (!$event || $event.which === 32) {
-              scope.isOpen = !scope.isOpen;
-            }
-          }
-        };
-      }
-    };
-  }])
-
-  .directive('accordionHeading', ['$log', '$accordionSuppressWarning', function($log, $accordionSuppressWarning) {
-    return {
-      restrict: 'EA',
-      transclude: true,   // Grab the contents to be used as the heading
-      template: '',       // In effect remove this element!
-      replace: true,
-      require: '^accordionGroup',
-      link: function(scope, element, attr, accordionGroupCtrl, transclude) {
-        if (!$accordionSuppressWarning) {
-          $log.warn('accordion-heading is now deprecated. Use uib-accordion-heading instead.');
-        }
-        // Pass the heading to the accordion-group controller
-        // so that it can be transcluded into the right place in the template
-        // [The second parameter to transclude causes the elements to be cloned so that they work in ng-repeat]
-        accordionGroupCtrl.setHeading(transclude(scope, angular.noop));
-      }
-    };
-  }])
-
-  .directive('accordionTransclude', ['$log', '$accordionSuppressWarning', function($log, $accordionSuppressWarning) {
-    return {
-      require: '^accordionGroup',
-      link: function(scope, element, attr, controller) {
-        if (!$accordionSuppressWarning) {
-          $log.warn('accordion-transclude is now deprecated. Use uib-accordion-transclude instead.');
-        }
-
-        scope.$watch(function() { return controller[attr.accordionTransclude]; }, function(heading) {
-          if (heading) {
-            element.find('span').html('');
-            element.find('span').append(heading);
-          }
-        });
-      }
-    };
-  }]);
-
 
 angular.module('ui.bootstrap.alert', [])
 
@@ -43894,7 +45425,7 @@ angular.module('ui.bootstrap.alert', [])
     controller: 'UibAlertController',
     controllerAs: 'alert',
     templateUrl: function(element, attrs) {
-      return attrs.templateUrl || 'template/alert/alert.html';
+      return attrs.templateUrl || 'uib/template/alert/alert.html';
     },
     transclude: true,
     replace: true,
@@ -43904,44 +45435,6 @@ angular.module('ui.bootstrap.alert', [])
     }
   };
 });
-
-/* Deprecated alert below */
-
-angular.module('ui.bootstrap.alert')
-
-  .value('$alertSuppressWarning', false)
-
-  .controller('AlertController', ['$scope', '$attrs', '$controller', '$log', '$alertSuppressWarning', function($scope, $attrs, $controller, $log, $alertSuppressWarning) {
-    if (!$alertSuppressWarning) {
-      $log.warn('AlertController is now deprecated. Use UibAlertController instead.');
-    }
-
-    angular.extend(this, $controller('UibAlertController', {
-      $scope: $scope,
-      $attrs: $attrs
-    }));
-  }])
-
-  .directive('alert', ['$log', '$alertSuppressWarning', function($log, $alertSuppressWarning) {
-    return {
-      controller: 'AlertController',
-      controllerAs: 'alert',
-      templateUrl: function(element, attrs) {
-        return attrs.templateUrl || 'template/alert/alert.html';
-      },
-      transclude: true,
-      replace: true,
-      scope: {
-        type: '@',
-        close: '&'
-      },
-      link: function() {
-        if (!$alertSuppressWarning) {
-          $log.warn('alert is now deprecated. Use uib-alert instead.');
-        }
-      }
-    };
-  }]);
 
 angular.module('ui.bootstrap.buttons', [])
 
@@ -43955,13 +45448,14 @@ angular.module('ui.bootstrap.buttons', [])
   this.toggleEvent = buttonConfig.toggleEvent || 'click';
 }])
 
-.directive('uibBtnRadio', function() {
+.directive('uibBtnRadio', ['$parse', function($parse) {
   return {
     require: ['uibBtnRadio', 'ngModel'],
     controller: 'UibButtonsController',
     controllerAs: 'buttons',
     link: function(scope, element, attrs, ctrls) {
       var buttonsCtrl = ctrls[0], ngModelCtrl = ctrls[1];
+      var uncheckableExpr = $parse(attrs.uibUncheckable);
 
       element.find('input').css({display: 'none'});
 
@@ -43985,9 +45479,15 @@ angular.module('ui.bootstrap.buttons', [])
           });
         }
       });
+
+      if (attrs.uibUncheckable) {
+        scope.$watch(uncheckableExpr, function(uncheckable) {
+          attrs.$set('uncheckable', uncheckable ? '' : null);
+        });
+      }
     }
   };
-})
+}])
 
 .directive('uibBtnCheckbox', function() {
   return {
@@ -44031,202 +45531,35 @@ angular.module('ui.bootstrap.buttons', [])
   };
 });
 
-/* Deprecated buttons below */
-
-angular.module('ui.bootstrap.buttons')
-
-  .value('$buttonsSuppressWarning', false)
-
-  .controller('ButtonsController', ['$controller', '$log', '$buttonsSuppressWarning', function($controller, $log, $buttonsSuppressWarning) {
-    if (!$buttonsSuppressWarning) {
-      $log.warn('ButtonsController is now deprecated. Use UibButtonsController instead.');
-    }
-
-    angular.extend(this, $controller('UibButtonsController'));
-  }])
-
-  .directive('btnRadio', ['$log', '$buttonsSuppressWarning', function($log, $buttonsSuppressWarning) {
-    return {
-      require: ['btnRadio', 'ngModel'],
-      controller: 'ButtonsController',
-      controllerAs: 'buttons',
-      link: function(scope, element, attrs, ctrls) {
-        if (!$buttonsSuppressWarning) {
-          $log.warn('btn-radio is now deprecated. Use uib-btn-radio instead.');
-        }
-
-        var buttonsCtrl = ctrls[0], ngModelCtrl = ctrls[1];
-
-        element.find('input').css({display: 'none'});
-
-        //model -> UI
-        ngModelCtrl.$render = function() {
-          element.toggleClass(buttonsCtrl.activeClass, angular.equals(ngModelCtrl.$modelValue, scope.$eval(attrs.btnRadio)));
-        };
-
-        //ui->model
-        element.bind(buttonsCtrl.toggleEvent, function() {
-          if (attrs.disabled) {
-            return;
-          }
-
-          var isActive = element.hasClass(buttonsCtrl.activeClass);
-
-          if (!isActive || angular.isDefined(attrs.uncheckable)) {
-            scope.$apply(function() {
-              ngModelCtrl.$setViewValue(isActive ? null : scope.$eval(attrs.btnRadio));
-              ngModelCtrl.$render();
-            });
-          }
-        });
-      }
-    };
-  }])
-
-  .directive('btnCheckbox', ['$document', '$log', '$buttonsSuppressWarning', function($document, $log, $buttonsSuppressWarning) {
-    return {
-      require: ['btnCheckbox', 'ngModel'],
-      controller: 'ButtonsController',
-      controllerAs: 'button',
-      link: function(scope, element, attrs, ctrls) {
-        if (!$buttonsSuppressWarning) {
-          $log.warn('btn-checkbox is now deprecated. Use uib-btn-checkbox instead.');
-        }
-
-        var buttonsCtrl = ctrls[0], ngModelCtrl = ctrls[1];
-
-        element.find('input').css({display: 'none'});
-
-        function getTrueValue() {
-          return getCheckboxValue(attrs.btnCheckboxTrue, true);
-        }
-
-        function getFalseValue() {
-          return getCheckboxValue(attrs.btnCheckboxFalse, false);
-        }
-
-        function getCheckboxValue(attributeValue, defaultValue) {
-          var val = scope.$eval(attributeValue);
-          return angular.isDefined(val) ? val : defaultValue;
-        }
-
-        //model -> UI
-        ngModelCtrl.$render = function() {
-          element.toggleClass(buttonsCtrl.activeClass, angular.equals(ngModelCtrl.$modelValue, getTrueValue()));
-        };
-
-        //ui->model
-        element.bind(buttonsCtrl.toggleEvent, function() {
-          if (attrs.disabled) {
-            return;
-          }
-
-          scope.$apply(function() {
-            ngModelCtrl.$setViewValue(element.hasClass(buttonsCtrl.activeClass) ? getFalseValue() : getTrueValue());
-            ngModelCtrl.$render();
-          });
-        });
-
-        //accessibility
-        element.on('keypress', function(e) {
-          if (attrs.disabled || e.which !== 32 || $document[0].activeElement !== element[0]) {
-            return;
-          }
-
-          scope.$apply(function() {
-            ngModelCtrl.$setViewValue(element.hasClass(buttonsCtrl.activeClass) ? getFalseValue() : getTrueValue());
-            ngModelCtrl.$render();
-          });
-        });
-      }
-    };
-  }]);
-
-
-/**
- * @ngdoc overview
- * @name ui.bootstrap.carousel
- *
- * @description
- * AngularJS version of an image carousel.
- *
- */
 angular.module('ui.bootstrap.carousel', [])
 
-.controller('UibCarouselController', ['$scope', '$element', '$interval', '$animate', function($scope, $element, $interval, $animate) {
+.controller('UibCarouselController', ['$scope', '$element', '$interval', '$timeout', '$animate', function($scope, $element, $interval, $timeout, $animate) {
   var self = this,
     slides = self.slides = $scope.slides = [],
-    NEW_ANIMATE = angular.version.minor >= 4,
-    NO_TRANSITION = 'uib-noTransition',
     SLIDE_DIRECTION = 'uib-slideDirection',
     currentIndex = -1,
-    currentInterval, isPlaying;
+    currentInterval, isPlaying, bufferedTransitions = [];
   self.currentSlide = null;
 
   var destroyed = false;
-  /* direction: "prev" or "next" */
-  self.select = $scope.select = function(nextSlide, direction) {
-    var nextIndex = $scope.indexOfSlide(nextSlide);
-    //Decide direction if it's not given
-    if (direction === undefined) {
-      direction = nextIndex > self.getCurrentIndex() ? 'next' : 'prev';
-    }
-    //Prevent this user-triggered transition from occurring if there is already one in progress
-    if (nextSlide && nextSlide !== self.currentSlide && !$scope.$currentTransition) {
-      goNext(nextSlide, nextIndex, direction);
+
+  self.addSlide = function(slide, element) {
+    slide.$element = element;
+    slides.push(slide);
+    //if this is the first slide or the slide is set to active, select it
+    if (slides.length === 1 || slide.active) {
+      if ($scope.$currentTransition) {
+        $scope.$currentTransition = null;
+      }
+
+      self.select(slides[slides.length - 1]);
+      if (slides.length === 1) {
+        $scope.play();
+      }
+    } else {
+      slide.active = false;
     }
   };
-
-  function goNext(slide, index, direction) {
-    // Scope has been destroyed, stop here.
-    if (destroyed) { return; }
-
-    angular.extend(slide, {direction: direction, active: true});
-    angular.extend(self.currentSlide || {}, {direction: direction, active: false});
-    if ($animate.enabled() && !$scope.noTransition && !$scope.$currentTransition &&
-      slide.$element && self.slides.length > 1) {
-      slide.$element.data(SLIDE_DIRECTION, slide.direction);
-      if (self.currentSlide && self.currentSlide.$element) {
-        self.currentSlide.$element.data(SLIDE_DIRECTION, slide.direction);
-      }
-
-      $scope.$currentTransition = true;
-      if (NEW_ANIMATE) {
-        $animate.on('addClass', slide.$element, function(element, phase) {
-          if (phase === 'close') {
-            $scope.$currentTransition = null;
-            $animate.off('addClass', element);
-          }
-        });
-      } else {
-        slide.$element.one('$animate:close', function closeFn() {
-          $scope.$currentTransition = null;
-        });
-      }
-    }
-
-    self.currentSlide = slide;
-    currentIndex = index;
-
-    //every time you change slides, reset the timer
-    restartTimer();
-  }
-
-  $scope.$on('$destroy', function() {
-    destroyed = true;
-  });
-
-  function getSlideByIndex(index) {
-    if (angular.isUndefined(slides[index].index)) {
-      return slides[index];
-    }
-    var i, len = slides.length;
-    for (i = 0; i < slides.length; ++i) {
-      if (slides[i].index == index) {
-        return slides[i];
-      }
-    }
-  }
 
   self.getCurrentIndex = function() {
     if (self.currentSlide && angular.isDefined(self.currentSlide.index)) {
@@ -44235,12 +45568,7 @@ angular.module('ui.bootstrap.carousel', [])
     return currentIndex;
   };
 
-  /* Allow outside people to call indexOf on slides array */
-  $scope.indexOfSlide = function(slide) {
-    return angular.isDefined(slide.index) ? +slide.index : slides.indexOf(slide);
-  };
-
-  $scope.next = function() {
+  self.next = $scope.next = function() {
     var newIndex = (self.getCurrentIndex() + 1) % slides.length;
 
     if (newIndex === 0 && $scope.noWrap()) {
@@ -44251,7 +45579,7 @@ angular.module('ui.bootstrap.carousel', [])
     return self.select(getSlideByIndex(newIndex), 'next');
   };
 
-  $scope.prev = function() {
+  self.prev = $scope.prev = function() {
     var newIndex = self.getCurrentIndex() - 1 < 0 ? slides.length - 1 : self.getCurrentIndex() - 1;
 
     if ($scope.noWrap() && newIndex === slides.length - 1) {
@@ -44262,26 +45590,163 @@ angular.module('ui.bootstrap.carousel', [])
     return self.select(getSlideByIndex(newIndex), 'prev');
   };
 
-  $scope.isActive = function(slide) {
-     return self.currentSlide === slide;
+  self.removeSlide = function(slide) {
+    if (angular.isDefined(slide.index)) {
+      slides.sort(function(a, b) {
+        return +a.index > +b.index;
+      });
+    }
+
+    var bufferedIndex = bufferedTransitions.indexOf(slide);
+    if (bufferedIndex !== -1) {
+      bufferedTransitions.splice(bufferedIndex, 1);
+    }
+    //get the index of the slide inside the carousel
+    var index = slides.indexOf(slide);
+    slides.splice(index, 1);
+    $timeout(function() {
+      if (slides.length > 0 && slide.active) {
+        if (index >= slides.length) {
+          self.select(slides[index - 1]);
+        } else {
+          self.select(slides[index]);
+        }
+      } else if (currentIndex > index) {
+        currentIndex--;
+      }
+    });
+
+    //clean the currentSlide when no more slide
+    if (slides.length === 0) {
+      self.currentSlide = null;
+      clearBufferedTransitions();
+    }
   };
 
-  $scope.$watch('interval', restartTimer);
-  $scope.$watchCollection('slides', resetTransition);
-  $scope.$on('$destroy', resetTimer);
-
-  function restartTimer() {
-    resetTimer();
-    var interval = +$scope.interval;
-    if (!isNaN(interval) && interval > 0) {
-      currentInterval = $interval(timerFn, interval);
+  /* direction: "prev" or "next" */
+  self.select = $scope.select = function(nextSlide, direction) {
+    var nextIndex = $scope.indexOfSlide(nextSlide);
+    //Decide direction if it's not given
+    if (direction === undefined) {
+      direction = nextIndex > self.getCurrentIndex() ? 'next' : 'prev';
     }
+    //Prevent this user-triggered transition from occurring if there is already one in progress
+    if (nextSlide && nextSlide !== self.currentSlide && !$scope.$currentTransition) {
+      goNext(nextSlide, nextIndex, direction);
+    } else if (nextSlide && nextSlide !== self.currentSlide && $scope.$currentTransition) {
+      bufferedTransitions.push(nextSlide);
+      nextSlide.active = false;
+    }
+  };
+
+  /* Allow outside people to call indexOf on slides array */
+  $scope.indexOfSlide = function(slide) {
+    return angular.isDefined(slide.index) ? +slide.index : slides.indexOf(slide);
+  };
+
+  $scope.isActive = function(slide) {
+    return self.currentSlide === slide;
+  };
+
+  $scope.pause = function() {
+    if (!$scope.noPause) {
+      isPlaying = false;
+      resetTimer();
+    }
+  };
+
+  $scope.play = function() {
+    if (!isPlaying) {
+      isPlaying = true;
+      restartTimer();
+    }
+  };
+
+  $scope.$on('$destroy', function() {
+    destroyed = true;
+    resetTimer();
+  });
+
+  $scope.$watch('noTransition', function(noTransition) {
+    $animate.enabled($element, !noTransition);
+  });
+
+  $scope.$watch('interval', restartTimer);
+
+  $scope.$watchCollection('slides', resetTransition);
+
+  function clearBufferedTransitions() {
+    while (bufferedTransitions.length) {
+      bufferedTransitions.shift();
+    }
+  }
+
+  function getSlideByIndex(index) {
+    if (angular.isUndefined(slides[index].index)) {
+      return slides[index];
+    }
+    for (var i = 0, l = slides.length; i < l; ++i) {
+      if (slides[i].index === index) {
+        return slides[i];
+      }
+    }
+  }
+
+  function goNext(slide, index, direction) {
+    if (destroyed) { return; }
+
+    angular.extend(slide, {direction: direction, active: true});
+    angular.extend(self.currentSlide || {}, {direction: direction, active: false});
+    if ($animate.enabled($element) && !$scope.$currentTransition &&
+      slide.$element && self.slides.length > 1) {
+      slide.$element.data(SLIDE_DIRECTION, slide.direction);
+      if (self.currentSlide && self.currentSlide.$element) {
+        self.currentSlide.$element.data(SLIDE_DIRECTION, slide.direction);
+      }
+
+      $scope.$currentTransition = true;
+      $animate.on('addClass', slide.$element, function(element, phase) {
+        if (phase === 'close') {
+          $scope.$currentTransition = null;
+          $animate.off('addClass', element);
+          if (bufferedTransitions.length) {
+            var nextSlide = bufferedTransitions.pop();
+            var nextIndex = $scope.indexOfSlide(nextSlide);
+            var nextDirection = nextIndex > self.getCurrentIndex() ? 'next' : 'prev';
+            clearBufferedTransitions();
+
+            goNext(nextSlide, nextIndex, nextDirection);
+          }
+        }
+      });
+    }
+
+    self.currentSlide = slide;
+    currentIndex = index;
+
+    //every time you change slides, reset the timer
+    restartTimer();
   }
 
   function resetTimer() {
     if (currentInterval) {
       $interval.cancel(currentInterval);
       currentInterval = null;
+    }
+  }
+
+  function resetTransition(slides) {
+    if (!slides.length) {
+      $scope.$currentTransition = null;
+      clearBufferedTransitions();
+    }
+  }
+
+  function restartTimer() {
+    resetTimer();
+    var interval = +$scope.interval;
+    if (!isNaN(interval) && interval > 0) {
+      currentInterval = $interval(timerFn, interval);
     }
   }
 
@@ -44293,118 +45758,16 @@ angular.module('ui.bootstrap.carousel', [])
       $scope.pause();
     }
   }
-
-  function resetTransition(slides) {
-    if (!slides.length) {
-      $scope.$currentTransition = null;
-    }
-  }
-
-  $scope.play = function() {
-    if (!isPlaying) {
-      isPlaying = true;
-      restartTimer();
-    }
-  };
-  $scope.pause = function() {
-    if (!$scope.noPause) {
-      isPlaying = false;
-      resetTimer();
-    }
-  };
-
-  self.addSlide = function(slide, element) {
-    slide.$element = element;
-    slides.push(slide);
-    //if this is the first slide or the slide is set to active, select it
-    if (slides.length === 1 || slide.active) {
-      self.select(slides[slides.length - 1]);
-      if (slides.length === 1) {
-        $scope.play();
-      }
-    } else {
-      slide.active = false;
-    }
-  };
-
-  self.removeSlide = function(slide) {
-    if (angular.isDefined(slide.index)) {
-      slides.sort(function(a, b) {
-        return +a.index > +b.index;
-      });
-    }
-    //get the index of the slide inside the carousel
-    var index = slides.indexOf(slide);
-    slides.splice(index, 1);
-    if (slides.length > 0 && slide.active) {
-      if (index >= slides.length) {
-        self.select(slides[index - 1]);
-      } else {
-        self.select(slides[index]);
-      }
-    } else if (currentIndex > index) {
-      currentIndex--;
-    }
-
-    //clean the currentSlide when no more slide
-    if (slides.length === 0) {
-      self.currentSlide = null;
-    }
-  };
-
-  $scope.$watch('noTransition', function(noTransition) {
-    $element.data(NO_TRANSITION, noTransition);
-  });
-
 }])
 
-/**
- * @ngdoc directive
- * @name ui.bootstrap.carousel.directive:carousel
- * @restrict EA
- *
- * @description
- * Carousel is the outer container for a set of image 'slides' to showcase.
- *
- * @param {number=} interval The time, in milliseconds, that it will take the carousel to go to the next slide.
- * @param {boolean=} noTransition Whether to disable transitions on the carousel.
- * @param {boolean=} noPause Whether to disable pausing on the carousel (by default, the carousel interval pauses on hover).
- *
- * @example
-<example module="ui.bootstrap">
-  <file name="index.html">
-    <uib-carousel>
-      <uib-slide>
-        <img src="http://placekitten.com/150/150" style="margin:auto;">
-        <div class="carousel-caption">
-          <p>Beautiful!</p>
-        </div>
-      </uib-slide>
-      <uib-slide>
-        <img src="http://placekitten.com/100/150" style="margin:auto;">
-        <div class="carousel-caption">
-          <p>D'aww!</p>
-        </div>
-      </uib-slide>
-    </uib-carousel>
-  </file>
-  <file name="demo.css">
-    .carousel-indicators {
-      top: auto;
-      bottom: 15px;
-    }
-  </file>
-</example>
- */
-.directive('uibCarousel', [function() {
+.directive('uibCarousel', function() {
   return {
     transclude: true,
     replace: true,
     controller: 'UibCarouselController',
     controllerAs: 'carousel',
-    require: 'carousel',
     templateUrl: function(element, attrs) {
-      return attrs.templateUrl || 'template/carousel/carousel.html';
+      return attrs.templateUrl || 'uib/template/carousel/carousel.html';
     },
     scope: {
       interval: '=',
@@ -44413,58 +45776,15 @@ angular.module('ui.bootstrap.carousel', [])
       noWrap: '&'
     }
   };
-}])
-
-/**
- * @ngdoc directive
- * @name ui.bootstrap.carousel.directive:slide
- * @restrict EA
- *
- * @description
- * Creates a slide inside a {@link ui.bootstrap.carousel.directive:carousel carousel}.  Must be placed as a child of a carousel element.
- *
- * @param {boolean=} active Model binding, whether or not this slide is currently active.
- * @param {number=} index The index of the slide. The slides will be sorted by this parameter.
- *
- * @example
-<example module="ui.bootstrap">
-  <file name="index.html">
-<div ng-controller="CarouselDemoCtrl">
-  <uib-carousel>
-    <uib-slide ng-repeat="slide in slides" active="slide.active" index="$index">
-      <img ng-src="{{slide.image}}" style="margin:auto;">
-      <div class="carousel-caption">
-        <h4>Slide {{$index}}</h4>
-        <p>{{slide.text}}</p>
-      </div>
-    </uib-slide>
-  </uib-carousel>
-  Interval, in milliseconds: <input type="number" ng-model="myInterval">
-  <br />Enter a negative number to stop the interval.
-</div>
-  </file>
-  <file name="script.js">
-function CarouselDemoCtrl($scope) {
-  $scope.myInterval = 5000;
-}
-  </file>
-  <file name="demo.css">
-    .carousel-indicators {
-      top: auto;
-      bottom: 15px;
-    }
-  </file>
-</example>
-*/
+})
 
 .directive('uibSlide', function() {
   return {
     require: '^uibCarousel',
-    restrict: 'EA',
     transclude: true,
     replace: true,
     templateUrl: function(element, attrs) {
-      return attrs.templateUrl || 'template/carousel/slide.html';
+      return attrs.templateUrl || 'uib/template/carousel/slide.html';
     },
     scope: {
       active: '=?',
@@ -44487,16 +45807,9 @@ function CarouselDemoCtrl($scope) {
   };
 })
 
-.animation('.item', [
-         '$injector', '$animate',
-function ($injector, $animate) {
-  var NO_TRANSITION = 'uib-noTransition',
-    SLIDE_DIRECTION = 'uib-slideDirection',
-    $animateCss = null;
-
-  if ($injector.has('$animateCss')) {
-    $animateCss = $injector.get('$animateCss');
-  }
+.animation('.item', ['$animateCss',
+function($animateCss) {
+  var SLIDE_DIRECTION = 'uib-slideDirection';
 
   function removeClass(element, className, callback) {
     element.removeClass(className);
@@ -44507,56 +45820,35 @@ function ($injector, $animate) {
 
   return {
     beforeAddClass: function(element, className, done) {
-      // Due to transclusion, noTransition property is on parent's scope
-      if (className == 'active' && element.parent() && element.parent().parent() &&
-          !element.parent().parent().data(NO_TRANSITION)) {
+      if (className === 'active') {
         var stopped = false;
         var direction = element.data(SLIDE_DIRECTION);
-        var directionClass = direction == 'next' ? 'left' : 'right';
+        var directionClass = direction === 'next' ? 'left' : 'right';
         var removeClassFn = removeClass.bind(this, element,
           directionClass + ' ' + direction, done);
         element.addClass(direction);
 
-        if ($animateCss) {
-          $animateCss(element, {addClass: directionClass})
-            .start()
-            .done(removeClassFn);
-        } else {
-          $animate.addClass(element, directionClass).then(function () {
-            if (!stopped) {
-              removeClassFn();
-            }
-            done();
-          });
-        }
+        $animateCss(element, {addClass: directionClass})
+          .start()
+          .done(removeClassFn);
 
-        return function () {
+        return function() {
           stopped = true;
         };
       }
       done();
     },
     beforeRemoveClass: function (element, className, done) {
-      // Due to transclusion, noTransition property is on parent's scope
-      if (className === 'active' && element.parent() && element.parent().parent() &&
-          !element.parent().parent().data(NO_TRANSITION)) {
+      if (className === 'active') {
         var stopped = false;
         var direction = element.data(SLIDE_DIRECTION);
-        var directionClass = direction == 'next' ? 'left' : 'right';
+        var directionClass = direction === 'next' ? 'left' : 'right';
         var removeClassFn = removeClass.bind(this, element, directionClass, done);
 
-        if ($animateCss) {
-          $animateCss(element, {addClass: directionClass})
-            .start()
-            .done(removeClassFn);
-        } else {
-          $animate.addClass(element, directionClass).then(function() {
-            if (!stopped) {
-              removeClassFn();
-            }
-            done();
-          });
-        }
+        $animateCss(element, {addClass: directionClass})
+          .start()
+          .done(removeClassFn);
+
         return function() {
           stopped = true;
         };
@@ -44566,83 +45858,9 @@ function ($injector, $animate) {
   };
 }]);
 
-/* deprecated carousel below */
-
-angular.module('ui.bootstrap.carousel')
-
-.value('$carouselSuppressWarning', false)
-
-.controller('CarouselController', ['$scope', '$element', '$controller', '$log', '$carouselSuppressWarning', function($scope, $element, $controller, $log, $carouselSuppressWarning) {
-  if (!$carouselSuppressWarning) {
-    $log.warn('CarouselController is now deprecated. Use UibCarouselController instead.');
-  }
-
-  angular.extend(this, $controller('UibCarouselController', {
-    $scope: $scope,
-    $element: $element
-  }));
-}])
-
-.directive('carousel', ['$log', '$carouselSuppressWarning', function($log, $carouselSuppressWarning) {
-  return {
-    transclude: true,
-    replace: true,
-    controller: 'CarouselController',
-    controllerAs: 'carousel',
-    require: 'carousel',
-    templateUrl: function(element, attrs) {
-      return attrs.templateUrl || 'template/carousel/carousel.html';
-    },
-    scope: {
-      interval: '=',
-      noTransition: '=',
-      noPause: '=',
-      noWrap: '&'
-    },
-    link: function() {
-      if (!$carouselSuppressWarning) {
-        $log.warn('carousel is now deprecated. Use uib-carousel instead.');
-      }
-    }
-  };
-}])
-
-.directive('slide', ['$log', '$carouselSuppressWarning', function($log, $carouselSuppressWarning) {
-  return {
-    require: '^carousel',
-    transclude: true,
-    replace: true,
-    templateUrl: function(element, attrs) {
-      return attrs.templateUrl || 'template/carousel/slide.html';
-    },
-    scope: {
-      active: '=?',
-      actual: '=?',
-      index: '=?'
-    },
-    link: function (scope, element, attrs, carouselCtrl) {
-      if (!$carouselSuppressWarning) {
-        $log.warn('slide is now deprecated. Use uib-slide instead.');
-      }
-
-      carouselCtrl.addSlide(scope, element);
-      //when the scope is destroyed then remove the slide from the current slides array
-      scope.$on('$destroy', function() {
-        carouselCtrl.removeSlide(scope);
-      });
-
-      scope.$watch('active', function(active) {
-        if (active) {
-          carouselCtrl.select(scope);
-        }
-      });
-    }
-  };
-}]);
-
 angular.module('ui.bootstrap.dateparser', [])
 
-.service('uibDateParser', ['$log', '$locale', 'orderByFilter', function($log, $locale, orderByFilter) {
+.service('uibDateParser', ['$log', '$locale', 'dateFilter', 'orderByFilter', function($log, $locale, dateFilter, orderByFilter) {
   // Pulled from https://github.com/mbostock/d3/blob/master/src/format/requote.js
   var SPECIAL_CHARACTERS_REGEXP = /[\\\^\$\*\+\?\|\[\]\(\)\.\{\}]/g;
 
@@ -44653,87 +45871,167 @@ angular.module('ui.bootstrap.dateparser', [])
     localeId = $locale.id;
 
     this.parsers = {};
+    this.formatters = {};
 
-    formatCodeToRegex = {
-      'yyyy': {
+    formatCodeToRegex = [
+      {
+        key: 'yyyy',
         regex: '\\d{4}',
-        apply: function(value) { this.year = +value; }
+        apply: function(value) { this.year = +value; },
+        formatter: function(date) {
+          var _date = new Date();
+          _date.setFullYear(Math.abs(date.getFullYear()));
+          return dateFilter(_date, 'yyyy');
+        }
       },
-      'yy': {
+      {
+        key: 'yy',
         regex: '\\d{2}',
-        apply: function(value) { this.year = +value + 2000; }
+        apply: function(value) { this.year = +value + 2000; },
+        formatter: function(date) {
+          var _date = new Date();
+          _date.setFullYear(Math.abs(date.getFullYear()));
+          return dateFilter(_date, 'yy');
+        }
       },
-      'y': {
+      {
+        key: 'y',
         regex: '\\d{1,4}',
-        apply: function(value) { this.year = +value; }
+        apply: function(value) { this.year = +value; },
+        formatter: function(date) {
+          var _date = new Date();
+          _date.setFullYear(Math.abs(date.getFullYear()));
+          return dateFilter(_date, 'y');
+        }
       },
-      'MMMM': {
+      {
+        key: 'M!',
+        regex: '0?[1-9]|1[0-2]',
+        apply: function(value) { this.month = value - 1; },
+        formatter: function(date) {
+          var value = date.getMonth();
+          if (/^[0-9]$/.test(value)) {
+            return dateFilter(date, 'MM');
+          }
+
+          return dateFilter(date, 'M');
+        }
+      },
+      {
+        key: 'MMMM',
         regex: $locale.DATETIME_FORMATS.MONTH.join('|'),
-        apply: function(value) { this.month = $locale.DATETIME_FORMATS.MONTH.indexOf(value); }
+        apply: function(value) { this.month = $locale.DATETIME_FORMATS.MONTH.indexOf(value); },
+        formatter: function(date) { return dateFilter(date, 'MMMM'); }
       },
-      'MMM': {
+      {
+        key: 'MMM',
         regex: $locale.DATETIME_FORMATS.SHORTMONTH.join('|'),
-        apply: function(value) { this.month = $locale.DATETIME_FORMATS.SHORTMONTH.indexOf(value); }
+        apply: function(value) { this.month = $locale.DATETIME_FORMATS.SHORTMONTH.indexOf(value); },
+        formatter: function(date) { return dateFilter(date, 'MMM'); }
       },
-      'MM': {
+      {
+        key: 'MM',
         regex: '0[1-9]|1[0-2]',
-        apply: function(value) { this.month = value - 1; }
+        apply: function(value) { this.month = value - 1; },
+        formatter: function(date) { return dateFilter(date, 'MM'); }
       },
-      'M': {
+      {
+        key: 'M',
         regex: '[1-9]|1[0-2]',
-        apply: function(value) { this.month = value - 1; }
+        apply: function(value) { this.month = value - 1; },
+        formatter: function(date) { return dateFilter(date, 'M'); }
       },
-      'dd': {
+      {
+        key: 'd!',
+        regex: '[0-2]?[0-9]{1}|3[0-1]{1}',
+        apply: function(value) { this.date = +value; },
+        formatter: function(date) {
+          var value = date.getDate();
+          if (/^[1-9]$/.test(value)) {
+            return dateFilter(date, 'dd');
+          }
+
+          return dateFilter(date, 'd');
+        }
+      },
+      {
+        key: 'dd',
         regex: '[0-2][0-9]{1}|3[0-1]{1}',
-        apply: function(value) { this.date = +value; }
+        apply: function(value) { this.date = +value; },
+        formatter: function(date) { return dateFilter(date, 'dd'); }
       },
-      'd': {
+      {
+        key: 'd',
         regex: '[1-2]?[0-9]{1}|3[0-1]{1}',
-        apply: function(value) { this.date = +value; }
+        apply: function(value) { this.date = +value; },
+        formatter: function(date) { return dateFilter(date, 'd'); }
       },
-      'EEEE': {
-        regex: $locale.DATETIME_FORMATS.DAY.join('|')
+      {
+        key: 'EEEE',
+        regex: $locale.DATETIME_FORMATS.DAY.join('|'),
+        formatter: function(date) { return dateFilter(date, 'EEEE'); }
       },
-      'EEE': {
-        regex: $locale.DATETIME_FORMATS.SHORTDAY.join('|')
+      {
+        key: 'EEE',
+        regex: $locale.DATETIME_FORMATS.SHORTDAY.join('|'),
+        formatter: function(date) { return dateFilter(date, 'EEE'); }
       },
-      'HH': {
+      {
+        key: 'HH',
         regex: '(?:0|1)[0-9]|2[0-3]',
-        apply: function(value) { this.hours = +value; }
+        apply: function(value) { this.hours = +value; },
+        formatter: function(date) { return dateFilter(date, 'HH'); }
       },
-      'hh': {
+      {
+        key: 'hh',
         regex: '0[0-9]|1[0-2]',
-        apply: function(value) { this.hours = +value; }
+        apply: function(value) { this.hours = +value; },
+        formatter: function(date) { return dateFilter(date, 'hh'); }
       },
-      'H': {
+      {
+        key: 'H',
         regex: '1?[0-9]|2[0-3]',
-        apply: function(value) { this.hours = +value; }
+        apply: function(value) { this.hours = +value; },
+        formatter: function(date) { return dateFilter(date, 'H'); }
       },
-      'h': {
+      {
+        key: 'h',
         regex: '[0-9]|1[0-2]',
-        apply: function(value) { this.hours = +value; }
+        apply: function(value) { this.hours = +value; },
+        formatter: function(date) { return dateFilter(date, 'h'); }
       },
-      'mm': {
+      {
+        key: 'mm',
         regex: '[0-5][0-9]',
-        apply: function(value) { this.minutes = +value; }
+        apply: function(value) { this.minutes = +value; },
+        formatter: function(date) { return dateFilter(date, 'mm'); }
       },
-      'm': {
+      {
+        key: 'm',
         regex: '[0-9]|[1-5][0-9]',
-        apply: function(value) { this.minutes = +value; }
+        apply: function(value) { this.minutes = +value; },
+        formatter: function(date) { return dateFilter(date, 'm'); }
       },
-      'sss': {
+      {
+        key: 'sss',
         regex: '[0-9][0-9][0-9]',
-        apply: function(value) { this.milliseconds = +value; }
+        apply: function(value) { this.milliseconds = +value; },
+        formatter: function(date) { return dateFilter(date, 'sss'); }
       },
-      'ss': {
+      {
+        key: 'ss',
         regex: '[0-5][0-9]',
-        apply: function(value) { this.seconds = +value; }
+        apply: function(value) { this.seconds = +value; },
+        formatter: function(date) { return dateFilter(date, 'ss'); }
       },
-      's': {
+      {
+        key: 's',
         regex: '[0-9]|[1-5][0-9]',
-        apply: function(value) { this.seconds = +value; }
+        apply: function(value) { this.seconds = +value; },
+        formatter: function(date) { return dateFilter(date, 's'); }
       },
-      'a': {
+      {
+        key: 'a',
         regex: $locale.DATETIME_FORMATS.AMPMS.join('|'),
         apply: function(value) {
           if (this.hours === 12) {
@@ -44743,31 +46041,111 @@ angular.module('ui.bootstrap.dateparser', [])
           if (value === 'PM') {
             this.hours += 12;
           }
+        },
+        formatter: function(date) { return dateFilter(date, 'a'); }
+      },
+      {
+        key: 'Z',
+        regex: '[+-]\\d{4}',
+        apply: function(value) {
+          var matches = value.match(/([+-])(\d{2})(\d{2})/),
+            sign = matches[1],
+            hours = matches[2],
+            minutes = matches[3];
+          this.hours += toInt(sign + hours);
+          this.minutes += toInt(sign + minutes);
+        },
+        formatter: function(date) {
+          return dateFilter(date, 'Z');
         }
+      },
+      {
+        key: 'ww',
+        regex: '[0-4][0-9]|5[0-3]',
+        formatter: function(date) { return dateFilter(date, 'ww'); }
+      },
+      {
+        key: 'w',
+        regex: '[0-9]|[1-4][0-9]|5[0-3]',
+        formatter: function(date) { return dateFilter(date, 'w'); }
+      },
+      {
+        key: 'GGGG',
+        regex: $locale.DATETIME_FORMATS.ERANAMES.join('|').replace(/\s/g, '\\s'),
+        formatter: function(date) { return dateFilter(date, 'GGGG'); }
+      },
+      {
+        key: 'GGG',
+        regex: $locale.DATETIME_FORMATS.ERAS.join('|'),
+        formatter: function(date) { return dateFilter(date, 'GGG'); }
+      },
+      {
+        key: 'GG',
+        regex: $locale.DATETIME_FORMATS.ERAS.join('|'),
+        formatter: function(date) { return dateFilter(date, 'GG'); }
+      },
+      {
+        key: 'G',
+        regex: $locale.DATETIME_FORMATS.ERAS.join('|'),
+        formatter: function(date) { return dateFilter(date, 'G'); }
       }
-    };
+    ];
   };
 
   this.init();
 
-  function createParser(format) {
+  function createParser(format, func) {
     var map = [], regex = format.split('');
 
-    angular.forEach(formatCodeToRegex, function(data, code) {
-      var index = format.indexOf(code);
+    // check for literal values
+    var quoteIndex = format.indexOf('\'');
+    if (quoteIndex > -1) {
+      var inLiteral = false;
+      format = format.split('');
+      for (var i = quoteIndex; i < format.length; i++) {
+        if (inLiteral) {
+          if (format[i] === '\'') {
+            if (i + 1 < format.length && format[i+1] === '\'') { // escaped single quote
+              format[i+1] = '$';
+              regex[i+1] = '';
+            } else { // end of literal
+              regex[i] = '';
+              inLiteral = false;
+            }
+          }
+          format[i] = '$';
+        } else {
+          if (format[i] === '\'') { // start of literal
+            format[i] = '$';
+            regex[i] = '';
+            inLiteral = true;
+          }
+        }
+      }
+
+      format = format.join('');
+    }
+
+    angular.forEach(formatCodeToRegex, function(data) {
+      var index = format.indexOf(data.key);
 
       if (index > -1) {
         format = format.split('');
 
         regex[index] = '(' + data.regex + ')';
         format[index] = '$'; // Custom symbol to define consumed part of format
-        for (var i = index + 1, n = index + code.length; i < n; i++) {
+        for (var i = index + 1, n = index + data.key.length; i < n; i++) {
           regex[i] = '';
           format[i] = '$';
         }
         format = format.join('');
 
-        map.push({ index: index, apply: data.apply });
+        map.push({
+          index: index,
+          key: data.key,
+          apply: data[func],
+          matcher: data.regex
+        });
       }
     });
 
@@ -44776,6 +46154,41 @@ angular.module('ui.bootstrap.dateparser', [])
       map: orderByFilter(map, 'index')
     };
   }
+
+  this.filter = function(date, format) {
+    if (!angular.isDate(date) || isNaN(date) || !format) {
+      return '';
+    }
+
+    format = $locale.DATETIME_FORMATS[format] || format;
+
+    if ($locale.id !== localeId) {
+      this.init();
+    }
+
+    if (!this.formatters[format]) {
+      this.formatters[format] = createParser(format, 'formatter');
+    }
+
+    var parser = this.formatters[format],
+      map = parser.map;
+
+    var _format = format;
+
+    return map.reduce(function(str, mapper, i) {
+      var match = _format.match(new RegExp('(.*)' + mapper.key));
+      if (match && angular.isString(match[1])) {
+        str += match[1];
+        _format = _format.replace(match[1] + mapper.key, '');
+      }
+
+      if (mapper.apply) {
+        return str + mapper.apply.call(null, date);
+      }
+
+      return str;
+    }, '');
+  };
 
   this.parse = function(input, format, baseDate) {
     if (!angular.isString(input) || !format) {
@@ -44790,14 +46203,14 @@ angular.module('ui.bootstrap.dateparser', [])
     }
 
     if (!this.parsers[format]) {
-      this.parsers[format] = createParser(format);
+      this.parsers[format] = createParser(format, 'apply');
     }
 
     var parser = this.parsers[format],
         regex = parser.regex,
         map = parser.map,
-        results = input.match(regex);
-
+        results = input.match(regex),
+        tzOffset = false;
     if (results && results.length) {
       var fields, dt;
       if (angular.isDate(baseDate) && !isNaN(baseDate.getTime())) {
@@ -44818,22 +46231,32 @@ angular.module('ui.bootstrap.dateparser', [])
       }
 
       for (var i = 1, n = results.length; i < n; i++) {
-        var mapper = map[i-1];
+        var mapper = map[i - 1];
+        if (mapper.matcher === 'Z') {
+          tzOffset = true;
+        }
+
         if (mapper.apply) {
           mapper.apply.call(fields, results[i]);
         }
       }
 
+      var datesetter = tzOffset ? Date.prototype.setUTCFullYear :
+        Date.prototype.setFullYear;
+      var timesetter = tzOffset ? Date.prototype.setUTCHours :
+        Date.prototype.setHours;
+
       if (isValid(fields.year, fields.month, fields.date)) {
-        if (angular.isDate(baseDate) && !isNaN(baseDate.getTime())) {
+        if (angular.isDate(baseDate) && !isNaN(baseDate.getTime()) && !tzOffset) {
           dt = new Date(baseDate);
-          dt.setFullYear(fields.year, fields.month, fields.date,
-            fields.hours, fields.minutes, fields.seconds,
-            fields.milliseconds || 0);
+          datesetter.call(dt, fields.year, fields.month, fields.date);
+          timesetter.call(dt, fields.hours, fields.minutes,
+            fields.seconds, fields.milliseconds);
         } else {
-          dt = new Date(fields.year, fields.month, fields.date,
-            fields.hours, fields.minutes, fields.seconds,
-            fields.milliseconds || 0);
+          dt = new Date(0);
+          datesetter.call(dt, fields.year, fields.month, fields.date);
+          timesetter.call(dt, fields.hours || 0, fields.minutes || 0,
+            fields.seconds || 0, fields.milliseconds || 0);
         }
       }
 
@@ -44849,7 +46272,7 @@ angular.module('ui.bootstrap.dateparser', [])
     }
 
     if (month === 1 && date > 28) {
-      return date === 29 && ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0);
+      return date === 29 && (year % 4 === 0 && year % 100 !== 0 || year % 400 === 0);
     }
 
     if (month === 3 || month === 5 || month === 8 || month === 10) {
@@ -44858,262 +46281,874 @@ angular.module('ui.bootstrap.dateparser', [])
 
     return true;
   }
-}]);
 
-/* Deprecated dateparser below */
-
-angular.module('ui.bootstrap.dateparser')
-
-.value('$dateParserSuppressWarning', false)
-
-.service('dateParser', ['$log', '$dateParserSuppressWarning', 'uibDateParser', function($log, $dateParserSuppressWarning, uibDateParser) {
-  if (!$dateParserSuppressWarning) {
-    $log.warn('dateParser is now deprecated. Use uibDateParser instead.');
+  function toInt(str) {
+    return parseInt(str, 10);
   }
 
-  angular.extend(this, uibDateParser);
+  this.toTimezone = toTimezone;
+  this.fromTimezone = fromTimezone;
+  this.timezoneToOffset = timezoneToOffset;
+  this.addDateMinutes = addDateMinutes;
+  this.convertTimezoneToLocal = convertTimezoneToLocal;
+
+  function toTimezone(date, timezone) {
+    return date && timezone ? convertTimezoneToLocal(date, timezone) : date;
+  }
+
+  function fromTimezone(date, timezone) {
+    return date && timezone ? convertTimezoneToLocal(date, timezone, true) : date;
+  }
+
+  //https://github.com/angular/angular.js/blob/4daafd3dbe6a80d578f5a31df1bb99c77559543e/src/Angular.js#L1207
+  function timezoneToOffset(timezone, fallback) {
+    var requestedTimezoneOffset = Date.parse('Jan 01, 1970 00:00:00 ' + timezone) / 60000;
+    return isNaN(requestedTimezoneOffset) ? fallback : requestedTimezoneOffset;
+  }
+
+  function addDateMinutes(date, minutes) {
+    date = new Date(date.getTime());
+    date.setMinutes(date.getMinutes() + minutes);
+    return date;
+  }
+
+  function convertTimezoneToLocal(date, timezone, reverse) {
+    reverse = reverse ? -1 : 1;
+    var timezoneOffset = timezoneToOffset(timezone, date.getTimezoneOffset());
+    return addDateMinutes(date, reverse * (timezoneOffset - date.getTimezoneOffset()));
+  }
 }]);
 
+// Avoiding use of ng-class as it creates a lot of watchers when a class is to be applied to
+// at most one element.
+angular.module('ui.bootstrap.isClass', [])
+.directive('uibIsClass', [
+         '$animate',
+function ($animate) {
+  //                    11111111          22222222
+  var ON_REGEXP = /^\s*([\s\S]+?)\s+on\s+([\s\S]+?)\s*$/;
+  //                    11111111           22222222
+  var IS_REGEXP = /^\s*([\s\S]+?)\s+for\s+([\s\S]+?)\s*$/;
+
+  var dataPerTracked = {};
+
+  return {
+    restrict: 'A',
+    compile: function (tElement, tAttrs) {
+      var linkedScopes = [];
+      var instances = [];
+      var expToData = {};
+      var lastActivated = null;
+      var onExpMatches = tAttrs.uibIsClass.match(ON_REGEXP);
+      var onExp = onExpMatches[2];
+      var expsStr = onExpMatches[1];
+      var exps = expsStr.split(',');
+
+      return linkFn;
+
+      function linkFn(scope, element, attrs) {
+        linkedScopes.push(scope);
+        instances.push({
+          scope: scope,
+          element: element
+        });
+
+        exps.forEach(function (exp, k) {
+          addForExp(exp, scope);
+        });
+
+        scope.$on('$destroy', removeScope);
+      }
+
+      function addForExp(exp, scope) {
+        var matches = exp.match(IS_REGEXP);
+        var clazz = scope.$eval(matches[1]);
+        var compareWithExp = matches[2];
+        var data = expToData[exp];
+        if (!data) {
+          var watchFn = function (compareWithVal) {
+            var newActivated = null;
+            instances.some(function (instance) {
+              var thisVal = instance.scope.$eval(onExp);
+              if (thisVal === compareWithVal) {
+                newActivated = instance;
+                return true;
+              }
+            });
+            if (data.lastActivated !== newActivated) {
+              if (data.lastActivated) {
+                $animate.removeClass(data.lastActivated.element, clazz);
+              }
+              if (newActivated) {
+                $animate.addClass(newActivated.element, clazz);
+              }
+              data.lastActivated = newActivated;
+            }
+          };
+          expToData[exp] = data = {
+            lastActivated: null,
+            scope: scope,
+            watchFn: watchFn,
+            compareWithExp: compareWithExp,
+            watcher: scope.$watch(compareWithExp, watchFn)
+          };
+        }
+        data.watchFn(scope.$eval(compareWithExp));
+      }
+
+      function removeScope(e) {
+        var removedScope = e.targetScope;
+        var index = linkedScopes.indexOf(removedScope);
+        linkedScopes.splice(index, 1);
+        instances.splice(index, 1);
+        if (linkedScopes.length) {
+          var newWatchScope = linkedScopes[0];
+          angular.forEach(expToData, function (data) {
+            if (data.scope === removedScope) {
+              data.watcher = newWatchScope.$watch(data.compareWithExp, data.watchFn);
+              data.scope = newWatchScope;
+            }
+          });
+        }
+        else {
+          expToData = {};
+        }
+      }
+    }
+  };
+}]);
 angular.module('ui.bootstrap.position', [])
 
 /**
- * A set of utility methods that can be use to retrieve position of DOM elements.
- * It is meant to be used where we need to absolute-position DOM elements in
- * relation to other, existing elements (this is the case for tooltips, popovers,
+ * A set of utility methods for working with the DOM.
+ * It is meant to be used where we need to absolute-position elements in
+ * relation to another element (this is the case for tooltips, popovers,
  * typeahead suggestions etc.).
  */
   .factory('$uibPosition', ['$document', '$window', function($document, $window) {
-    function getStyle(el, cssprop) {
-      if (el.currentStyle) { //IE
-        return el.currentStyle[cssprop];
-      } else if ($window.getComputedStyle) {
-        return $window.getComputedStyle(el)[cssprop];
-      }
-      // finally try and get inline style
-      return el.style[cssprop];
-    }
-
     /**
-     * Checks if a given element is statically positioned
-     * @param element - raw DOM element
+     * Used by scrollbarWidth() function to cache scrollbar's width.
+     * Do not access this variable directly, use scrollbarWidth() instead.
      */
-    function isStaticPositioned(element) {
-      return (getStyle(element, 'position') || 'static' ) === 'static';
-    }
-
-    /**
-     * returns the closest, non-statically positioned parentOffset of a given element
-     * @param element
-     */
-    var parentOffsetEl = function(element) {
-      var docDomEl = $document[0];
-      var offsetParent = element.offsetParent || docDomEl;
-      while (offsetParent && offsetParent !== docDomEl && isStaticPositioned(offsetParent) ) {
-        offsetParent = offsetParent.offsetParent;
-      }
-      return offsetParent || docDomEl;
+    var SCROLLBAR_WIDTH;
+    var OVERFLOW_REGEX = {
+      normal: /(auto|scroll)/,
+      hidden: /(auto|scroll|hidden)/
+    };
+    var PLACEMENT_REGEX = {
+      auto: /\s?auto?\s?/i,
+      primary: /^(top|bottom|left|right)$/,
+      secondary: /^(top|bottom|left|right|center)$/,
+      vertical: /^(top|bottom)$/
     };
 
     return {
+
       /**
-       * Provides read-only equivalent of jQuery's position function:
-       * http://api.jquery.com/position/
+       * Provides a raw DOM element from a jQuery/jQLite element.
+       *
+       * @param {element} elem - The element to convert.
+       *
+       * @returns {element} A HTML element.
        */
-      position: function(element) {
-        var elBCR = this.offset(element);
-        var offsetParentBCR = { top: 0, left: 0 };
-        var offsetParentEl = parentOffsetEl(element[0]);
-        if (offsetParentEl != $document[0]) {
-          offsetParentBCR = this.offset(angular.element(offsetParentEl));
-          offsetParentBCR.top += offsetParentEl.clientTop - offsetParentEl.scrollTop;
-          offsetParentBCR.left += offsetParentEl.clientLeft - offsetParentEl.scrollLeft;
+      getRawNode: function(elem) {
+        return elem[0] || elem;
+      },
+
+      /**
+       * Provides a parsed number for a style property.  Strips
+       * units and casts invalid numbers to 0.
+       *
+       * @param {string} value - The style value to parse.
+       *
+       * @returns {number} A valid number.
+       */
+      parseStyle: function(value) {
+        value = parseFloat(value);
+        return isFinite(value) ? value : 0;
+      },
+
+      /**
+       * Provides the closest positioned ancestor.
+       *
+       * @param {element} element - The element to get the offest parent for.
+       *
+       * @returns {element} The closest positioned ancestor.
+       */
+      offsetParent: function(elem) {
+        elem = this.getRawNode(elem);
+
+        var offsetParent = elem.offsetParent || $document[0].documentElement;
+
+        function isStaticPositioned(el) {
+          return ($window.getComputedStyle(el).position || 'static') === 'static';
         }
 
-        var boundingClientRect = element[0].getBoundingClientRect();
+        while (offsetParent && offsetParent !== $document[0].documentElement && isStaticPositioned(offsetParent)) {
+          offsetParent = offsetParent.offsetParent;
+        }
+
+        return offsetParent || $document[0].documentElement;
+      },
+
+      /**
+       * Provides the scrollbar width, concept from TWBS measureScrollbar()
+       * function in https://github.com/twbs/bootstrap/blob/master/js/modal.js
+       *
+       * @returns {number} The width of the browser scollbar.
+       */
+      scrollbarWidth: function() {
+        if (angular.isUndefined(SCROLLBAR_WIDTH)) {
+          var scrollElem = angular.element('<div style="position: absolute; top: -9999px; width: 50px; height: 50px; overflow: scroll;"></div>');
+          $document.find('body').append(scrollElem);
+          SCROLLBAR_WIDTH = scrollElem[0].offsetWidth - scrollElem[0].clientWidth;
+          SCROLLBAR_WIDTH = isFinite(SCROLLBAR_WIDTH) ? SCROLLBAR_WIDTH : 0;
+          scrollElem.remove();
+        }
+
+        return SCROLLBAR_WIDTH;
+      },
+
+      /**
+       * Provides the closest scrollable ancestor.
+       * A port of the jQuery UI scrollParent method:
+       * https://github.com/jquery/jquery-ui/blob/master/ui/scroll-parent.js
+       *
+       * @param {element} elem - The element to find the scroll parent of.
+       * @param {boolean=} [includeHidden=false] - Should scroll style of 'hidden' be considered,
+       *   default is false.
+       *
+       * @returns {element} A HTML element.
+       */
+      scrollParent: function(elem, includeHidden) {
+        elem = this.getRawNode(elem);
+
+        var overflowRegex = includeHidden ? OVERFLOW_REGEX.hidden : OVERFLOW_REGEX.normal;
+        var documentEl = $document[0].documentElement;
+        var elemStyle = $window.getComputedStyle(elem);
+        var excludeStatic = elemStyle.position === 'absolute';
+        var scrollParent = elem.parentElement || documentEl;
+
+        if (scrollParent === documentEl || elemStyle.position === 'fixed') {
+          return documentEl;
+        }
+
+        while (scrollParent.parentElement && scrollParent !== documentEl) {
+          var spStyle = $window.getComputedStyle(scrollParent);
+          if (excludeStatic && spStyle.position !== 'static') {
+            excludeStatic = false;
+          }
+
+          if (!excludeStatic && overflowRegex.test(spStyle.overflow + spStyle.overflowY + spStyle.overflowX)) {
+            break;
+          }
+          scrollParent = scrollParent.parentElement;
+        }
+
+        return scrollParent;
+      },
+
+      /**
+       * Provides read-only equivalent of jQuery's position function:
+       * http://api.jquery.com/position/ - distance to closest positioned
+       * ancestor.  Does not account for margins by default like jQuery position.
+       *
+       * @param {element} elem - The element to caclulate the position on.
+       * @param {boolean=} [includeMargins=false] - Should margins be accounted
+       * for, default is false.
+       *
+       * @returns {object} An object with the following properties:
+       *   <ul>
+       *     <li>**width**: the width of the element</li>
+       *     <li>**height**: the height of the element</li>
+       *     <li>**top**: distance to top edge of offset parent</li>
+       *     <li>**left**: distance to left edge of offset parent</li>
+       *   </ul>
+       */
+      position: function(elem, includeMagins) {
+        elem = this.getRawNode(elem);
+
+        var elemOffset = this.offset(elem);
+        if (includeMagins) {
+          var elemStyle = $window.getComputedStyle(elem);
+          elemOffset.top -= this.parseStyle(elemStyle.marginTop);
+          elemOffset.left -= this.parseStyle(elemStyle.marginLeft);
+        }
+        var parent = this.offsetParent(elem);
+        var parentOffset = {top: 0, left: 0};
+
+        if (parent !== $document[0].documentElement) {
+          parentOffset = this.offset(parent);
+          parentOffset.top += parent.clientTop - parent.scrollTop;
+          parentOffset.left += parent.clientLeft - parent.scrollLeft;
+        }
+
         return {
-          width: boundingClientRect.width || element.prop('offsetWidth'),
-          height: boundingClientRect.height || element.prop('offsetHeight'),
-          top: elBCR.top - offsetParentBCR.top,
-          left: elBCR.left - offsetParentBCR.left
+          width: Math.round(angular.isNumber(elemOffset.width) ? elemOffset.width : elem.offsetWidth),
+          height: Math.round(angular.isNumber(elemOffset.height) ? elemOffset.height : elem.offsetHeight),
+          top: Math.round(elemOffset.top - parentOffset.top),
+          left: Math.round(elemOffset.left - parentOffset.left)
         };
       },
 
       /**
        * Provides read-only equivalent of jQuery's offset function:
-       * http://api.jquery.com/offset/
+       * http://api.jquery.com/offset/ - distance to viewport.  Does
+       * not account for borders, margins, or padding on the body
+       * element.
+       *
+       * @param {element} elem - The element to calculate the offset on.
+       *
+       * @returns {object} An object with the following properties:
+       *   <ul>
+       *     <li>**width**: the width of the element</li>
+       *     <li>**height**: the height of the element</li>
+       *     <li>**top**: distance to top edge of viewport</li>
+       *     <li>**right**: distance to bottom edge of viewport</li>
+       *   </ul>
        */
-      offset: function(element) {
-        var boundingClientRect = element[0].getBoundingClientRect();
+      offset: function(elem) {
+        elem = this.getRawNode(elem);
+
+        var elemBCR = elem.getBoundingClientRect();
         return {
-          width: boundingClientRect.width || element.prop('offsetWidth'),
-          height: boundingClientRect.height || element.prop('offsetHeight'),
-          top: boundingClientRect.top + ($window.pageYOffset || $document[0].documentElement.scrollTop),
-          left: boundingClientRect.left + ($window.pageXOffset || $document[0].documentElement.scrollLeft)
+          width: Math.round(angular.isNumber(elemBCR.width) ? elemBCR.width : elem.offsetWidth),
+          height: Math.round(angular.isNumber(elemBCR.height) ? elemBCR.height : elem.offsetHeight),
+          top: Math.round(elemBCR.top + ($window.pageYOffset || $document[0].documentElement.scrollTop)),
+          left: Math.round(elemBCR.left + ($window.pageXOffset || $document[0].documentElement.scrollLeft))
         };
       },
 
       /**
-       * Provides coordinates for the targetEl in relation to hostEl
+       * Provides offset distance to the closest scrollable ancestor
+       * or viewport.  Accounts for border and scrollbar width.
+       *
+       * Right and bottom dimensions represent the distance to the
+       * respective edge of the viewport element.  If the element
+       * edge extends beyond the viewport, a negative value will be
+       * reported.
+       *
+       * @param {element} elem - The element to get the viewport offset for.
+       * @param {boolean=} [useDocument=false] - Should the viewport be the document element instead
+       * of the first scrollable element, default is false.
+       * @param {boolean=} [includePadding=true] - Should the padding on the offset parent element
+       * be accounted for, default is true.
+       *
+       * @returns {object} An object with the following properties:
+       *   <ul>
+       *     <li>**top**: distance to the top content edge of viewport element</li>
+       *     <li>**bottom**: distance to the bottom content edge of viewport element</li>
+       *     <li>**left**: distance to the left content edge of viewport element</li>
+       *     <li>**right**: distance to the right content edge of viewport element</li>
+       *   </ul>
        */
-      positionElements: function(hostEl, targetEl, positionStr, appendToBody) {
-        var positionStrParts = positionStr.split('-');
-        var pos0 = positionStrParts[0], pos1 = positionStrParts[1] || 'center';
+      viewportOffset: function(elem, useDocument, includePadding) {
+        elem = this.getRawNode(elem);
+        includePadding = includePadding !== false ? true : false;
 
-        var hostElPos,
-          targetElWidth,
-          targetElHeight,
-          targetElPos;
+        var elemBCR = elem.getBoundingClientRect();
+        var offsetBCR = {top: 0, left: 0, bottom: 0, right: 0};
 
-        hostElPos = appendToBody ? this.offset(hostEl) : this.position(hostEl);
+        var offsetParent = useDocument ? $document[0].documentElement : this.scrollParent(elem);
+        var offsetParentBCR = offsetParent.getBoundingClientRect();
 
-        targetElWidth = targetEl.prop('offsetWidth');
-        targetElHeight = targetEl.prop('offsetHeight');
+        offsetBCR.top = offsetParentBCR.top + offsetParent.clientTop;
+        offsetBCR.left = offsetParentBCR.left + offsetParent.clientLeft;
+        if (offsetParent === $document[0].documentElement) {
+          offsetBCR.top += $window.pageYOffset;
+          offsetBCR.left += $window.pageXOffset;
+        }
+        offsetBCR.bottom = offsetBCR.top + offsetParent.clientHeight;
+        offsetBCR.right = offsetBCR.left + offsetParent.clientWidth;
 
-        var shiftWidth = {
-          center: function() {
-            return hostElPos.left + hostElPos.width / 2 - targetElWidth / 2;
-          },
-          left: function() {
-            return hostElPos.left;
-          },
-          right: function() {
-            return hostElPos.left + hostElPos.width;
-          }
+        if (includePadding) {
+          var offsetParentStyle = $window.getComputedStyle(offsetParent);
+          offsetBCR.top += this.parseStyle(offsetParentStyle.paddingTop);
+          offsetBCR.bottom -= this.parseStyle(offsetParentStyle.paddingBottom);
+          offsetBCR.left += this.parseStyle(offsetParentStyle.paddingLeft);
+          offsetBCR.right -= this.parseStyle(offsetParentStyle.paddingRight);
+        }
+
+        return {
+          top: Math.round(elemBCR.top - offsetBCR.top),
+          bottom: Math.round(offsetBCR.bottom - elemBCR.bottom),
+          left: Math.round(elemBCR.left - offsetBCR.left),
+          right: Math.round(offsetBCR.right - elemBCR.right)
         };
+      },
 
-        var shiftHeight = {
-          center: function() {
-            return hostElPos.top + hostElPos.height / 2 - targetElHeight / 2;
-          },
-          top: function() {
-            return hostElPos.top;
-          },
-          bottom: function() {
-            return hostElPos.top + hostElPos.height;
+      /**
+       * Provides an array of placement values parsed from a placement string.
+       * Along with the 'auto' indicator, supported placement strings are:
+       *   <ul>
+       *     <li>top: element on top, horizontally centered on host element.</li>
+       *     <li>top-left: element on top, left edge aligned with host element left edge.</li>
+       *     <li>top-right: element on top, lerightft edge aligned with host element right edge.</li>
+       *     <li>bottom: element on bottom, horizontally centered on host element.</li>
+       *     <li>bottom-left: element on bottom, left edge aligned with host element left edge.</li>
+       *     <li>bottom-right: element on bottom, right edge aligned with host element right edge.</li>
+       *     <li>left: element on left, vertically centered on host element.</li>
+       *     <li>left-top: element on left, top edge aligned with host element top edge.</li>
+       *     <li>left-bottom: element on left, bottom edge aligned with host element bottom edge.</li>
+       *     <li>right: element on right, vertically centered on host element.</li>
+       *     <li>right-top: element on right, top edge aligned with host element top edge.</li>
+       *     <li>right-bottom: element on right, bottom edge aligned with host element bottom edge.</li>
+       *   </ul>
+       * A placement string with an 'auto' indicator is expected to be
+       * space separated from the placement, i.e: 'auto bottom-left'  If
+       * the primary and secondary placement values do not match 'top,
+       * bottom, left, right' then 'top' will be the primary placement and
+       * 'center' will be the secondary placement.  If 'auto' is passed, true
+       * will be returned as the 3rd value of the array.
+       *
+       * @param {string} placement - The placement string to parse.
+       *
+       * @returns {array} An array with the following values
+       * <ul>
+       *   <li>**[0]**: The primary placement.</li>
+       *   <li>**[1]**: The secondary placement.</li>
+       *   <li>**[2]**: If auto is passed: true, else undefined.</li>
+       * </ul>
+       */
+      parsePlacement: function(placement) {
+        var autoPlace = PLACEMENT_REGEX.auto.test(placement);
+        if (autoPlace) {
+          placement = placement.replace(PLACEMENT_REGEX.auto, '');
+        }
+
+        placement = placement.split('-');
+
+        placement[0] = placement[0] || 'top';
+        if (!PLACEMENT_REGEX.primary.test(placement[0])) {
+          placement[0] = 'top';
+        }
+
+        placement[1] = placement[1] || 'center';
+        if (!PLACEMENT_REGEX.secondary.test(placement[1])) {
+          placement[1] = 'center';
+        }
+
+        if (autoPlace) {
+          placement[2] = true;
+        } else {
+          placement[2] = false;
+        }
+
+        return placement;
+      },
+
+      /**
+       * Provides coordinates for an element to be positioned relative to
+       * another element.  Passing 'auto' as part of the placement parameter
+       * will enable smart placement - where the element fits. i.e:
+       * 'auto left-top' will check to see if there is enough space to the left
+       * of the hostElem to fit the targetElem, if not place right (same for secondary
+       * top placement).  Available space is calculated using the viewportOffset
+       * function.
+       *
+       * @param {element} hostElem - The element to position against.
+       * @param {element} targetElem - The element to position.
+       * @param {string=} [placement=top] - The placement for the targetElem,
+       *   default is 'top'. 'center' is assumed as secondary placement for
+       *   'top', 'left', 'right', and 'bottom' placements.  Available placements are:
+       *   <ul>
+       *     <li>top</li>
+       *     <li>top-right</li>
+       *     <li>top-left</li>
+       *     <li>bottom</li>
+       *     <li>bottom-left</li>
+       *     <li>bottom-right</li>
+       *     <li>left</li>
+       *     <li>left-top</li>
+       *     <li>left-bottom</li>
+       *     <li>right</li>
+       *     <li>right-top</li>
+       *     <li>right-bottom</li>
+       *   </ul>
+       * @param {boolean=} [appendToBody=false] - Should the top and left values returned
+       *   be calculated from the body element, default is false.
+       *
+       * @returns {object} An object with the following properties:
+       *   <ul>
+       *     <li>**top**: Value for targetElem top.</li>
+       *     <li>**left**: Value for targetElem left.</li>
+       *     <li>**placement**: The resolved placement.</li>
+       *   </ul>
+       */
+      positionElements: function(hostElem, targetElem, placement, appendToBody) {
+        hostElem = this.getRawNode(hostElem);
+        targetElem = this.getRawNode(targetElem);
+
+        // need to read from prop to support tests.
+        var targetWidth = angular.isDefined(targetElem.offsetWidth) ? targetElem.offsetWidth : targetElem.prop('offsetWidth');
+        var targetHeight = angular.isDefined(targetElem.offsetHeight) ? targetElem.offsetHeight : targetElem.prop('offsetHeight');
+
+        placement = this.parsePlacement(placement);
+
+        var hostElemPos = appendToBody ? this.offset(hostElem) : this.position(hostElem);
+        var targetElemPos = {top: 0, left: 0, placement: ''};
+
+        if (placement[2]) {
+          var viewportOffset = this.viewportOffset(hostElem);
+
+          var targetElemStyle = $window.getComputedStyle(targetElem);
+          var adjustedSize = {
+            width: targetWidth + Math.round(Math.abs(this.parseStyle(targetElemStyle.marginLeft) + this.parseStyle(targetElemStyle.marginRight))),
+            height: targetHeight + Math.round(Math.abs(this.parseStyle(targetElemStyle.marginTop) + this.parseStyle(targetElemStyle.marginBottom)))
+          };
+
+          placement[0] = placement[0] === 'top' && adjustedSize.height > viewportOffset.top && adjustedSize.height <= viewportOffset.bottom ? 'bottom' :
+                         placement[0] === 'bottom' && adjustedSize.height > viewportOffset.bottom && adjustedSize.height <= viewportOffset.top ? 'top' :
+                         placement[0] === 'left' && adjustedSize.width > viewportOffset.left && adjustedSize.width <= viewportOffset.right ? 'right' :
+                         placement[0] === 'right' && adjustedSize.width > viewportOffset.right && adjustedSize.width <= viewportOffset.left ? 'left' :
+                         placement[0];
+
+          placement[1] = placement[1] === 'top' && adjustedSize.height - hostElemPos.height > viewportOffset.bottom && adjustedSize.height - hostElemPos.height <= viewportOffset.top ? 'bottom' :
+                         placement[1] === 'bottom' && adjustedSize.height - hostElemPos.height > viewportOffset.top && adjustedSize.height - hostElemPos.height <= viewportOffset.bottom ? 'top' :
+                         placement[1] === 'left' && adjustedSize.width - hostElemPos.width > viewportOffset.right && adjustedSize.width - hostElemPos.width <= viewportOffset.left ? 'right' :
+                         placement[1] === 'right' && adjustedSize.width - hostElemPos.width > viewportOffset.left && adjustedSize.width - hostElemPos.width <= viewportOffset.right ? 'left' :
+                         placement[1];
+
+          if (placement[1] === 'center') {
+            if (PLACEMENT_REGEX.vertical.test(placement[0])) {
+              var xOverflow = hostElemPos.width / 2 - targetWidth / 2;
+              if (viewportOffset.left + xOverflow < 0 && adjustedSize.width - hostElemPos.width <= viewportOffset.right) {
+                placement[1] = 'left';
+              } else if (viewportOffset.right + xOverflow < 0 && adjustedSize.width - hostElemPos.width <= viewportOffset.left) {
+                placement[1] = 'right';
+              }
+            } else {
+              var yOverflow = hostElemPos.height / 2 - adjustedSize.height / 2;
+              if (viewportOffset.top + yOverflow < 0 && adjustedSize.height - hostElemPos.height <= viewportOffset.bottom) {
+                placement[1] = 'top';
+              } else if (viewportOffset.bottom + yOverflow < 0 && adjustedSize.height - hostElemPos.height <= viewportOffset.top) {
+                placement[1] = 'bottom';
+              }
+            }
           }
-        };
+        }
 
-        switch (pos0) {
-          case 'right':
-            targetElPos = {
-              top: shiftHeight[pos1](),
-              left: shiftWidth[pos0]()
-            };
-            break;
-          case 'left':
-            targetElPos = {
-              top: shiftHeight[pos1](),
-              left: hostElPos.left - targetElWidth
-            };
+        switch (placement[0]) {
+          case 'top':
+            targetElemPos.top = hostElemPos.top - targetHeight;
             break;
           case 'bottom':
-            targetElPos = {
-              top: shiftHeight[pos0](),
-              left: shiftWidth[pos1]()
-            };
+            targetElemPos.top = hostElemPos.top + hostElemPos.height;
             break;
-          default:
-            targetElPos = {
-              top: hostElPos.top - targetElHeight,
-              left: shiftWidth[pos1]()
-            };
+          case 'left':
+            targetElemPos.left = hostElemPos.left - targetWidth;
+            break;
+          case 'right':
+            targetElemPos.left = hostElemPos.left + hostElemPos.width;
             break;
         }
 
-        return targetElPos;
+        switch (placement[1]) {
+          case 'top':
+            targetElemPos.top = hostElemPos.top;
+            break;
+          case 'bottom':
+            targetElemPos.top = hostElemPos.top + hostElemPos.height - targetHeight;
+            break;
+          case 'left':
+            targetElemPos.left = hostElemPos.left;
+            break;
+          case 'right':
+            targetElemPos.left = hostElemPos.left + hostElemPos.width - targetWidth;
+            break;
+          case 'center':
+            if (PLACEMENT_REGEX.vertical.test(placement[0])) {
+              targetElemPos.left = hostElemPos.left + hostElemPos.width / 2 - targetWidth / 2;
+            } else {
+              targetElemPos.top = hostElemPos.top + hostElemPos.height / 2 - targetHeight / 2;
+            }
+            break;
+        }
+
+        targetElemPos.top = Math.round(targetElemPos.top);
+        targetElemPos.left = Math.round(targetElemPos.left);
+        targetElemPos.placement = placement[1] === 'center' ? placement[0] : placement[0] + '-' + placement[1];
+
+        return targetElemPos;
+      },
+
+      /**
+      * Provides a way for positioning tooltip & dropdown
+      * arrows when using placement options beyond the standard
+      * left, right, top, or bottom.
+      *
+      * @param {element} elem - The tooltip/dropdown element.
+      * @param {string} placement - The placement for the elem.
+      */
+      positionArrow: function(elem, placement) {
+        elem = this.getRawNode(elem);
+
+        var innerElem = elem.querySelector('.tooltip-inner, .popover-inner');
+        if (!innerElem) {
+          return;
+        }
+
+        var isTooltip = angular.element(innerElem).hasClass('tooltip-inner');
+
+        var arrowElem = isTooltip ? elem.querySelector('.tooltip-arrow') : elem.querySelector('.arrow');
+        if (!arrowElem) {
+          return;
+        }
+
+        placement = this.parsePlacement(placement);
+        if (placement[1] === 'center') {
+          // no adjustment necessary - just reset styles
+          angular.element(arrowElem).css({top: '', bottom: '', right: '', left: '', margin: ''});
+          return;
+        }
+
+        var borderProp = 'border-' + placement[0] + '-width';
+        var borderWidth = $window.getComputedStyle(arrowElem)[borderProp];
+
+        var borderRadiusProp = 'border-';
+        if (PLACEMENT_REGEX.vertical.test(placement[0])) {
+          borderRadiusProp += placement[0] + '-' + placement[1];
+        } else {
+          borderRadiusProp += placement[1] + '-' + placement[0];
+        }
+        borderRadiusProp += '-radius';
+        var borderRadius = $window.getComputedStyle(isTooltip ? innerElem : elem)[borderRadiusProp];
+
+        var arrowCss = {
+          top: 'auto',
+          bottom: 'auto',
+          left: 'auto',
+          right: 'auto',
+          margin: 0
+        };
+
+        switch (placement[0]) {
+          case 'top':
+            arrowCss.bottom = isTooltip ? '0' : '-' + borderWidth;
+            break;
+          case 'bottom':
+            arrowCss.top = isTooltip ? '0' : '-' + borderWidth;
+            break;
+          case 'left':
+            arrowCss.right = isTooltip ? '0' : '-' + borderWidth;
+            break;
+          case 'right':
+            arrowCss.left = isTooltip ? '0' : '-' + borderWidth;
+            break;
+        }
+
+        arrowCss[placement[1]] = borderRadius;
+
+        angular.element(arrowElem).css(arrowCss);
       }
     };
   }]);
 
-/* Deprecated position below */
-
-angular.module('ui.bootstrap.position')
-
-.value('$positionSuppressWarning', false)
-
-.service('$position', ['$log', '$positionSuppressWarning', '$uibPosition', function($log, $positionSuppressWarning, $uibPosition) {
-  if (!$positionSuppressWarning) {
-    $log.warn('$position is now deprecated. Use $uibPosition instead.');
-  }
-
-  angular.extend(this, $uibPosition);
-}]);
-
-angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootstrap.position'])
+angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootstrap.isClass', 'ui.bootstrap.position'])
 
 .value('$datepickerSuppressError', false)
 
 .constant('uibDatepickerConfig', {
+  datepickerMode: 'day',
   formatDay: 'dd',
   formatMonth: 'MMMM',
   formatYear: 'yyyy',
   formatDayHeader: 'EEE',
   formatDayTitle: 'MMMM yyyy',
   formatMonthTitle: 'yyyy',
-  datepickerMode: 'day',
-  minMode: 'day',
-  maxMode: 'year',
-  showWeeks: true,
-  startingDay: 0,
-  yearRange: 20,
-  minDate: null,
   maxDate: null,
-  shortcutPropagation: false
+  maxMode: 'year',
+  minDate: null,
+  minMode: 'day',
+  ngModelOptions: {},
+  shortcutPropagation: false,
+  showWeeks: true,
+  yearColumns: 5,
+  yearRows: 4
 })
 
-.controller('UibDatepickerController', ['$scope', '$attrs', '$parse', '$interpolate', '$log', 'dateFilter', 'uibDatepickerConfig', '$datepickerSuppressError', function($scope, $attrs, $parse, $interpolate, $log, dateFilter, datepickerConfig, $datepickerSuppressError) {
+.controller('UibDatepickerController', ['$scope', '$attrs', '$parse', '$interpolate', '$locale', '$log', 'dateFilter', 'uibDatepickerConfig', '$datepickerSuppressError', 'uibDateParser',
+  function($scope, $attrs, $parse, $interpolate, $locale, $log, dateFilter, datepickerConfig, $datepickerSuppressError, dateParser) {
   var self = this,
-      ngModelCtrl = { $setViewValue: angular.noop }; // nullModelCtrl;
+      ngModelCtrl = { $setViewValue: angular.noop }, // nullModelCtrl;
+      ngModelOptions = {},
+      watchListeners = [];
 
   // Modes chain
   this.modes = ['day', 'month', 'year'];
 
-  // Configuration attributes
-  angular.forEach(['formatDay', 'formatMonth', 'formatYear', 'formatDayHeader', 'formatDayTitle', 'formatMonthTitle',
-                   'showWeeks', 'startingDay', 'yearRange', 'shortcutPropagation'], function(key, index) {
-    self[key] = angular.isDefined($attrs[key]) ? (index < 6 ? $interpolate($attrs[key])($scope.$parent) : $scope.$parent.$eval($attrs[key])) : datepickerConfig[key];
-  });
+  if ($attrs.datepickerOptions) {
+    angular.forEach([
+      'formatDay',
+      'formatDayHeader',
+      'formatDayTitle',
+      'formatMonth',
+      'formatMonthTitle',
+      'formatYear',
+      'initDate',
+      'maxDate',
+      'maxMode',
+      'minDate',
+      'minMode',
+      'showWeeks',
+      'shortcutPropagation',
+      'startingDay',
+      'yearColumns',
+      'yearRows'
+    ], function(key) {
+      switch (key) {
+        case 'formatDay':
+        case 'formatDayHeader':
+        case 'formatDayTitle':
+        case 'formatMonth':
+        case 'formatMonthTitle':
+        case 'formatYear':
+          self[key] = angular.isDefined($scope.datepickerOptions[key]) ? $interpolate($scope.datepickerOptions[key])($scope.$parent) : datepickerConfig[key];
+          break;
+        case 'showWeeks':
+        case 'shortcutPropagation':
+        case 'yearColumns':
+        case 'yearRows':
+          self[key] = angular.isDefined($scope.datepickerOptions[key]) ?
+            $scope.datepickerOptions[key] : datepickerConfig[key];
+          break;
+        case 'startingDay':
+          if (angular.isDefined($scope.datepickerOptions.startingDay)) {
+            self.startingDay = $scope.datepickerOptions.startingDay;
+          } else if (angular.isNumber(datepickerConfig.startingDay)) {
+            self.startingDay = datepickerConfig.startingDay;
+          } else {
+            self.startingDay = ($locale.DATETIME_FORMATS.FIRSTDAYOFWEEK + 8) % 7;
+          }
 
-  // Watchable date attributes
-  angular.forEach(['minDate', 'maxDate'], function(key) {
-    if ($attrs[key]) {
-      $scope.$parent.$watch($parse($attrs[key]), function(value) {
-        self[key] = value ? new Date(value) : null;
-        self.refreshView();
-      });
+          break;
+        case 'maxDate':
+        case 'minDate':
+          if ($scope.datepickerOptions[key]) {
+            $scope.$watch(function() { return $scope.datepickerOptions[key]; }, function(value) {
+              if (value) {
+                if (angular.isDate(value)) {
+                  self[key] = dateParser.fromTimezone(new Date(value), ngModelOptions.timezone);
+                } else {
+                  self[key] = new Date(dateFilter(value, 'medium'));
+                }
+              } else {
+                self[key] = null;
+              }
+
+              self.refreshView();
+            });
+          } else {
+            self[key] = datepickerConfig[key] ? dateParser.fromTimezone(new Date(datepickerConfig[key]), ngModelOptions.timezone) : null;
+          }
+
+          break;
+        case 'maxMode':
+        case 'minMode':
+          if ($scope.datepickerOptions[key]) {
+            $scope.$watch(function() { return $scope.datepickerOptions[key]; }, function(value) {
+              self[key] = $scope[key] = angular.isDefined(value) ? value : datepickerOptions[key];
+              if (key === 'minMode' && self.modes.indexOf($scope.datepickerMode) < self.modes.indexOf(self[key]) ||
+                key === 'maxMode' && self.modes.indexOf($scope.datepickerMode) > self.modes.indexOf(self[key])) {
+                $scope.datepickerMode = self[key];
+              }
+            });
+          } else {
+            self[key] = $scope[key] = datepickerConfig[key] || null;
+          }
+
+          break;
+        case 'initDate':
+          if ($scope.datepickerOptions.initDate) {
+            this.activeDate = dateParser.fromTimezone($scope.datepickerOptions.initDate, ngModelOptions.timezone) || new Date();
+            $scope.$watch(function() { return $scope.datepickerOptions.initDate; }, function(initDate) {
+              if (initDate && (ngModelCtrl.$isEmpty(ngModelCtrl.$modelValue) || ngModelCtrl.$invalid)) {
+                self.activeDate = dateParser.fromTimezone(initDate, ngModelOptions.timezone);
+                self.refreshView();
+              }
+            });
+          } else {
+            this.activeDate = new Date();
+          }
+      }
+    });
+  } else {
+    // Interpolated configuration attributes
+    angular.forEach(['formatDay', 'formatMonth', 'formatYear', 'formatDayHeader', 'formatDayTitle', 'formatMonthTitle'], function(key) {
+      self[key] = angular.isDefined($attrs[key]) ? $interpolate($attrs[key])($scope.$parent) : datepickerConfig[key];
+    });
+
+    // Evaled configuration attributes
+    angular.forEach(['showWeeks', 'yearRows', 'yearColumns', 'shortcutPropagation'], function(key) {
+      self[key] = angular.isDefined($attrs[key]) ?
+        $scope.$parent.$eval($attrs[key]) : datepickerConfig[key];
+    });
+
+    if (angular.isDefined($attrs.startingDay)) {
+      self.startingDay = $scope.$parent.$eval($attrs.startingDay);
+    } else if (angular.isNumber(datepickerConfig.startingDay)) {
+      self.startingDay = datepickerConfig.startingDay;
     } else {
-      self[key] = datepickerConfig[key] ? new Date(datepickerConfig[key]) : null;
+      self.startingDay = ($locale.DATETIME_FORMATS.FIRSTDAYOFWEEK + 8) % 7;
     }
-  });
 
-  angular.forEach(['minMode', 'maxMode'], function(key) {
-    if ($attrs[key]) {
-      $scope.$parent.$watch($parse($attrs[key]), function(value) {
-        self[key] = angular.isDefined(value) ? value : $attrs[key];
-        $scope[key] = self[key];
-        if ((key == 'minMode' && self.modes.indexOf($scope.datepickerMode) < self.modes.indexOf(self[key])) || (key == 'maxMode' && self.modes.indexOf($scope.datepickerMode) > self.modes.indexOf(self[key]))) {
-          $scope.datepickerMode = self[key];
+    // Watchable date attributes
+    angular.forEach(['minDate', 'maxDate'], function(key) {
+      if ($attrs[key]) {
+        watchListeners.push($scope.$parent.$watch($attrs[key], function(value) {
+          if (value) {
+            if (angular.isDate(value)) {
+              self[key] = dateParser.fromTimezone(new Date(value), ngModelOptions.timezone);
+            } else {
+              self[key] = new Date(dateFilter(value, 'medium'));
+            }
+          } else {
+            self[key] = null;
+          }
+
+          self.refreshView();
+        }));
+      } else {
+        self[key] = datepickerConfig[key] ? dateParser.fromTimezone(new Date(datepickerConfig[key]), ngModelOptions.timezone) : null;
+      }
+    });
+
+    angular.forEach(['minMode', 'maxMode'], function(key) {
+      if ($attrs[key]) {
+        watchListeners.push($scope.$parent.$watch($attrs[key], function(value) {
+          self[key] = $scope[key] = angular.isDefined(value) ? value : $attrs[key];
+          if (key === 'minMode' && self.modes.indexOf($scope.datepickerMode) < self.modes.indexOf(self[key]) ||
+            key === 'maxMode' && self.modes.indexOf($scope.datepickerMode) > self.modes.indexOf(self[key])) {
+            $scope.datepickerMode = self[key];
+          }
+        }));
+      } else {
+        self[key] = $scope[key] = datepickerConfig[key] || null;
+      }
+    });
+
+    if (angular.isDefined($attrs.initDate)) {
+      this.activeDate = dateParser.fromTimezone($scope.$parent.$eval($attrs.initDate), ngModelOptions.timezone) || new Date();
+      watchListeners.push($scope.$parent.$watch($attrs.initDate, function(initDate) {
+        if (initDate && (ngModelCtrl.$isEmpty(ngModelCtrl.$modelValue) || ngModelCtrl.$invalid)) {
+          self.activeDate = dateParser.fromTimezone(initDate, ngModelOptions.timezone);
+          self.refreshView();
         }
-      });
+      }));
     } else {
-      self[key] = datepickerConfig[key] || null;
-      $scope[key] = self[key];
+      this.activeDate = new Date();
     }
-  });
+  }
 
   $scope.datepickerMode = $scope.datepickerMode || datepickerConfig.datepickerMode;
   $scope.uniqueId = 'datepicker-' + $scope.$id + '-' + Math.floor(Math.random() * 10000);
 
-  if (angular.isDefined($attrs.initDate)) {
-    this.activeDate = $scope.$parent.$eval($attrs.initDate) || new Date();
-    $scope.$parent.$watch($attrs.initDate, function(initDate) {
-      if (initDate && (ngModelCtrl.$isEmpty(ngModelCtrl.$modelValue) || ngModelCtrl.$invalid)) {
-        self.activeDate = initDate;
-        self.refreshView();
-      }
-    });
-  } else {
-    this.activeDate = new Date();
+  $scope.disabled = angular.isDefined($attrs.disabled) || false;
+  if (angular.isDefined($attrs.ngDisabled)) {
+    watchListeners.push($scope.$parent.$watch($attrs.ngDisabled, function(disabled) {
+      $scope.disabled = disabled;
+      self.refreshView();
+    }));
   }
 
   $scope.isActive = function(dateObject) {
@@ -45126,6 +47161,11 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
 
   this.init = function(ngModelCtrl_) {
     ngModelCtrl = ngModelCtrl_;
+    ngModelOptions = ngModelCtrl_.$options || datepickerConfig.ngModelOptions;
+
+    if (ngModelCtrl.$modelValue) {
+      this.activeDate = ngModelCtrl.$modelValue;
+    }
 
     ngModelCtrl.$render = function() {
       self.render();
@@ -45138,9 +47178,9 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
           isValid = !isNaN(date);
 
       if (isValid) {
-        this.activeDate = date;
+        this.activeDate = dateParser.fromTimezone(date, ngModelOptions.timezone);
       } else if (!$datepickerSuppressError) {
-        $log.error('Datepicker directive: "ng-model" value must be a Date object, a number of milliseconds since 01.01.1970 or a string representing an RFC2822 or ISO 8601 date.');
+        $log.error('Datepicker directive: "ng-model" value must be a Date object');
       }
     }
     this.refreshView();
@@ -45148,27 +47188,47 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
 
   this.refreshView = function() {
     if (this.element) {
+      $scope.selectedDt = null;
       this._refreshView();
+      if ($scope.activeDt) {
+        $scope.activeDateId = $scope.activeDt.uid;
+      }
 
       var date = ngModelCtrl.$viewValue ? new Date(ngModelCtrl.$viewValue) : null;
-      ngModelCtrl.$setValidity('dateDisabled', !date || (this.element && !this.isDisabled(date)));
+      date = dateParser.fromTimezone(date, ngModelOptions.timezone);
+      ngModelCtrl.$setValidity('dateDisabled', !date ||
+        this.element && !this.isDisabled(date));
     }
   };
 
   this.createDateObject = function(date, format) {
     var model = ngModelCtrl.$viewValue ? new Date(ngModelCtrl.$viewValue) : null;
-    return {
+    model = dateParser.fromTimezone(model, ngModelOptions.timezone);
+    var dt = {
       date: date,
-      label: dateFilter(date, format),
+      label: dateParser.filter(date, format),
       selected: model && this.compare(date, model) === 0,
       disabled: this.isDisabled(date),
       current: this.compare(date, new Date()) === 0,
-      customClass: this.customClass(date)
+      customClass: this.customClass(date) || null
     };
+
+    if (model && this.compare(date, model) === 0) {
+      $scope.selectedDt = dt;
+    }
+
+    if (self.activeDate && this.compare(dt.date, self.activeDate) === 0) {
+      $scope.activeDt = dt;
+    }
+
+    return dt;
   };
 
   this.isDisabled = function(date) {
-    return ((this.minDate && this.compare(date, this.minDate) < 0) || (this.maxDate && this.compare(date, this.maxDate) > 0) || ($attrs.dateDisabled && $scope.dateDisabled({date: date, mode: $scope.datepickerMode})));
+    return $scope.disabled ||
+      this.minDate && this.compare(date, this.minDate) < 0 ||
+      this.maxDate && this.compare(date, this.maxDate) > 0 ||
+      $attrs.dateDisabled && $scope.dateDisabled({date: date, mode: $scope.datepickerMode});
   };
 
   this.customClass = function(date) {
@@ -45186,8 +47246,9 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
 
   $scope.select = function(date) {
     if ($scope.datepickerMode === self.minMode) {
-      var dt = ngModelCtrl.$viewValue ? new Date(ngModelCtrl.$viewValue) : new Date(0, 0, 0, 0, 0, 0, 0);
+      var dt = ngModelCtrl.$viewValue ? dateParser.fromTimezone(new Date(ngModelCtrl.$viewValue), ngModelOptions.timezone) : new Date(0, 0, 0, 0, 0, 0, 0);
       dt.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+      dt = dateParser.toTimezone(dt, ngModelOptions.timezone);
       ngModelCtrl.$setViewValue(dt);
       ngModelCtrl.$render();
     } else {
@@ -45206,7 +47267,8 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
   $scope.toggleMode = function(direction) {
     direction = direction || 1;
 
-    if (($scope.datepickerMode === self.maxMode && direction === 1) || ($scope.datepickerMode === self.minMode && direction === -1)) {
+    if ($scope.datepickerMode === self.maxMode && direction === 1 ||
+      $scope.datepickerMode === self.minMode && direction === -1) {
       return;
     }
 
@@ -45226,7 +47288,7 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
   $scope.keydown = function(evt) {
     var key = $scope.keys[evt.which];
 
-    if (!key || evt.shiftKey || evt.altKey) {
+    if (!key || evt.shiftKey || evt.altKey || $scope.disabled) {
       return;
     }
 
@@ -45247,6 +47309,13 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
       self.refreshView();
     }
   };
+
+  $scope.$on("$destroy", function() {
+    //Clear all watch listeners on destroy
+    while (watchListeners.length) {
+      watchListeners.shift()();
+    }
+  });
 }])
 
 .controller('UibDaypickerController', ['$scope', '$element', 'dateFilter', function(scope, $element, dateFilter) {
@@ -45255,7 +47324,8 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
   this.step = { months: 1 };
   this.element = $element;
   function getDaysInMonth(year, month) {
-    return ((month === 1) && (year % 4 === 0) && ((year % 100 !== 0) || (year % 400 === 0))) ? 29 : DAYS_IN_MONTH[month];
+    return month === 1 && year % 4 === 0 &&
+      (year % 100 !== 0 || year % 400 === 0) ? 29 : DAYS_IN_MONTH[month];
   }
 
   this.init = function(ctrl) {
@@ -45282,14 +47352,15 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
     firstDayOfMonth.setFullYear(year, month, 1);
 
     var difference = this.startingDay - firstDayOfMonth.getDay(),
-      numDisplayedFromPreviousMonth = (difference > 0) ? 7 - difference : - difference,
+      numDisplayedFromPreviousMonth = difference > 0 ?
+        7 - difference : - difference,
       firstDate = new Date(firstDayOfMonth);
 
     if (numDisplayedFromPreviousMonth > 0) {
       firstDate.setDate(-numDisplayedFromPreviousMonth + 1);
     }
 
-    // 42 is the number of days on a six-month calendar
+    // 42 is the number of days on a six-week calendar
     var days = this.getDates(firstDate, 42);
     for (var i = 0; i < 42; i ++) {
       days[i] = angular.extend(this.createDateObject(days[i], this.formatDay), {
@@ -45321,7 +47392,11 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
   };
 
   this.compare = function(date1, date2) {
-    return (new Date(date1.getFullYear(), date1.getMonth(), date1.getDate()) - new Date(date2.getFullYear(), date2.getMonth(), date2.getDate()));
+    var _date1 = new Date(date1.getFullYear(), date1.getMonth(), date1.getDate());
+    var _date2 = new Date(date2.getFullYear(), date2.getMonth(), date2.getDate());
+    _date1.setFullYear(date1.getFullYear());
+    _date2.setFullYear(date2.getFullYear());
+    return _date1 - _date2;
   };
 
   function getISO8601WeekNumber(date) {
@@ -45337,11 +47412,11 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
     var date = this.activeDate.getDate();
 
     if (key === 'left') {
-      date = date - 1;   // up
+      date = date - 1;
     } else if (key === 'up') {
-      date = date - 7;   // down
+      date = date - 7;
     } else if (key === 'right') {
-      date = date + 1;   // down
+      date = date + 1;
     } else if (key === 'down') {
       date = date + 7;
     } else if (key === 'pageup' || key === 'pagedown') {
@@ -45384,18 +47459,22 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
   };
 
   this.compare = function(date1, date2) {
-    return new Date(date1.getFullYear(), date1.getMonth()) - new Date(date2.getFullYear(), date2.getMonth());
+    var _date1 = new Date(date1.getFullYear(), date1.getMonth());
+    var _date2 = new Date(date2.getFullYear(), date2.getMonth());
+    _date1.setFullYear(date1.getFullYear());
+    _date2.setFullYear(date2.getFullYear());
+    return _date1 - _date2;
   };
 
   this.handleKeyDown = function(key, evt) {
     var date = this.activeDate.getMonth();
 
     if (key === 'left') {
-      date = date - 1;   // up
+      date = date - 1;
     } else if (key === 'up') {
-      date = date - 3;   // down
+      date = date - 3;
     } else if (key === 'right') {
-      date = date + 1;   // down
+      date = date + 1;
     } else if (key === 'down') {
       date = date + 3;
     } else if (key === 'pageup' || key === 'pagedown') {
@@ -45411,7 +47490,7 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
 }])
 
 .controller('UibYearpickerController', ['$scope', '$element', 'dateFilter', function(scope, $element, dateFilter) {
-  var range;
+  var columns, range;
   this.element = $element;
 
   function getStartingYear(year) {
@@ -45419,7 +47498,8 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
   }
 
   this.yearpickerInit = function() {
-    range = this.yearRange;
+    columns = this.yearColumns;
+    range = this.yearRows * columns;
     this.step = { years: range };
   };
 
@@ -45435,7 +47515,8 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
     }
 
     scope.title = [years[0].label, years[range - 1].label].join(' - ');
-    scope.rows = this.split(years, 5);
+    scope.rows = this.split(years, columns);
+    scope.columns = columns;
   };
 
   this.compare = function(date1, date2) {
@@ -45446,15 +47527,15 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
     var date = this.activeDate.getFullYear();
 
     if (key === 'left') {
-      date = date - 1;   // up
+      date = date - 1;
     } else if (key === 'up') {
-      date = date - 5;   // down
+      date = date - columns;
     } else if (key === 'right') {
-      date = date + 1;   // down
+      date = date + 1;
     } else if (key === 'down') {
-      date = date + 5;
+      date = date + columns;
     } else if (key === 'pageup' || key === 'pagedown') {
-      date += (key === 'pageup' ? - 1 : 1) * this.step.years;
+      date += (key === 'pageup' ? - 1 : 1) * range;
     } else if (key === 'home') {
       date = getStartingYear(this.activeDate.getFullYear());
     } else if (key === 'end') {
@@ -45468,10 +47549,11 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
   return {
     replace: true,
     templateUrl: function(element, attrs) {
-      return attrs.templateUrl || 'template/datepicker/datepicker.html';
+      return attrs.templateUrl || 'uib/template/datepicker/datepicker.html';
     },
     scope: {
       datepickerMode: '=?',
+      datepickerOptions: '=?',
       dateDisabled: '&',
       customClass: '&',
       shortcutPropagation: '&?'
@@ -45491,12 +47573,12 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
   return {
     replace: true,
     templateUrl: function(element, attrs) {
-      return attrs.templateUrl || 'template/datepicker/day.html';
+      return attrs.templateUrl || 'uib/template/datepicker/day.html';
     },
-    require: ['^?uibDatepicker', 'uibDaypicker', '^?datepicker'],
+    require: ['^uibDatepicker', 'uibDaypicker'],
     controller: 'UibDaypickerController',
     link: function(scope, element, attrs, ctrls) {
-      var datepickerCtrl = ctrls[0] || ctrls[2],
+      var datepickerCtrl = ctrls[0],
         daypickerCtrl = ctrls[1];
 
       daypickerCtrl.init(datepickerCtrl);
@@ -45508,12 +47590,12 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
   return {
     replace: true,
     templateUrl: function(element, attrs) {
-      return attrs.templateUrl || 'template/datepicker/month.html';
+      return attrs.templateUrl || 'uib/template/datepicker/month.html';
     },
-    require: ['^?uibDatepicker', 'uibMonthpicker', '^?datepicker'],
+    require: ['^uibDatepicker', 'uibMonthpicker'],
     controller: 'UibMonthpickerController',
     link: function(scope, element, attrs, ctrls) {
-      var datepickerCtrl = ctrls[0] || ctrls[2],
+      var datepickerCtrl = ctrls[0],
         monthpickerCtrl = ctrls[1];
 
       monthpickerCtrl.init(datepickerCtrl);
@@ -45525,12 +47607,12 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
   return {
     replace: true,
     templateUrl: function(element, attrs) {
-      return attrs.templateUrl || 'template/datepicker/year.html';
+      return attrs.templateUrl || 'uib/template/datepicker/year.html';
     },
-    require: ['^?uibDatepicker', 'uibYearpicker', '^?datepicker'],
+    require: ['^uibDatepicker', 'uibYearpicker'],
     controller: 'UibYearpickerController',
     link: function(scope, element, attrs, ctrls) {
-      var ctrl = ctrls[0] || ctrls[2];
+      var ctrl = ctrls[0];
       angular.extend(ctrl, ctrls[1]);
       ctrl.yearpickerInit();
 
@@ -45540,41 +47622,43 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.dateparser', 'ui.bootst
 })
 
 .constant('uibDatepickerPopupConfig', {
+  altInputFormats: [],
+  appendToBody: false,
+  clearText: 'Clear',
+  closeOnDateSelection: true,
+  closeText: 'Done',
+  currentText: 'Today',
   datepickerPopup: 'yyyy-MM-dd',
-  datepickerPopupTemplateUrl: 'template/datepicker/popup.html',
-  datepickerTemplateUrl: 'template/datepicker/datepicker.html',
+  datepickerPopupTemplateUrl: 'uib/template/datepicker/popup.html',
+  datepickerTemplateUrl: 'uib/template/datepicker/datepicker.html',
   html5Types: {
     date: 'yyyy-MM-dd',
     'datetime-local': 'yyyy-MM-ddTHH:mm:ss.sss',
     'month': 'yyyy-MM'
   },
-  currentText: 'Today',
-  clearText: 'Clear',
-  closeText: 'Done',
-  closeOnDateSelection: true,
-  appendToBody: false,
-  showButtonBar: true,
-  onOpenFocus: true
+  onOpenFocus: true,
+  showButtonBar: true
 })
 
-.controller('UibDatepickerPopupController', ['$scope', '$element', '$attrs', '$compile', '$parse', '$document', '$rootScope', '$uibPosition', 'dateFilter', 'uibDateParser', 'uibDatepickerPopupConfig', '$timeout',
-function(scope, element, attrs, $compile, $parse, $document, $rootScope, $position, dateFilter, dateParser, datepickerPopupConfig, $timeout) {
-  var self = this;
+.controller('UibDatepickerPopupController', ['$scope', '$element', '$attrs', '$compile', '$parse', '$document', '$rootScope', '$uibPosition', 'dateFilter', 'uibDateParser', 'uibDatepickerPopupConfig', '$timeout', 'uibDatepickerConfig',
+function(scope, element, attrs, $compile, $parse, $document, $rootScope, $position, dateFilter, dateParser, datepickerPopupConfig, $timeout, datepickerConfig) {
   var cache = {},
     isHtml5DateInput = false;
   var dateFormat, closeOnDateSelection, appendToBody, onOpenFocus,
     datepickerPopupTemplateUrl, datepickerTemplateUrl, popupEl, datepickerEl,
-    ngModel, $popup;
+    ngModel, ngModelOptions, $popup, altInputFormats, watchListeners = [];
 
   scope.watchData = {};
 
   this.init = function(_ngModel_) {
     ngModel = _ngModel_;
+    ngModelOptions = _ngModel_.$options || datepickerConfig.ngModelOptions;
     closeOnDateSelection = angular.isDefined(attrs.closeOnDateSelection) ? scope.$parent.$eval(attrs.closeOnDateSelection) : datepickerPopupConfig.closeOnDateSelection;
     appendToBody = angular.isDefined(attrs.datepickerAppendToBody) ? scope.$parent.$eval(attrs.datepickerAppendToBody) : datepickerPopupConfig.appendToBody;
     onOpenFocus = angular.isDefined(attrs.onOpenFocus) ? scope.$parent.$eval(attrs.onOpenFocus) : datepickerPopupConfig.onOpenFocus;
     datepickerPopupTemplateUrl = angular.isDefined(attrs.datepickerPopupTemplateUrl) ? attrs.datepickerPopupTemplateUrl : datepickerPopupConfig.datepickerPopupTemplateUrl;
     datepickerTemplateUrl = angular.isDefined(attrs.datepickerTemplateUrl) ? attrs.datepickerTemplateUrl : datepickerPopupConfig.datepickerTemplateUrl;
+    altInputFormats = angular.isDefined(attrs.altInputFormats) ? scope.$parent.$eval(attrs.altInputFormats) : datepickerPopupConfig.altInputFormats;
 
     scope.showButtonBar = angular.isDefined(attrs.showButtonBar) ? scope.$parent.$eval(attrs.showButtonBar) : datepickerPopupConfig.showButtonBar;
 
@@ -45582,19 +47666,19 @@ function(scope, element, attrs, $compile, $parse, $document, $rootScope, $positi
       dateFormat = datepickerPopupConfig.html5Types[attrs.type];
       isHtml5DateInput = true;
     } else {
-      dateFormat = attrs.datepickerPopup || attrs.uibDatepickerPopup || datepickerPopupConfig.datepickerPopup;
+      dateFormat = attrs.uibDatepickerPopup || datepickerPopupConfig.datepickerPopup;
       attrs.$observe('uibDatepickerPopup', function(value, oldValue) {
-          var newDateFormat = value || datepickerPopupConfig.datepickerPopup;
-          // Invalidate the $modelValue to ensure that formatters re-run
-          // FIXME: Refactor when PR is merged: https://github.com/angular/angular.js/pull/10764
-          if (newDateFormat !== dateFormat) {
-            dateFormat = newDateFormat;
-            ngModel.$modelValue = null;
+        var newDateFormat = value || datepickerPopupConfig.datepickerPopup;
+        // Invalidate the $modelValue to ensure that formatters re-run
+        // FIXME: Refactor when PR is merged: https://github.com/angular/angular.js/pull/10764
+        if (newDateFormat !== dateFormat) {
+          dateFormat = newDateFormat;
+          ngModel.$modelValue = null;
 
-            if (!dateFormat) {
-              throw new Error('uibDatepickerPopup must have a date format specified.');
-            }
+          if (!dateFormat) {
+            throw new Error('uibDatepickerPopup must have a date format specified.');
           }
+        }
       });
     }
 
@@ -45602,14 +47686,17 @@ function(scope, element, attrs, $compile, $parse, $document, $rootScope, $positi
       throw new Error('uibDatepickerPopup must have a date format specified.');
     }
 
-    if (isHtml5DateInput && attrs.datepickerPopup) {
+    if (isHtml5DateInput && attrs.uibDatepickerPopup) {
       throw new Error('HTML5 date input types do not support custom formats.');
     }
 
     // popup element used to display calendar
     popupEl = angular.element('<div uib-datepicker-popup-wrap><div uib-datepicker></div></div>');
+    scope.ngModelOptions = angular.copy(ngModelOptions);
+    scope.ngModelOptions.timezone = null;
     popupEl.attr({
       'ng-model': 'date',
+      'ng-model-options': 'ngModelOptions',
       'ng-change': 'dateSelection(date)',
       'template-url': datepickerPopupTemplateUrl
     });
@@ -45625,47 +47712,73 @@ function(scope, element, attrs, $compile, $parse, $document, $rootScope, $positi
       }
     }
 
-    if (attrs.datepickerOptions) {
-      var options = scope.$parent.$eval(attrs.datepickerOptions);
-      if (options && options.initDate) {
-        scope.initDate = options.initDate;
-        datepickerEl.attr('init-date', 'initDate');
-        delete options.initDate;
-      }
-      angular.forEach(options, function(value, option) {
-        datepickerEl.attr(cameltoDash(option), value);
+    if (scope.datepickerOptions) {
+      angular.forEach(scope.datepickerOptions, function(value, option) {
+        // Ignore this options, will be managed later
+        if (['minDate', 'maxDate', 'minMode', 'maxMode', 'initDate', 'datepickerMode'].indexOf(option) === -1) {
+          datepickerEl.attr(cameltoDash(option), value);
+        } else {
+          datepickerEl.attr(cameltoDash(option), 'datepickerOptions.' + option);
+        }
       });
     }
 
-    angular.forEach(['minMode', 'maxMode', 'minDate', 'maxDate', 'datepickerMode', 'initDate', 'shortcutPropagation'], function(key) {
+    angular.forEach(['minMode', 'maxMode', 'datepickerMode', 'shortcutPropagation'], function(key) {
       if (attrs[key]) {
         var getAttribute = $parse(attrs[key]);
-        scope.$parent.$watch(getAttribute, function(value) {
-          scope.watchData[key] = value;
-          if (key === 'minDate' || key === 'maxDate') {
-            cache[key] = new Date(value);
+        var propConfig = {
+          get: function() {
+            return getAttribute(scope.$parent);
           }
-        });
+        };
+
         datepickerEl.attr(cameltoDash(key), 'watchData.' + key);
 
         // Propagate changes from datepicker to outside
         if (key === 'datepickerMode') {
           var setAttribute = getAttribute.assign;
-          scope.$watch('watchData.' + key, function(value, oldvalue) {
-            if (angular.isFunction(setAttribute) && value !== oldvalue) {
-              setAttribute(scope.$parent, value);
-            }
-          });
+          propConfig.set = function(v) {
+            setAttribute(scope.$parent, v);
+          };
         }
+
+        Object.defineProperty(scope.watchData, key, propConfig);
       }
     });
+
+    angular.forEach(['minDate', 'maxDate', 'initDate'], function(key) {
+      if (attrs[key]) {
+        var getAttribute = $parse(attrs[key]);
+
+        watchListeners.push(scope.$parent.$watch(getAttribute, function(value) {
+          if (key === 'minDate' || key === 'maxDate') {
+            if (value === null) {
+              cache[key] = null;
+            } else if (angular.isDate(value)) {
+              cache[key] = dateParser.fromTimezone(new Date(value), ngModelOptions.timezone);
+            } else {
+              cache[key] = new Date(dateFilter(value, 'medium'));
+            }
+
+            scope.watchData[key] = value === null ? null : cache[key];
+          } else {
+            scope.watchData[key] = dateParser.fromTimezone(new Date(value), ngModelOptions.timezone);
+          }
+        }));
+
+        datepickerEl.attr(cameltoDash(key), 'watchData.' + key);
+      }
+    });
+
     if (attrs.dateDisabled) {
       datepickerEl.attr('date-disabled', 'dateDisabled({ date: date, mode: mode })');
     }
 
-    if (attrs.showWeeks) {
-      datepickerEl.attr('show-weeks', attrs.showWeeks);
-    }
+    angular.forEach(['formatDay', 'formatMonth', 'formatYear', 'formatDayHeader', 'formatDayTitle', 'formatMonthTitle', 'showWeeks', 'startingDay', 'yearRows', 'yearColumns'], function(key) {
+      if (angular.isDefined(attrs[key])) {
+        datepickerEl.attr(cameltoDash(key), attrs[key]);
+      }
+    });
 
     if (attrs.customClass) {
       datepickerEl.attr('custom-class', 'customClass({ date: date, mode: mode })');
@@ -45677,22 +47790,32 @@ function(scope, element, attrs, $compile, $parse, $document, $rootScope, $positi
       ngModel.$validators.date = validator;
       ngModel.$parsers.unshift(parseDate);
       ngModel.$formatters.push(function(value) {
-        scope.date = value;
-        return ngModel.$isEmpty(value) ? value : dateFilter(value, dateFormat);
+        if (ngModel.$isEmpty(value)) {
+          scope.date = value;
+          return value;
+        }
+
+        scope.date = dateParser.fromTimezone(value, ngModelOptions.timezone);
+
+        if (angular.isNumber(scope.date)) {
+          scope.date = new Date(scope.date);
+        }
+
+        return dateParser.filter(scope.date, dateFormat);
       });
     } else {
       ngModel.$formatters.push(function(value) {
-        scope.date = value;
+        scope.date = dateParser.fromTimezone(value, ngModelOptions.timezone);
         return value;
       });
     }
 
     // Detect changes in the view from the text box
     ngModel.$viewChangeListeners.push(function() {
-      scope.date = dateParser.parse(ngModel.$viewValue, dateFormat, scope.date);
+      scope.date = parseDateString(ngModel.$viewValue);
     });
 
-    element.bind('keydown', inputKeydownBind);
+    element.on('keydown', inputKeydownBind);
 
     $popup = $compile(popupEl)(scope);
     // Prevent jQuery cache memory leak (template is now redundant after linking)
@@ -45714,8 +47837,13 @@ function(scope, element, attrs, $compile, $parse, $document, $rootScope, $positi
       }
 
       $popup.remove();
-      element.unbind('keydown', inputKeydownBind);
-      $document.unbind('click', documentClickBind);
+      element.off('keydown', inputKeydownBind);
+      $document.off('click', documentClickBind);
+
+      //Clear all watch listeners on destroy
+      while (watchListeners.length) {
+        watchListeners.shift()();
+      }
     });
   };
 
@@ -45728,12 +47856,12 @@ function(scope, element, attrs, $compile, $parse, $document, $rootScope, $positi
       date = new Date();
     }
 
-    return ((scope.watchData.minDate && scope.compare(date, cache.minDate) < 0) ||
-      (scope.watchData.maxDate && scope.compare(date, cache.maxDate) > 0));
+    return scope.watchData.minDate && scope.compare(date, cache.minDate) < 0 ||
+        scope.watchData.maxDate && scope.compare(date, cache.maxDate) > 0;
   };
 
   scope.compare = function(date1, date2) {
-    return (new Date(date1.getFullYear(), date1.getMonth(), date1.getDate()) - new Date(date2.getFullYear(), date2.getMonth(), date2.getDate()));
+    return new Date(date1.getFullYear(), date1.getMonth(), date1.getDate()) - new Date(date2.getFullYear(), date2.getMonth(), date2.getDate());
   };
 
   // Inner change
@@ -45741,7 +47869,7 @@ function(scope, element, attrs, $compile, $parse, $document, $rootScope, $positi
     if (angular.isDefined(dt)) {
       scope.date = dt;
     }
-    var date = scope.date ? dateFilter(scope.date, dateFormat) : null; // Setting to NULL is necessary for form validators to function
+    var date = scope.date ? dateParser.filter(scope.date, dateFormat) : null; // Setting to NULL is necessary for form validators to function
     element.val(date);
     ngModel.$setViewValue(date);
 
@@ -45753,6 +47881,7 @@ function(scope, element, attrs, $compile, $parse, $document, $rootScope, $positi
 
   scope.keydown = function(evt) {
     if (evt.which === 27) {
+      evt.stopPropagation();
       scope.isOpen = false;
       element[0].focus();
     }
@@ -45776,24 +47905,48 @@ function(scope, element, attrs, $compile, $parse, $document, $rootScope, $positi
     element[0].focus();
   };
 
+  scope.disabled = angular.isDefined(attrs.disabled) || false;
+  if (attrs.ngDisabled) {
+    watchListeners.push(scope.$parent.$watch($parse(attrs.ngDisabled), function(disabled) {
+      scope.disabled = disabled;
+    }));
+  }
+
   scope.$watch('isOpen', function(value) {
     if (value) {
-      scope.position = appendToBody ? $position.offset(element) : $position.position(element);
-      scope.position.top = scope.position.top + element.prop('offsetHeight');
+      if (!scope.disabled) {
+        scope.position = appendToBody ? $position.offset(element) : $position.position(element);
+        scope.position.top = scope.position.top + element.prop('offsetHeight');
 
-      $timeout(function() {
-        if (onOpenFocus) {
-          scope.$broadcast('uib:datepicker.focus');
-        }
-        $document.bind('click', documentClickBind);
-      }, 0, false);
+        $timeout(function() {
+          if (onOpenFocus) {
+            scope.$broadcast('uib:datepicker.focus');
+          }
+          $document.on('click', documentClickBind);
+        }, 0, false);
+      } else {
+        scope.isOpen = false;
+      }
     } else {
-      $document.unbind('click', documentClickBind);
+      $document.off('click', documentClickBind);
     }
   });
 
   function cameltoDash(string) {
     return string.replace(/([A-Z])/g, function($1) { return '-' + $1.toLowerCase(); });
+  }
+
+  function parseDateString(viewValue) {
+    var date = dateParser.parse(viewValue, dateFormat, scope.date);
+    if (isNaN(date)) {
+      for (var i = 0; i < altInputFormats.length; i++) {
+        date = dateParser.parse(viewValue, altInputFormats[i], scope.date);
+        if (!isNaN(date)) {
+          return date;
+        }
+      }
+    }
+    return date;
   }
 
   function parseDate(viewValue) {
@@ -45804,18 +47957,20 @@ function(scope, element, attrs, $compile, $parse, $document, $rootScope, $positi
 
     if (!viewValue) {
       return null;
-    } else if (angular.isDate(viewValue) && !isNaN(viewValue)) {
-      return viewValue;
-    } else if (angular.isString(viewValue)) {
-      var date = dateParser.parse(viewValue, dateFormat, scope.date);
-      if (isNaN(date)) {
-        return undefined;
-      } else {
-        return date;
-      }
-    } else {
-      return undefined;
     }
+
+    if (angular.isDate(viewValue) && !isNaN(viewValue)) {
+      return viewValue;
+    }
+
+    if (angular.isString(viewValue)) {
+      var date = parseDateString(viewValue);
+      if (!isNaN(date)) {
+        return dateParser.toTimezone(date, ngModelOptions.timezone);
+      }
+    }
+
+    return ngModel.$options && ngModel.$options.allowInvalid ? viewValue : undefined;
   }
 
   function validator(modelValue, viewValue) {
@@ -45828,19 +47983,27 @@ function(scope, element, attrs, $compile, $parse, $document, $rootScope, $positi
     if (angular.isNumber(value)) {
       value = new Date(value);
     }
+
     if (!value) {
       return true;
-    } else if (angular.isDate(value) && !isNaN(value)) {
-      return true;
-    } else if (angular.isString(value)) {
-      var date = dateParser.parse(value, dateFormat);
-      return !isNaN(date);
-    } else {
-      return false;
     }
+
+    if (angular.isDate(value) && !isNaN(value)) {
+      return true;
+    }
+
+    if (angular.isString(value)) {
+      return !isNaN(parseDateString(viewValue));
+    }
+
+    return false;
   }
 
   function documentClickBind(event) {
+    if (!scope.isOpen && scope.disabled) {
+      return;
+    }
+
     var popup = $popup[0];
     var dpContainsTarget = element[0].contains(event.target);
     // The popup node may not be an element node
@@ -45876,6 +48039,7 @@ function(scope, element, attrs, $compile, $parse, $document, $rootScope, $positi
     require: ['ngModel', 'uibDatepickerPopup'],
     controller: 'UibDatepickerPopupController',
     scope: {
+      datepickerOptions: '=?',
       isOpen: '=?',
       currentText: '@',
       clearText: '@',
@@ -45897,338 +48061,37 @@ function(scope, element, attrs, $compile, $parse, $document, $rootScope, $positi
     replace: true,
     transclude: true,
     templateUrl: function(element, attrs) {
-      return attrs.templateUrl || 'template/datepicker/popup.html';
+      return attrs.templateUrl || 'uib/template/datepicker/popup.html';
     }
   };
 });
 
-/* Deprecated datepicker below */
+angular.module('ui.bootstrap.debounce', [])
+/**
+ * A helper, internal service that debounces a function
+ */
+  .factory('$$debounce', ['$timeout', function($timeout) {
+    return function(callback, debounceTime) {
+      var timeoutPromise;
 
-angular.module('ui.bootstrap.datepicker')
-
-.value('$datepickerSuppressWarning', false)
-
-.controller('DatepickerController', ['$scope', '$attrs', '$parse', '$interpolate', '$log', 'dateFilter', 'uibDatepickerConfig', '$datepickerSuppressError', '$datepickerSuppressWarning', function($scope, $attrs, $parse, $interpolate, $log, dateFilter, datepickerConfig, $datepickerSuppressError, $datepickerSuppressWarning) {
-  if (!$datepickerSuppressWarning) {
-    $log.warn('DatepickerController is now deprecated. Use UibDatepickerController instead.');
-  }
-
-  var self = this,
-    ngModelCtrl = { $setViewValue: angular.noop }; // nullModelCtrl;
-
-  this.modes = ['day', 'month', 'year'];
-
-  angular.forEach(['formatDay', 'formatMonth', 'formatYear', 'formatDayHeader', 'formatDayTitle', 'formatMonthTitle',
-    'showWeeks', 'startingDay', 'yearRange', 'shortcutPropagation'], function(key, index) {
-    self[key] = angular.isDefined($attrs[key]) ? (index < 6 ? $interpolate($attrs[key])($scope.$parent) : $scope.$parent.$eval($attrs[key])) : datepickerConfig[key];
-  });
-
-  angular.forEach(['minDate', 'maxDate'], function(key) {
-    if ($attrs[key]) {
-      $scope.$parent.$watch($parse($attrs[key]), function(value) {
-        self[key] = value ? new Date(value) : null;
-        self.refreshView();
-      });
-    } else {
-      self[key] = datepickerConfig[key] ? new Date(datepickerConfig[key]) : null;
-    }
-  });
-
-  angular.forEach(['minMode', 'maxMode'], function(key) {
-    if ($attrs[key]) {
-      $scope.$parent.$watch($parse($attrs[key]), function(value) {
-        self[key] = angular.isDefined(value) ? value : $attrs[key];
-        $scope[key] = self[key];
-        if ((key == 'minMode' && self.modes.indexOf($scope.datepickerMode) < self.modes.indexOf(self[key])) || (key == 'maxMode' && self.modes.indexOf($scope.datepickerMode) > self.modes.indexOf(self[key]))) {
-          $scope.datepickerMode = self[key];
+      return function() {
+        var self = this;
+        var args = Array.prototype.slice.call(arguments);
+        if (timeoutPromise) {
+          $timeout.cancel(timeoutPromise);
         }
-      });
-    } else {
-      self[key] = datepickerConfig[key] || null;
-      $scope[key] = self[key];
-    }
-  });
 
-  $scope.datepickerMode = $scope.datepickerMode || datepickerConfig.datepickerMode;
-  $scope.uniqueId = 'datepicker-' + $scope.$id + '-' + Math.floor(Math.random() * 10000);
-
-  if (angular.isDefined($attrs.initDate)) {
-    this.activeDate = $scope.$parent.$eval($attrs.initDate) || new Date();
-    $scope.$parent.$watch($attrs.initDate, function(initDate) {
-      if (initDate && (ngModelCtrl.$isEmpty(ngModelCtrl.$modelValue) || ngModelCtrl.$invalid)) {
-        self.activeDate = initDate;
-        self.refreshView();
-      }
-    });
-  } else {
-    this.activeDate = new Date();
-  }
-
-  $scope.isActive = function(dateObject) {
-    if (self.compare(dateObject.date, self.activeDate) === 0) {
-      $scope.activeDateId = dateObject.uid;
-      return true;
-    }
-    return false;
-  };
-
-  this.init = function(ngModelCtrl_) {
-    ngModelCtrl = ngModelCtrl_;
-
-    ngModelCtrl.$render = function() {
-      self.render();
+        timeoutPromise = $timeout(function() {
+          callback.apply(self, args);
+        }, debounceTime);
+      };
     };
-  };
-
-  this.render = function() {
-    if (ngModelCtrl.$viewValue) {
-      var date = new Date(ngModelCtrl.$viewValue),
-        isValid = !isNaN(date);
-
-      if (isValid) {
-        this.activeDate = date;
-      } else if (!$datepickerSuppressError) {
-        $log.error('Datepicker directive: "ng-model" value must be a Date object, a number of milliseconds since 01.01.1970 or a string representing an RFC2822 or ISO 8601 date.');
-      }
-    }
-    this.refreshView();
-  };
-
-  this.refreshView = function() {
-    if (this.element) {
-      this._refreshView();
-
-      var date = ngModelCtrl.$viewValue ? new Date(ngModelCtrl.$viewValue) : null;
-      ngModelCtrl.$setValidity('dateDisabled', !date || (this.element && !this.isDisabled(date)));
-    }
-  };
-
-  this.createDateObject = function(date, format) {
-    var model = ngModelCtrl.$viewValue ? new Date(ngModelCtrl.$viewValue) : null;
-    return {
-      date: date,
-      label: dateFilter(date, format),
-      selected: model && this.compare(date, model) === 0,
-      disabled: this.isDisabled(date),
-      current: this.compare(date, new Date()) === 0,
-      customClass: this.customClass(date)
-    };
-  };
-
-  this.isDisabled = function(date) {
-    return ((this.minDate && this.compare(date, this.minDate) < 0) || (this.maxDate && this.compare(date, this.maxDate) > 0) || ($attrs.dateDisabled && $scope.dateDisabled({date: date, mode: $scope.datepickerMode})));
-  };
-
-  this.customClass = function(date) {
-    return $scope.customClass({date: date, mode: $scope.datepickerMode});
-  };
-
-  // Split array into smaller arrays
-  this.split = function(arr, size) {
-    var arrays = [];
-    while (arr.length > 0) {
-      arrays.push(arr.splice(0, size));
-    }
-    return arrays;
-  };
-
-  this.fixTimeZone = function(date) {
-    var hours = date.getHours();
-    date.setHours(hours === 23 ? hours + 2 : 0);
-  };
-
-  $scope.select = function(date) {
-    if ($scope.datepickerMode === self.minMode) {
-      var dt = ngModelCtrl.$viewValue ? new Date(ngModelCtrl.$viewValue) : new Date(0, 0, 0, 0, 0, 0, 0);
-      dt.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
-      ngModelCtrl.$setViewValue(dt);
-      ngModelCtrl.$render();
-    } else {
-      self.activeDate = date;
-      $scope.datepickerMode = self.modes[self.modes.indexOf($scope.datepickerMode) - 1];
-    }
-  };
-
-  $scope.move = function(direction) {
-    var year = self.activeDate.getFullYear() + direction * (self.step.years || 0),
-      month = self.activeDate.getMonth() + direction * (self.step.months || 0);
-    self.activeDate.setFullYear(year, month, 1);
-    self.refreshView();
-  };
-
-  $scope.toggleMode = function(direction) {
-    direction = direction || 1;
-
-    if (($scope.datepickerMode === self.maxMode && direction === 1) || ($scope.datepickerMode === self.minMode && direction === -1)) {
-      return;
-    }
-
-    $scope.datepickerMode = self.modes[self.modes.indexOf($scope.datepickerMode) + direction];
-  };
-
-  // Key event mapper
-  $scope.keys = { 13: 'enter', 32: 'space', 33: 'pageup', 34: 'pagedown', 35: 'end', 36: 'home', 37: 'left', 38: 'up', 39: 'right', 40: 'down' };
-
-  var focusElement = function() {
-    self.element[0].focus();
-  };
-
-  $scope.$on('uib:datepicker.focus', focusElement);
-
-  $scope.keydown = function(evt) {
-    var key = $scope.keys[evt.which];
-
-    if (!key || evt.shiftKey || evt.altKey) {
-      return;
-    }
-
-    evt.preventDefault();
-    if (!self.shortcutPropagation) {
-      evt.stopPropagation();
-    }
-
-    if (key === 'enter' || key === 'space') {
-      if (self.isDisabled(self.activeDate)) {
-        return; // do nothing
-      }
-      $scope.select(self.activeDate);
-    } else if (evt.ctrlKey && (key === 'up' || key === 'down')) {
-      $scope.toggleMode(key === 'up' ? 1 : -1);
-    } else {
-      self.handleKeyDown(key, evt);
-      self.refreshView();
-    }
-  };
-}])
-
-.directive('datepicker', ['$log', '$datepickerSuppressWarning', function($log, $datepickerSuppressWarning) {
-  return {
-    replace: true,
-    templateUrl: function(element, attrs) {
-      return attrs.templateUrl || 'template/datepicker/datepicker.html';
-    },
-    scope: {
-      datepickerMode: '=?',
-      dateDisabled: '&',
-      customClass: '&',
-      shortcutPropagation: '&?'
-    },
-    require: ['datepicker', '^ngModel'],
-    controller: 'DatepickerController',
-    controllerAs: 'datepicker',
-    link: function(scope, element, attrs, ctrls) {
-      if (!$datepickerSuppressWarning) {
-        $log.warn('datepicker is now deprecated. Use uib-datepicker instead.');
-      }
-
-      var datepickerCtrl = ctrls[0], ngModelCtrl = ctrls[1];
-
-      datepickerCtrl.init(ngModelCtrl);
-    }
-  };
-}])
-
-.directive('daypicker', ['$log', '$datepickerSuppressWarning', function($log, $datepickerSuppressWarning) {
-  return {
-    replace: true,
-    templateUrl: 'template/datepicker/day.html',
-    require: ['^datepicker', 'daypicker'],
-    controller: 'UibDaypickerController',
-    link: function(scope, element, attrs, ctrls) {
-      if (!$datepickerSuppressWarning) {
-        $log.warn('daypicker is now deprecated. Use uib-daypicker instead.');
-      }
-
-      var datepickerCtrl = ctrls[0],
-        daypickerCtrl = ctrls[1];
-
-      daypickerCtrl.init(datepickerCtrl);
-    }
-  };
-}])
-
-.directive('monthpicker', ['$log', '$datepickerSuppressWarning', function($log, $datepickerSuppressWarning) {
-  return {
-    replace: true,
-    templateUrl: 'template/datepicker/month.html',
-    require: ['^datepicker', 'monthpicker'],
-    controller: 'UibMonthpickerController',
-    link: function(scope, element, attrs, ctrls) {
-      if (!$datepickerSuppressWarning) {
-        $log.warn('monthpicker is now deprecated. Use uib-monthpicker instead.');
-      }
-
-      var datepickerCtrl = ctrls[0],
-        monthpickerCtrl = ctrls[1];
-
-      monthpickerCtrl.init(datepickerCtrl);
-    }
-  };
-}])
-
-.directive('yearpicker', ['$log', '$datepickerSuppressWarning', function($log, $datepickerSuppressWarning) {
-  return {
-    replace: true,
-    templateUrl: 'template/datepicker/year.html',
-    require: ['^datepicker', 'yearpicker'],
-    controller: 'UibYearpickerController',
-    link: function(scope, element, attrs, ctrls) {
-      if (!$datepickerSuppressWarning) {
-        $log.warn('yearpicker is now deprecated. Use uib-yearpicker instead.');
-      }
-
-      var ctrl = ctrls[0];
-      angular.extend(ctrl, ctrls[1]);
-      ctrl.yearpickerInit();
-
-      ctrl.refreshView();
-    }
-  };
-}])
-
-.directive('datepickerPopup', ['$log', '$datepickerSuppressWarning', function($log, $datepickerSuppressWarning) {
-  return {
-    require: ['ngModel', 'datepickerPopup'],
-    controller: 'UibDatepickerPopupController',
-    scope: {
-      isOpen: '=?',
-      currentText: '@',
-      clearText: '@',
-      closeText: '@',
-      dateDisabled: '&',
-      customClass: '&'
-    },
-    link: function(scope, element, attrs, ctrls) {
-      if (!$datepickerSuppressWarning) {
-        $log.warn('datepicker-popup is now deprecated. Use uib-datepicker-popup instead.');
-      }
-
-      var ngModel = ctrls[0],
-        ctrl = ctrls[1];
-
-      ctrl.init(ngModel);
-    }
-  };
-}])
-
-.directive('datepickerPopupWrap', ['$log', '$datepickerSuppressWarning', function($log, $datepickerSuppressWarning) {
-  return {
-    replace: true,
-    transclude: true,
-    templateUrl: function(element, attrs) {
-      return attrs.templateUrl || 'template/datepicker/popup.html';
-    },
-    link: function() {
-      if (!$datepickerSuppressWarning) {
-        $log.warn('datepicker-popup-wrap is now deprecated. Use uib-datepicker-popup-wrap instead.');
-      }
-    }
-  };
-}]);
+  }]);
 
 angular.module('ui.bootstrap.dropdown', ['ui.bootstrap.position'])
 
 .constant('uibDropdownConfig', {
+  appendToOpenClass: 'uib-dropdown-open',
   openClass: 'open'
 })
 
@@ -46237,8 +48100,8 @@ angular.module('ui.bootstrap.dropdown', ['ui.bootstrap.position'])
 
   this.open = function(dropdownScope) {
     if (!openScope) {
-      $document.bind('click', closeDropdown);
-      $document.bind('keydown', keybindFilter);
+      $document.on('click', closeDropdown);
+      $document.on('keydown', keybindFilter);
     }
 
     if (openScope && openScope !== dropdownScope) {
@@ -46251,8 +48114,8 @@ angular.module('ui.bootstrap.dropdown', ['ui.bootstrap.position'])
   this.close = function(dropdownScope) {
     if (openScope === dropdownScope) {
       openScope = null;
-      $document.unbind('click', closeDropdown);
-      $document.unbind('keydown', keybindFilter);
+      $document.off('click', closeDropdown);
+      $document.off('keydown', keybindFilter);
     }
   };
 
@@ -46261,7 +48124,9 @@ angular.module('ui.bootstrap.dropdown', ['ui.bootstrap.position'])
     // unbound this event handler. So check openScope before proceeding.
     if (!openScope) { return; }
 
-    if (evt && openScope.getAutoClose() === 'disabled')  { return ; }
+    if (evt && openScope.getAutoClose() === 'disabled') { return; }
+
+    if (evt && evt.which === 3) { return; }
 
     var toggleElement = openScope.getToggleElement();
     if (evt && toggleElement && toggleElement[0].contains(evt.target)) {
@@ -46285,7 +48150,7 @@ angular.module('ui.bootstrap.dropdown', ['ui.bootstrap.position'])
     if (evt.which === 27) {
       openScope.focusToggleElement();
       closeDropdown();
-    } else if (openScope.isKeynavEnabled() && /(38|40)/.test(evt.which) && openScope.isOpen) {
+    } else if (openScope.isKeynavEnabled() && [38, 40].indexOf(evt.which) !== -1 && openScope.isOpen) {
       evt.preventDefault();
       evt.stopPropagation();
       openScope.focusDropdownEntry(evt.which);
@@ -46297,14 +48162,16 @@ angular.module('ui.bootstrap.dropdown', ['ui.bootstrap.position'])
   var self = this,
     scope = $scope.$new(), // create a child scope so we are not polluting original one
     templateScope,
+    appendToOpenClass = dropdownConfig.appendToOpenClass,
     openClass = dropdownConfig.openClass,
     getIsOpen,
     setIsOpen = angular.noop,
     toggleInvoker = $attrs.onToggle ? $parse($attrs.onToggle) : angular.noop,
     appendToBody = false,
-    keynavEnabled =false,
-    selectedOption = null;
-
+    appendTo = null,
+    keynavEnabled = false,
+    selectedOption = null,
+    body = $document.find('body');
 
   $element.addClass('dropdown');
 
@@ -46318,11 +48185,22 @@ angular.module('ui.bootstrap.dropdown', ['ui.bootstrap.position'])
       });
     }
 
-    appendToBody = angular.isDefined($attrs.dropdownAppendToBody);
-    keynavEnabled = angular.isDefined($attrs.uibKeyboardNav);
+    if (angular.isDefined($attrs.dropdownAppendTo)) {
+      var appendToEl = $parse($attrs.dropdownAppendTo)(scope);
+      if (appendToEl) {
+        appendTo = angular.element(appendToEl);
+      }
+    }
 
-    if (appendToBody && self.dropdownMenu) {
-      $document.find('body').append(self.dropdownMenu);
+    appendToBody = angular.isDefined($attrs.dropdownAppendToBody);
+    keynavEnabled = angular.isDefined($attrs.keyboardNav);
+
+    if (appendToBody && !appendTo) {
+      appendTo = body;
+    }
+
+    if (appendTo && self.dropdownMenu) {
+      appendTo.append(self.dropdownMenu);
       $element.on('$destroy', function handleDestroyEvent() {
         self.dropdownMenu.remove();
       });
@@ -46356,21 +48234,21 @@ angular.module('ui.bootstrap.dropdown', ['ui.bootstrap.position'])
 
   scope.focusDropdownEntry = function(keyCode) {
     var elems = self.dropdownMenu ? //If append to body is used.
-      (angular.element(self.dropdownMenu).find('a')) :
-      (angular.element($element).find('ul').eq(0).find('a'));
+      angular.element(self.dropdownMenu).find('a') :
+      $element.find('ul').eq(0).find('a');
 
     switch (keyCode) {
-      case (40): {
+      case 40: {
         if (!angular.isNumber(self.selectedOption)) {
           self.selectedOption = 0;
         } else {
-          self.selectedOption = (self.selectedOption === elems.length - 1 ?
+          self.selectedOption = self.selectedOption === elems.length - 1 ?
             self.selectedOption :
-            self.selectedOption + 1);
+            self.selectedOption + 1;
         }
         break;
       }
-      case (38): {
+      case 38: {
         if (!angular.isNumber(self.selectedOption)) {
           self.selectedOption = elems.length - 1;
         } else {
@@ -46394,26 +48272,47 @@ angular.module('ui.bootstrap.dropdown', ['ui.bootstrap.position'])
   };
 
   scope.$watch('isOpen', function(isOpen, wasOpen) {
-    if (appendToBody && self.dropdownMenu) {
-      var pos = $position.positionElements($element, self.dropdownMenu, 'bottom-left', true);
-      var css = {
+    if (appendTo && self.dropdownMenu) {
+      var pos = $position.positionElements($element, self.dropdownMenu, 'bottom-left', true),
+        css,
+        rightalign;
+
+      css = {
         top: pos.top + 'px',
         display: isOpen ? 'block' : 'none'
       };
 
-      var rightalign = self.dropdownMenu.hasClass('dropdown-menu-right');
+      rightalign = self.dropdownMenu.hasClass('dropdown-menu-right');
       if (!rightalign) {
         css.left = pos.left + 'px';
         css.right = 'auto';
       } else {
         css.left = 'auto';
-        css.right = (window.innerWidth - (pos.left + $element.prop('offsetWidth'))) + 'px';
+        css.right = window.innerWidth -
+          (pos.left + $element.prop('offsetWidth')) + 'px';
+      }
+
+      // Need to adjust our positioning to be relative to the appendTo container
+      // if it's not the body element
+      if (!appendToBody) {
+        var appendOffset = $position.offset(appendTo);
+
+        css.top = pos.top - appendOffset.top + 'px';
+
+        if (!rightalign) {
+          css.left = pos.left - appendOffset.left + 'px';
+        } else {
+          css.right = window.innerWidth -
+            (pos.left - appendOffset.left + $element.prop('offsetWidth')) + 'px';
+        }
       }
 
       self.dropdownMenu.css(css);
     }
 
-    $animate[isOpen ? 'addClass' : 'removeClass']($element, openClass).then(function() {
+    var openContainer = appendTo ? appendTo : $element;
+
+    $animate[isOpen ? 'addClass' : 'removeClass'](openContainer, appendTo ? appendToOpenClass : openClass).then(function() {
       if (angular.isDefined(isOpen) && isOpen !== wasOpen) {
         toggleInvoker($scope, { open: !!isOpen });
       }
@@ -46457,11 +48356,6 @@ angular.module('ui.bootstrap.dropdown', ['ui.bootstrap.position'])
       scope.isOpen = false;
     }
   });
-
-  var offDestroy = $scope.$on('$destroy', function() {
-    scope.$destroy();
-  });
-  scope.$on('$destroy', offDestroy);
 }])
 
 .directive('uibDropdown', function() {
@@ -46475,7 +48369,7 @@ angular.module('ui.bootstrap.dropdown', ['ui.bootstrap.position'])
 
 .directive('uibDropdownMenu', function() {
   return {
-    restrict: 'AC',
+    restrict: 'A',
     require: '?^uibDropdown',
     link: function(scope, element, attrs, dropdownCtrl) {
       if (!dropdownCtrl || angular.isDefined(attrs.dropdownNested)) {
@@ -46492,45 +48386,6 @@ angular.module('ui.bootstrap.dropdown', ['ui.bootstrap.position'])
       if (!dropdownCtrl.dropdownMenu) {
         dropdownCtrl.dropdownMenu = element;
       }
-    }
-  };
-})
-
-.directive('uibKeyboardNav', function() {
-  return {
-    restrict: 'A',
-    require: '?^uibDropdown',
-    link: function(scope, element, attrs, dropdownCtrl) {
-      element.bind('keydown', function(e) {
-        if ([38, 40].indexOf(e.which) !== -1) {
-          e.preventDefault();
-          e.stopPropagation();
-
-          var elems = dropdownCtrl.dropdownMenu.find('a');
-
-          switch (e.which) {
-            case (40): { // Down
-              if (!angular.isNumber(dropdownCtrl.selectedOption)) {
-                dropdownCtrl.selectedOption = 0;
-              } else {
-                dropdownCtrl.selectedOption = dropdownCtrl.selectedOption === elems.length -1 ?
-                  dropdownCtrl.selectedOption : dropdownCtrl.selectedOption + 1;
-              }
-              break;
-            }
-            case (38): { // Up
-              if (!angular.isNumber(dropdownCtrl.selectedOption)) {
-                dropdownCtrl.selectedOption = elems.length - 1;
-              } else {
-                dropdownCtrl.selectedOption = dropdownCtrl.selectedOption === 0 ?
-                  0 : dropdownCtrl.selectedOption - 1;
-              }
-              break;
-            }
-          }
-          elems[dropdownCtrl.selectedOption].focus();
-        }
-      });
     }
   };
 })
@@ -46572,319 +48427,6 @@ angular.module('ui.bootstrap.dropdown', ['ui.bootstrap.position'])
   };
 });
 
-/* Deprecated dropdown below */
-
-angular.module('ui.bootstrap.dropdown')
-
-.value('$dropdownSuppressWarning', false)
-
-.service('dropdownService', ['$log', '$dropdownSuppressWarning', 'uibDropdownService', function($log, $dropdownSuppressWarning, uibDropdownService) {
-  if (!$dropdownSuppressWarning) {
-    $log.warn('dropdownService is now deprecated. Use uibDropdownService instead.');
-  }
-
-  angular.extend(this, uibDropdownService);
-}])
-
-.controller('DropdownController', ['$scope', '$element', '$attrs', '$parse', 'uibDropdownConfig', 'uibDropdownService', '$animate', '$uibPosition', '$document', '$compile', '$templateRequest', '$log', '$dropdownSuppressWarning', function($scope, $element, $attrs, $parse, dropdownConfig, uibDropdownService, $animate, $position, $document, $compile, $templateRequest, $log, $dropdownSuppressWarning) {
-  if (!$dropdownSuppressWarning) {
-    $log.warn('DropdownController is now deprecated. Use UibDropdownController instead.');
-  }
-
-  var self = this,
-    scope = $scope.$new(), // create a child scope so we are not polluting original one
-    templateScope,
-    openClass = dropdownConfig.openClass,
-    getIsOpen,
-    setIsOpen = angular.noop,
-    toggleInvoker = $attrs.onToggle ? $parse($attrs.onToggle) : angular.noop,
-    appendToBody = false,
-    keynavEnabled =false,
-    selectedOption = null;
-
-
-  $element.addClass('dropdown');
-
-  this.init = function() {
-    if ($attrs.isOpen) {
-      getIsOpen = $parse($attrs.isOpen);
-      setIsOpen = getIsOpen.assign;
-
-      $scope.$watch(getIsOpen, function(value) {
-        scope.isOpen = !!value;
-      });
-    }
-
-    appendToBody = angular.isDefined($attrs.dropdownAppendToBody);
-    keynavEnabled = angular.isDefined($attrs.uibKeyboardNav);
-
-    if (appendToBody && self.dropdownMenu) {
-      $document.find('body').append(self.dropdownMenu);
-      $element.on('$destroy', function handleDestroyEvent() {
-        self.dropdownMenu.remove();
-      });
-    }
-  };
-
-  this.toggle = function(open) {
-    return scope.isOpen = arguments.length ? !!open : !scope.isOpen;
-  };
-
-  // Allow other directives to watch status
-  this.isOpen = function() {
-    return scope.isOpen;
-  };
-
-  scope.getToggleElement = function() {
-    return self.toggleElement;
-  };
-
-  scope.getAutoClose = function() {
-    return $attrs.autoClose || 'always'; //or 'outsideClick' or 'disabled'
-  };
-
-  scope.getElement = function() {
-    return $element;
-  };
-
-  scope.isKeynavEnabled = function() {
-    return keynavEnabled;
-  };
-
-  scope.focusDropdownEntry = function(keyCode) {
-    var elems = self.dropdownMenu ? //If append to body is used.
-      (angular.element(self.dropdownMenu).find('a')) :
-      (angular.element($element).find('ul').eq(0).find('a'));
-
-    switch (keyCode) {
-      case (40): {
-        if (!angular.isNumber(self.selectedOption)) {
-          self.selectedOption = 0;
-        } else {
-          self.selectedOption = (self.selectedOption === elems.length -1 ?
-            self.selectedOption :
-          self.selectedOption + 1);
-        }
-        break;
-      }
-      case (38): {
-        if (!angular.isNumber(self.selectedOption)) {
-          self.selectedOption = elems.length - 1;
-        } else {
-          self.selectedOption = self.selectedOption === 0 ?
-            0 : self.selectedOption - 1;
-        }
-        break;
-      }
-    }
-    elems[self.selectedOption].focus();
-  };
-
-  scope.getDropdownElement = function() {
-    return self.dropdownMenu;
-  };
-
-  scope.focusToggleElement = function() {
-    if (self.toggleElement) {
-      self.toggleElement[0].focus();
-    }
-  };
-
-  scope.$watch('isOpen', function(isOpen, wasOpen) {
-    if (appendToBody && self.dropdownMenu) {
-      var pos = $position.positionElements($element, self.dropdownMenu, 'bottom-left', true);
-      var css = {
-        top: pos.top + 'px',
-        display: isOpen ? 'block' : 'none'
-      };
-
-      var rightalign = self.dropdownMenu.hasClass('dropdown-menu-right');
-      if (!rightalign) {
-        css.left = pos.left + 'px';
-        css.right = 'auto';
-      } else {
-        css.left = 'auto';
-        css.right = (window.innerWidth - (pos.left + $element.prop('offsetWidth'))) + 'px';
-      }
-
-      self.dropdownMenu.css(css);
-    }
-
-    $animate[isOpen ? 'addClass' : 'removeClass']($element, openClass).then(function() {
-      if (angular.isDefined(isOpen) && isOpen !== wasOpen) {
-        toggleInvoker($scope, { open: !!isOpen });
-      }
-    });
-
-    if (isOpen) {
-      if (self.dropdownMenuTemplateUrl) {
-        $templateRequest(self.dropdownMenuTemplateUrl).then(function(tplContent) {
-          templateScope = scope.$new();
-          $compile(tplContent.trim())(templateScope, function(dropdownElement) {
-            var newEl = dropdownElement;
-            self.dropdownMenu.replaceWith(newEl);
-            self.dropdownMenu = newEl;
-          });
-        });
-      }
-
-      scope.focusToggleElement();
-      uibDropdownService.open(scope);
-    } else {
-      if (self.dropdownMenuTemplateUrl) {
-        if (templateScope) {
-          templateScope.$destroy();
-        }
-        var newEl = angular.element('<ul class="dropdown-menu"></ul>');
-        self.dropdownMenu.replaceWith(newEl);
-        self.dropdownMenu = newEl;
-      }
-
-      uibDropdownService.close(scope);
-      self.selectedOption = null;
-    }
-
-    if (angular.isFunction(setIsOpen)) {
-      setIsOpen($scope, isOpen);
-    }
-  });
-
-  $scope.$on('$locationChangeSuccess', function() {
-    if (scope.getAutoClose() !== 'disabled') {
-      scope.isOpen = false;
-    }
-  });
-
-  var offDestroy = $scope.$on('$destroy', function() {
-    scope.$destroy();
-  });
-  scope.$on('$destroy', offDestroy);
-}])
-
-.directive('dropdown', ['$log', '$dropdownSuppressWarning', function($log, $dropdownSuppressWarning) {
-  return {
-    controller: 'DropdownController',
-    link: function(scope, element, attrs, dropdownCtrl) {
-      if (!$dropdownSuppressWarning) {
-        $log.warn('dropdown is now deprecated. Use uib-dropdown instead.');
-      }
-
-      dropdownCtrl.init();
-    }
-  };
-}])
-
-.directive('dropdownMenu', ['$log', '$dropdownSuppressWarning', function($log, $dropdownSuppressWarning) {
-  return {
-    restrict: 'AC',
-    require: '?^dropdown',
-    link: function(scope, element, attrs, dropdownCtrl) {
-      if (!dropdownCtrl || angular.isDefined(attrs.dropdownNested)) {
-        return;
-      }
-
-      if (!$dropdownSuppressWarning) {
-        $log.warn('dropdown-menu is now deprecated. Use uib-dropdown-menu instead.');
-      }
-
-      element.addClass('dropdown-menu');
-
-      var tplUrl = attrs.templateUrl;
-      if (tplUrl) {
-        dropdownCtrl.dropdownMenuTemplateUrl = tplUrl;
-      }
-
-      if (!dropdownCtrl.dropdownMenu) {
-        dropdownCtrl.dropdownMenu = element;
-      }
-    }
-  };
-}])
-
-.directive('keyboardNav', ['$log', '$dropdownSuppressWarning', function($log, $dropdownSuppressWarning) {
-  return {
-    restrict: 'A',
-    require: '?^dropdown',
-    link: function(scope, element, attrs, dropdownCtrl) {
-      if (!$dropdownSuppressWarning) {
-        $log.warn('keyboard-nav is now deprecated. Use uib-keyboard-nav instead.');
-      }
-
-      element.bind('keydown', function(e) {
-        if ([38, 40].indexOf(e.which) !== -1) {
-          e.preventDefault();
-          e.stopPropagation();
-
-          var elems = dropdownCtrl.dropdownMenu.find('a');
-
-          switch (e.which) {
-            case (40): { // Down
-              if (!angular.isNumber(dropdownCtrl.selectedOption)) {
-                dropdownCtrl.selectedOption = 0;
-              } else {
-                dropdownCtrl.selectedOption = dropdownCtrl.selectedOption === elems.length -1 ?
-                  dropdownCtrl.selectedOption : dropdownCtrl.selectedOption + 1;
-              }
-              break;
-            }
-            case (38): { // Up
-              if (!angular.isNumber(dropdownCtrl.selectedOption)) {
-                dropdownCtrl.selectedOption = elems.length - 1;
-              } else {
-                dropdownCtrl.selectedOption = dropdownCtrl.selectedOption === 0 ?
-                  0 : dropdownCtrl.selectedOption - 1;
-              }
-              break;
-            }
-          }
-          elems[dropdownCtrl.selectedOption].focus();
-        }
-      });
-    }
-  };
-}])
-
-.directive('dropdownToggle', ['$log', '$dropdownSuppressWarning', function($log, $dropdownSuppressWarning) {
-  return {
-    require: '?^dropdown',
-    link: function(scope, element, attrs, dropdownCtrl) {
-      if (!$dropdownSuppressWarning) {
-        $log.warn('dropdown-toggle is now deprecated. Use uib-dropdown-toggle instead.');
-      }
-
-      if (!dropdownCtrl) {
-        return;
-      }
-
-      element.addClass('dropdown-toggle');
-
-      dropdownCtrl.toggleElement = element;
-
-      var toggleDropdown = function(event) {
-        event.preventDefault();
-
-        if (!element.hasClass('disabled') && !attrs.disabled) {
-          scope.$apply(function() {
-            dropdownCtrl.toggle();
-          });
-        }
-      };
-
-      element.bind('click', toggleDropdown);
-
-      // WAI-ARIA
-      element.attr({ 'aria-haspopup': true, 'aria-expanded': false });
-      scope.$watch(dropdownCtrl.isOpen, function(isOpen) {
-        element.attr('aria-expanded', !!isOpen);
-      });
-
-      scope.$on('$destroy', function() {
-        element.unbind('click', toggleDropdown);
-      });
-    }
-  };
-}]);
-
 angular.module('ui.bootstrap.stackedMap', [])
 /**
  * A helper, internal data structure that acts as a map but also allows getting / removing
@@ -46904,7 +48446,7 @@ angular.module('ui.bootstrap.stackedMap', [])
           },
           get: function(key) {
             for (var i = 0; i < stack.length; i++) {
-              if (key == stack[i].key) {
+              if (key === stack[i].key) {
                 return stack[i];
               }
             }
@@ -46922,7 +48464,7 @@ angular.module('ui.bootstrap.stackedMap', [])
           remove: function(key) {
             var idx = -1;
             for (var i = 0; i < stack.length; i++) {
-              if (key == stack[i].key) {
+              if (key === stack[i].key) {
                 idx = i;
                 break;
               }
@@ -46996,20 +48538,59 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
   })
 
 /**
+ * Pluggable resolve mechanism for the modal resolve resolution
+ * Supports UI Router's $resolve service
+ */
+  .provider('$uibResolve', function() {
+    var resolve = this;
+    this.resolver = null;
+
+    this.setResolver = function(resolver) {
+      this.resolver = resolver;
+    };
+
+    this.$get = ['$injector', '$q', function($injector, $q) {
+      var resolver = resolve.resolver ? $injector.get(resolve.resolver) : null;
+      return {
+        resolve: function(invocables, locals, parent, self) {
+          if (resolver) {
+            return resolver.resolve(invocables, locals, parent, self);
+          }
+
+          var promises = [];
+
+          angular.forEach(invocables, function(value) {
+            if (angular.isFunction(value) || angular.isArray(value)) {
+              promises.push($q.resolve($injector.invoke(value)));
+            } else if (angular.isString(value)) {
+              promises.push($q.resolve($injector.get(value)));
+            } else {
+              promises.push($q.resolve(value));
+            }
+          });
+
+          return $q.all(promises).then(function(resolves) {
+            var resolveObj = {};
+            var resolveIter = 0;
+            angular.forEach(invocables, function(value, key) {
+              resolveObj[key] = resolves[resolveIter++];
+            });
+
+            return resolveObj;
+          });
+        }
+      };
+    }];
+  })
+
+/**
  * A helper directive for the $modal service. It creates a backdrop element.
  */
-  .directive('uibModalBackdrop', [
-           '$animate', '$injector', '$uibModalStack',
-  function($animate ,  $injector,   $modalStack) {
-    var $animateCss = null;
-
-    if ($injector.has('$animateCss')) {
-      $animateCss = $injector.get('$animateCss');
-    }
-
+  .directive('uibModalBackdrop', ['$animateCss', '$injector', '$uibModalStack',
+  function($animateCss, $injector, $modalStack) {
     return {
       replace: true,
-      templateUrl: 'template/modal/backdrop.html',
+      templateUrl: 'uib/template/modal/backdrop.html',
       compile: function(tElement, tAttrs) {
         tElement.addClass(tAttrs.backdropClass);
         return linkFn;
@@ -47017,41 +48598,27 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
     };
 
     function linkFn(scope, element, attrs) {
-      // Temporary fix for prefixing
-      element.addClass('modal-backdrop');
-
       if (attrs.modalInClass) {
-        if ($animateCss) {
-          $animateCss(element, {
-            addClass: attrs.modalInClass
-          }).start();
-        } else {
-          $animate.addClass(element, attrs.modalInClass);
-        }
+        $animateCss(element, {
+          addClass: attrs.modalInClass
+        }).start();
 
         scope.$on($modalStack.NOW_CLOSING_EVENT, function(e, setIsAsync) {
           var done = setIsAsync();
-          if ($animateCss) {
+          if (scope.modalOptions.animation) {
             $animateCss(element, {
               removeClass: attrs.modalInClass
             }).start().then(done);
           } else {
-            $animate.removeClass(element, attrs.modalInClass).then(done);
+            done();
           }
         });
       }
     }
   }])
 
-  .directive('uibModalWindow', [
-           '$uibModalStack', '$q', '$animate', '$injector',
-  function($modalStack ,  $q ,  $animate,   $injector) {
-    var $animateCss = null;
-
-    if ($injector.has('$animateCss')) {
-      $animateCss = $injector.get('$animateCss');
-    }
-
+  .directive('uibModalWindow', ['$uibModalStack', '$q', '$animate', '$animateCss', '$document',
+  function($modalStack, $q, $animate, $animateCss, $document) {
     return {
       scope: {
         index: '@'
@@ -47059,7 +48626,7 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
       replace: true,
       transclude: true,
       templateUrl: function(tElement, tAttrs) {
-        return tAttrs.templateUrl || 'template/modal/window.html';
+        return tAttrs.templateUrl || 'uib/template/modal/window.html';
       },
       link: function(scope, element, attrs) {
         element.addClass(attrs.windowClass || '');
@@ -47068,7 +48635,9 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
 
         scope.close = function(evt) {
           var modal = $modalStack.getTop();
-          if (modal && modal.value.backdrop && modal.value.backdrop !== 'static' && (evt.target === evt.currentTarget)) {
+          if (modal && modal.value.backdrop &&
+            modal.value.backdrop !== 'static' &&
+            evt.target === evt.currentTarget) {
             evt.preventDefault();
             evt.stopPropagation();
             $modalStack.dismiss(modal.key, 'backdrop click');
@@ -47088,7 +48657,7 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
         // Observe function will be called on next digest cycle after compilation, ensuring that the DOM is ready.
         // In order to use this way of finding whether DOM is ready, we need to observe a scope property used in modal's template.
         attrs.$observe('modalRender', function(value) {
-          if (value == 'true') {
+          if (value === 'true') {
             modalRenderDeferObj.resolve();
           }
         });
@@ -47097,13 +48666,9 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
           var animationPromise = null;
 
           if (attrs.modalInClass) {
-            if ($animateCss) {
-              animationPromise = $animateCss(element, {
-                addClass: attrs.modalInClass
-              }).start();
-            } else {
-              animationPromise = $animate.addClass(element, attrs.modalInClass);
-            }
+            animationPromise = $animateCss(element, {
+              addClass: attrs.modalInClass
+            }).start();
 
             scope.$on($modalStack.NOW_CLOSING_EVENT, function(e, setIsAsync) {
               var done = setIsAsync();
@@ -47119,19 +48684,25 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
 
 
           $q.when(animationPromise).then(function() {
-            var inputWithAutofocus = element[0].querySelector('[autofocus]');
             /**
-             * Auto-focusing of a freshly-opened modal element causes any child elements
-             * with the autofocus attribute to lose focus. This is an issue on touch
-             * based devices which will show and then hide the onscreen keyboard.
-             * Attempts to refocus the autofocus element via JavaScript will not reopen
-             * the onscreen keyboard. Fixed by updated the focusing logic to only autofocus
-             * the modal element if the modal does not contain an autofocus element.
+             * If something within the freshly-opened modal already has focus (perhaps via a
+             * directive that causes focus). then no need to try and focus anything.
              */
-            if (inputWithAutofocus) {
-              inputWithAutofocus.focus();
-            } else {
-              element[0].focus();
+            if (!($document[0].activeElement && element[0].contains($document[0].activeElement))) {
+              var inputWithAutofocus = element[0].querySelector('[autofocus]');
+              /**
+               * Auto-focusing of a freshly-opened modal element causes any child elements
+               * with the autofocus attribute to lose focus. This is an issue on touch
+               * based devices which will show and then hide the onscreen keyboard.
+               * Attempts to refocus the autofocus element via JavaScript will not reopen
+               * the onscreen keyboard. Fixed by updated the focusing logic to only autofocus
+               * the modal element if the modal does not contain an autofocus element.
+               */
+              if (inputWithAutofocus) {
+                inputWithAutofocus.focus();
+              } else {
+                element[0].focus();
+              }
             }
           });
 
@@ -47157,32 +48728,18 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
 
   .directive('uibModalTransclude', function() {
     return {
-      link: function($scope, $element, $attrs, controller, $transclude) {
-        $transclude($scope.$parent, function(clone) {
-          $element.empty();
-          $element.append(clone);
+      link: function(scope, element, attrs, controller, transclude) {
+        transclude(scope.$parent, function(clone) {
+          element.empty();
+          element.append(clone);
         });
       }
     };
   })
 
-  .factory('$uibModalStack', [
-             '$animate', '$timeout', '$document', '$compile', '$rootScope',
-             '$q',
-             '$injector',
-             '$$multiMap',
-             '$$stackedMap',
-    function($animate ,  $timeout ,  $document ,  $compile ,  $rootScope ,
-              $q,
-              $injector,
-              $$multiMap,
-              $$stackedMap) {
-      var $animateCss = null;
-
-      if ($injector.has('$animateCss')) {
-        $animateCss = $injector.get('$animateCss');
-      }
-
+  .factory('$uibModalStack', ['$animate', '$animateCss', '$document',
+    '$compile', '$rootScope', '$q', '$$multiMap', '$$stackedMap',
+    function($animate, $animateCss, $document, $compile, $rootScope, $q, $$multiMap, $$stackedMap) {
       var OPENED_MODAL_CLASS = 'modal-open';
 
       var backdropDomEl, backdropScope;
@@ -47217,8 +48774,8 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
       });
 
       function removeModalWindow(modalInstance, elementToReceiveFocus) {
-        var body = $document.find('body').eq(0);
         var modalWindow = openedWindows.get(modalInstance).value;
+        var appendToElement = modalWindow.appendTo;
 
         //clean up the stack
         openedWindows.remove(modalInstance);
@@ -47226,16 +48783,16 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
         removeAfterAnimate(modalWindow.modalDomEl, modalWindow.modalScope, function() {
           var modalBodyClass = modalWindow.openedClass || OPENED_MODAL_CLASS;
           openedClasses.remove(modalBodyClass, modalInstance);
-          body.toggleClass(modalBodyClass, openedClasses.hasKey(modalBodyClass));
+          appendToElement.toggleClass(modalBodyClass, openedClasses.hasKey(modalBodyClass));
           toggleTopWindowClass(true);
-        });
+        }, modalWindow.closedDeferred);
         checkRemoveBackdrop();
 
         //move focus to specified element if available, or else to body
         if (elementToReceiveFocus && elementToReceiveFocus.focus) {
           elementToReceiveFocus.focus();
-        } else {
-          body.focus();
+        } else if (appendToElement.focus) {
+          appendToElement.focus();
         }
       }
 
@@ -47251,7 +48808,7 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
 
       function checkRemoveBackdrop() {
         //remove backdrop if no longer needed
-        if (backdropDomEl && backdropIndex() == -1) {
+        if (backdropDomEl && backdropIndex() === -1) {
           var backdropScopeRef = backdropScope;
           removeAfterAnimate(backdropDomEl, backdropScope, function() {
             backdropScopeRef = null;
@@ -47261,7 +48818,7 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
         }
       }
 
-      function removeAfterAnimate(domEl, scope, done) {
+      function removeAfterAnimate(domEl, scope, done, closedDeferred) {
         var asyncDeferred;
         var asyncPromise = null;
         var setIsAsync = function() {
@@ -47287,15 +48844,15 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
           }
           afterAnimating.done = true;
 
-          if ($animateCss) {
-            $animateCss(domEl, {
-              event: 'leave'
-            }).start().then(function() {
-              domEl.remove();
-            });
-          } else {
-            $animate.leave(domEl);
-          }
+          $animateCss(domEl, {
+            event: 'leave'
+          }).start().then(function() {
+            domEl.remove();
+            if (closedDeferred) {
+              closedDeferred.resolve();
+            }
+          });
+
           scope.$destroy();
           if (done) {
             done();
@@ -47303,26 +48860,34 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
         }
       }
 
-      $document.bind('keydown', function(evt) {
+      $document.on('keydown', keydownListener);
+
+      $rootScope.$on('$destroy', function() {
+        $document.off('keydown', keydownListener);
+      });
+
+      function keydownListener(evt) {
         if (evt.isDefaultPrevented()) {
           return evt;
         }
 
         var modal = openedWindows.top();
-        if (modal && modal.value.keyboard) {
+        if (modal) {
           switch (evt.which) {
             case 27: {
-              evt.preventDefault();
-              $rootScope.$apply(function() {
-                $modalStack.dismiss(modal.key, 'escape key press');
-              });
+              if (modal.value.keyboard) {
+                evt.preventDefault();
+                $rootScope.$apply(function() {
+                  $modalStack.dismiss(modal.key, 'escape key press');
+                });
+              }
               break;
             }
             case 9: {
               $modalStack.loadFocusElementList(modal);
               var focusChanged = false;
               if (evt.shiftKey) {
-                if ($modalStack.isFocusInFirstItem(evt)) {
+                if ($modalStack.isFocusInFirstItem(evt) || $modalStack.isModalFocused(evt, modal)) {
                   focusChanged = $modalStack.focusLastFocusableElement();
                 }
               } else {
@@ -47339,7 +48904,7 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
             }
           }
         }
-      });
+      }
 
       $modalStack.open = function(modalInstance, modal) {
         var modalOpener = $document[0].activeElement,
@@ -47350,28 +48915,36 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
         openedWindows.add(modalInstance, {
           deferred: modal.deferred,
           renderDeferred: modal.renderDeferred,
+          closedDeferred: modal.closedDeferred,
           modalScope: modal.scope,
           backdrop: modal.backdrop,
           keyboard: modal.keyboard,
           openedClass: modal.openedClass,
-          windowTopClass: modal.windowTopClass
+          windowTopClass: modal.windowTopClass,
+          animation: modal.animation,
+          appendTo: modal.appendTo
         });
 
         openedClasses.put(modalBodyClass, modalInstance);
 
-        var body = $document.find('body').eq(0),
+        var appendToElement = modal.appendTo,
             currBackdropIndex = backdropIndex();
+
+        if (!appendToElement.length) {
+          throw new Error('appendTo element not found. Make sure that the element passed is in DOM.');
+        }
 
         if (currBackdropIndex >= 0 && !backdropDomEl) {
           backdropScope = $rootScope.$new(true);
+          backdropScope.modalOptions = modal;
           backdropScope.index = currBackdropIndex;
-          var angularBackgroundDomEl = angular.element('<div uib-modal-backdrop="modal-backdrop"></div>');
-          angularBackgroundDomEl.attr('backdrop-class', modal.backdropClass);
+          backdropDomEl = angular.element('<div uib-modal-backdrop="modal-backdrop"></div>');
+          backdropDomEl.attr('backdrop-class', modal.backdropClass);
           if (modal.animation) {
-            angularBackgroundDomEl.attr('modal-animation', 'true');
+            backdropDomEl.attr('modal-animation', 'true');
           }
-          backdropDomEl = $compile(angularBackgroundDomEl)(backdropScope);
-          body.append(backdropDomEl);
+          $compile(backdropDomEl)(backdropScope);
+          $animate.enter(backdropDomEl, appendToElement);
         }
 
         var angularDomEl = angular.element('<div uib-modal-window="modal-window"></div>');
@@ -47387,11 +48960,13 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
           angularDomEl.attr('modal-animation', 'true');
         }
 
-        var modalDomEl = $compile(angularDomEl)(modal.scope);
-        openedWindows.top().value.modalDomEl = modalDomEl;
+        $animate.enter($compile(angularDomEl)(modal.scope), appendToElement)
+          .then(function() {
+            $animate.addClass(appendToElement, modalBodyClass);
+          });
+
+        openedWindows.top().value.modalDomEl = angularDomEl;
         openedWindows.top().value.modalOpener = modalOpener;
-        body.append(modalDomEl);
-        body.addClass(modalBodyClass);
 
         $modalStack.clearFocusListCache();
       };
@@ -47455,16 +49030,26 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
         return false;
       };
 
+      $modalStack.isModalFocused = function(evt, modalWindow) {
+        if (evt && modalWindow) {
+          var modalDomEl = modalWindow.value.modalDomEl;
+          if (modalDomEl && modalDomEl.length) {
+            return (evt.target || evt.srcElement) === modalDomEl[0];
+          }
+        }
+        return false;
+      };
+
       $modalStack.isFocusInFirstItem = function(evt) {
         if (focusableElementList.length > 0) {
-          return (evt.target || evt.srcElement) == focusableElementList[0];
+          return (evt.target || evt.srcElement) === focusableElementList[0];
         }
         return false;
       };
 
       $modalStack.isFocusInLastItem = function(evt) {
         if (focusableElementList.length > 0) {
-          return (evt.target || evt.srcElement) == focusableElementList[focusableElementList.length - 1];
+          return (evt.target || evt.srcElement) === focusableElementList[focusableElementList.length - 1];
         }
         return false;
       };
@@ -47495,27 +49080,14 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
         backdrop: true, //can also be false or 'static'
         keyboard: true
       },
-      $get: ['$injector', '$rootScope', '$q', '$templateRequest', '$controller', '$uibModalStack', '$modalSuppressWarning', '$log',
-        function ($injector, $rootScope, $q, $templateRequest, $controller, $modalStack, $modalSuppressWarning, $log) {
+      $get: ['$rootScope', '$q', '$document', '$templateRequest', '$controller', '$uibResolve', '$uibModalStack',
+        function ($rootScope, $q, $document, $templateRequest, $controller, $uibResolve, $modalStack) {
           var $modal = {};
 
           function getTemplatePromise(options) {
             return options.template ? $q.when(options.template) :
-              $templateRequest(angular.isFunction(options.templateUrl) ? (options.templateUrl)() : options.templateUrl);
-          }
-
-          function getResolvePromises(resolves) {
-            var promisesArr = [];
-            angular.forEach(resolves, function(value) {
-              if (angular.isFunction(value) || angular.isArray(value)) {
-                promisesArr.push($q.when($injector.invoke(value)));
-              } else if (angular.isString(value)) {
-                promisesArr.push($q.when($injector.get(value)));
-              } else {
-                promisesArr.push($q.when(value));
-              }
-            });
-            return promisesArr;
+              $templateRequest(angular.isFunction(options.templateUrl) ?
+                options.templateUrl() : options.templateUrl);
           }
 
           var promiseChain = null;
@@ -47526,12 +49098,14 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
           $modal.open = function(modalOptions) {
             var modalResultDeferred = $q.defer();
             var modalOpenedDeferred = $q.defer();
+            var modalClosedDeferred = $q.defer();
             var modalRenderDeferred = $q.defer();
 
             //prepare an instance of a modal to be injected into controllers and returned to a caller
             var modalInstance = {
               result: modalResultDeferred.promise,
               opened: modalOpenedDeferred.promise,
+              closed: modalClosedDeferred.promise,
               rendered: modalRenderDeferred.promise,
               close: function (result) {
                 return $modalStack.close(modalInstance, result);
@@ -47544,6 +49118,7 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
             //merge and clean up options
             modalOptions = angular.extend({}, $modalProvider.options, modalOptions);
             modalOptions.resolve = modalOptions.resolve || {};
+            modalOptions.appendTo = modalOptions.appendTo || $document.find('body').eq(0);
 
             //verify options
             if (!modalOptions.template && !modalOptions.templateUrl) {
@@ -47551,7 +49126,7 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
             }
 
             var templateAndResolvePromise =
-              $q.all([getTemplatePromise(modalOptions)].concat(getResolvePromises(modalOptions.resolve)));
+              $q.all([getTemplatePromise(modalOptions), $uibResolve.resolve(modalOptions.resolve, {}, null, null)]);
 
             function resolveWithTemplate() {
               return templateAndResolvePromise;
@@ -47565,8 +49140,9 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
             samePromise = promiseChain = $q.all([promiseChain])
               .then(resolveWithTemplate, resolveWithTemplate)
               .then(function resolveSuccess(tplAndVars) {
+                var providedScope = modalOptions.scope || $rootScope;
 
-                var modalScope = (modalOptions.scope || $rootScope).$new();
+                var modalScope = providedScope.$new();
                 modalScope.$close = modalInstance.close;
                 modalScope.$dismiss = modalInstance.dismiss;
 
@@ -47577,29 +49153,21 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
                 });
 
                 var ctrlInstance, ctrlLocals = {};
-                var resolveIter = 1;
 
                 //controllers
                 if (modalOptions.controller) {
                   ctrlLocals.$scope = modalScope;
                   ctrlLocals.$uibModalInstance = modalInstance;
-                  Object.defineProperty(ctrlLocals, '$modalInstance', {
-                    get: function() {
-                      if (!$modalSuppressWarning) {
-                        $log.warn('$modalInstance is now deprecated. Use $uibModalInstance instead.');
-                      }
-
-                      return modalInstance;
-                    }
-                  });
-                  angular.forEach(modalOptions.resolve, function(value, key) {
-                    ctrlLocals[key] = tplAndVars[resolveIter++];
+                  angular.forEach(tplAndVars[1], function(value, key) {
+                    ctrlLocals[key] = value;
                   });
 
                   ctrlInstance = $controller(modalOptions.controller, ctrlLocals);
                   if (modalOptions.controllerAs) {
                     if (modalOptions.bindToController) {
-                      angular.extend(ctrlInstance, modalScope);
+                      ctrlInstance.$close = modalScope.$close;
+                      ctrlInstance.$dismiss = modalScope.$dismiss;
+                      angular.extend(ctrlInstance, providedScope);
                     }
 
                     modalScope[modalOptions.controllerAs] = ctrlInstance;
@@ -47610,6 +49178,7 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
                   scope: modalScope,
                   deferred: modalResultDeferred,
                   renderDeferred: modalRenderDeferred,
+                  closedDeferred: modalClosedDeferred,
                   content: tplAndVars[0],
                   animation: modalOptions.animation,
                   backdrop: modalOptions.backdrop,
@@ -47619,15 +49188,15 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
                   windowClass: modalOptions.windowClass,
                   windowTemplateUrl: modalOptions.windowTemplateUrl,
                   size: modalOptions.size,
-                  openedClass: modalOptions.openedClass
+                  openedClass: modalOptions.openedClass,
+                  appendTo: modalOptions.appendTo
                 });
                 modalOpenedDeferred.resolve(true);
 
             }, function resolveError(reason) {
               modalOpenedDeferred.reject(reason);
               modalResultDeferred.reject(reason);
-            })
-            .finally(function() {
+            })['finally'](function() {
               if (promiseChain === samePromise) {
                 promiseChain = null;
               }
@@ -47644,324 +49213,265 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.stackedMap'])
     return $modalProvider;
   });
 
-/* deprecated modal below */
+angular.module('ui.bootstrap.paging', [])
+/**
+ * Helper internal service for generating common controller code between the
+ * pager and pagination components
+ */
+.factory('uibPaging', ['$parse', function($parse) {
+  return {
+    create: function(ctrl, $scope, $attrs) {
+      ctrl.setNumPages = $attrs.numPages ? $parse($attrs.numPages).assign : angular.noop;
+      ctrl.ngModelCtrl = { $setViewValue: angular.noop }; // nullModelCtrl
+      ctrl._watchers = [];
 
-angular.module('ui.bootstrap.modal')
+      ctrl.init = function(ngModelCtrl, config) {
+        ctrl.ngModelCtrl = ngModelCtrl;
+        ctrl.config = config;
 
-  .value('$modalSuppressWarning', false)
+        ngModelCtrl.$render = function() {
+          ctrl.render();
+        };
 
-  /**
-   * A helper directive for the $modal service. It creates a backdrop element.
-   */
-  .directive('modalBackdrop', [
-    '$animate', '$injector', '$modalStack', '$log', '$modalSuppressWarning',
-    function($animate ,  $injector,   $modalStack, $log, $modalSuppressWarning) {
-      var $animateCss = null;
-
-      if ($injector.has('$animateCss')) {
-        $animateCss = $injector.get('$animateCss');
-      }
-
-      return {
-        replace: true,
-        templateUrl: 'template/modal/backdrop.html',
-        compile: function(tElement, tAttrs) {
-          tElement.addClass(tAttrs.backdropClass);
-          return linkFn;
+        if ($attrs.itemsPerPage) {
+          ctrl._watchers.push($scope.$parent.$watch($parse($attrs.itemsPerPage), function(value) {
+            ctrl.itemsPerPage = parseInt(value, 10);
+            $scope.totalPages = ctrl.calculateTotalPages();
+            ctrl.updatePage();
+          }));
+        } else {
+          ctrl.itemsPerPage = config.itemsPerPage;
         }
-      };
 
-      function linkFn(scope, element, attrs) {
-        if (!$modalSuppressWarning) {
-          $log.warn('modal-backdrop is now deprecated. Use uib-modal-backdrop instead.');
-        }
-        element.addClass('modal-backdrop');
-
-        if (attrs.modalInClass) {
-          if ($animateCss) {
-            $animateCss(element, {
-              addClass: attrs.modalInClass
-            }).start();
-          } else {
-            $animate.addClass(element, attrs.modalInClass);
+        $scope.$watch('totalItems', function(newTotal, oldTotal) {
+          if (angular.isDefined(newTotal) || newTotal !== oldTotal) {
+            $scope.totalPages = ctrl.calculateTotalPages();
+            ctrl.updatePage();
           }
-
-          scope.$on($modalStack.NOW_CLOSING_EVENT, function(e, setIsAsync) {
-            var done = setIsAsync();
-            if ($animateCss) {
-              $animateCss(element, {
-                removeClass: attrs.modalInClass
-              }).start().then(done);
-            } else {
-              $animate.removeClass(element, attrs.modalInClass).then(done);
-            }
-          });
-        }
-      }
-    }])
-
-  .directive('modalWindow', [
-    '$modalStack', '$q', '$animate', '$injector', '$log', '$modalSuppressWarning',
-    function($modalStack ,  $q ,  $animate,   $injector, $log, $modalSuppressWarning) {
-      var $animateCss = null;
-
-      if ($injector.has('$animateCss')) {
-        $animateCss = $injector.get('$animateCss');
-      }
-
-      return {
-        scope: {
-          index: '@'
-        },
-        replace: true,
-        transclude: true,
-        templateUrl: function(tElement, tAttrs) {
-          return tAttrs.templateUrl || 'template/modal/window.html';
-        },
-        link: function(scope, element, attrs) {
-          if (!$modalSuppressWarning) {
-            $log.warn('modal-window is now deprecated. Use uib-modal-window instead.');
-          }
-          element.addClass(attrs.windowClass || '');
-          element.addClass(attrs.windowTopClass || '');
-          scope.size = attrs.size;
-
-          scope.close = function(evt) {
-            var modal = $modalStack.getTop();
-            if (modal && modal.value.backdrop && modal.value.backdrop !== 'static' && (evt.target === evt.currentTarget)) {
-              evt.preventDefault();
-              evt.stopPropagation();
-              $modalStack.dismiss(modal.key, 'backdrop click');
-            }
-          };
-
-          // moved from template to fix issue #2280
-          element.on('click', scope.close);
-
-          // This property is only added to the scope for the purpose of detecting when this directive is rendered.
-          // We can detect that by using this property in the template associated with this directive and then use
-          // {@link Attribute#$observe} on it. For more details please see {@link TableColumnResize}.
-          scope.$isRendered = true;
-
-          // Deferred object that will be resolved when this modal is render.
-          var modalRenderDeferObj = $q.defer();
-          // Observe function will be called on next digest cycle after compilation, ensuring that the DOM is ready.
-          // In order to use this way of finding whether DOM is ready, we need to observe a scope property used in modal's template.
-          attrs.$observe('modalRender', function(value) {
-            if (value == 'true') {
-              modalRenderDeferObj.resolve();
-            }
-          });
-
-          modalRenderDeferObj.promise.then(function() {
-            var animationPromise = null;
-
-            if (attrs.modalInClass) {
-              if ($animateCss) {
-                animationPromise = $animateCss(element, {
-                  addClass: attrs.modalInClass
-                }).start();
-              } else {
-                animationPromise = $animate.addClass(element, attrs.modalInClass);
-              }
-
-              scope.$on($modalStack.NOW_CLOSING_EVENT, function(e, setIsAsync) {
-                var done = setIsAsync();
-                if ($animateCss) {
-                  $animateCss(element, {
-                    removeClass: attrs.modalInClass
-                  }).start().then(done);
-                } else {
-                  $animate.removeClass(element, attrs.modalInClass).then(done);
-                }
-              });
-            }
-
-
-            $q.when(animationPromise).then(function() {
-              var inputWithAutofocus = element[0].querySelector('[autofocus]');
-              /**
-               * Auto-focusing of a freshly-opened modal element causes any child elements
-               * with the autofocus attribute to lose focus. This is an issue on touch
-               * based devices which will show and then hide the onscreen keyboard.
-               * Attempts to refocus the autofocus element via JavaScript will not reopen
-               * the onscreen keyboard. Fixed by updated the focusing logic to only autofocus
-               * the modal element if the modal does not contain an autofocus element.
-               */
-              if (inputWithAutofocus) {
-                inputWithAutofocus.focus();
-              } else {
-                element[0].focus();
-              }
-            });
-
-            // Notify {@link $modalStack} that modal is rendered.
-            var modal = $modalStack.getTop();
-            if (modal) {
-              $modalStack.modalRendered(modal.key);
-            }
-          });
-        }
-      };
-    }])
-
-  .directive('modalAnimationClass', [
-    '$log', '$modalSuppressWarning',
-    function ($log, $modalSuppressWarning) {
-      return {
-        compile: function(tElement, tAttrs) {
-          if (!$modalSuppressWarning) {
-            $log.warn('modal-animation-class is now deprecated. Use uib-modal-animation-class instead.');
-          }
-          if (tAttrs.modalAnimation) {
-            tElement.addClass(tAttrs.modalAnimationClass);
-          }
-        }
-      };
-    }])
-
-  .directive('modalTransclude', [
-    '$log', '$modalSuppressWarning',
-    function ($log, $modalSuppressWarning) {
-    return {
-      link: function($scope, $element, $attrs, controller, $transclude) {
-        if (!$modalSuppressWarning) {
-          $log.warn('modal-transclude is now deprecated. Use uib-modal-transclude instead.');
-        }
-        $transclude($scope.$parent, function(clone) {
-          $element.empty();
-          $element.append(clone);
         });
-      }
-    };
-  }])
+      };
 
-  .service('$modalStack', [
-    '$animate', '$timeout', '$document', '$compile', '$rootScope',
-    '$q',
-    '$injector',
-    '$$multiMap',
-    '$$stackedMap',
-    '$uibModalStack',
-    '$log',
-    '$modalSuppressWarning',
-    function($animate ,  $timeout ,  $document ,  $compile ,  $rootScope ,
-             $q,
-             $injector,
-             $$multiMap,
-             $$stackedMap,
-             $uibModalStack,
-             $log,
-             $modalSuppressWarning) {
-      if (!$modalSuppressWarning) {
-        $log.warn('$modalStack is now deprecated. Use $uibModalStack instead.');
-      }
+      ctrl.calculateTotalPages = function() {
+        var totalPages = ctrl.itemsPerPage < 1 ? 1 : Math.ceil($scope.totalItems / ctrl.itemsPerPage);
+        return Math.max(totalPages || 0, 1);
+      };
 
-      angular.extend(this, $uibModalStack);
-    }])
+      ctrl.render = function() {
+        $scope.page = parseInt(ctrl.ngModelCtrl.$viewValue, 10) || 1;
+      };
 
-  .provider('$modal', ['$uibModalProvider', function($uibModalProvider) {
-    angular.extend(this, $uibModalProvider);
-
-    this.$get = ['$injector', '$log', '$modalSuppressWarning',
-      function ($injector, $log, $modalSuppressWarning) {
-        if (!$modalSuppressWarning) {
-          $log.warn('$modal is now deprecated. Use $uibModal instead.');
+      $scope.selectPage = function(page, evt) {
+        if (evt) {
+          evt.preventDefault();
         }
 
-        return $injector.invoke($uibModalProvider.$get);
-      }];
-  }]);
+        var clickAllowed = !$scope.ngDisabled || !evt;
+        if (clickAllowed && $scope.page !== page && page > 0 && page <= $scope.totalPages) {
+          if (evt && evt.target) {
+            evt.target.blur();
+          }
+          ctrl.ngModelCtrl.$setViewValue(page);
+          ctrl.ngModelCtrl.$render();
+        }
+      };
 
-angular.module('ui.bootstrap.pagination', [])
-.controller('UibPaginationController', ['$scope', '$attrs', '$parse', function($scope, $attrs, $parse) {
-  var self = this,
-      ngModelCtrl = { $setViewValue: angular.noop }, // nullModelCtrl
-      setNumPages = $attrs.numPages ? $parse($attrs.numPages).assign : angular.noop;
+      $scope.getText = function(key) {
+        return $scope[key + 'Text'] || ctrl.config[key + 'Text'];
+      };
 
-  this.init = function(ngModelCtrl_, config) {
-    ngModelCtrl = ngModelCtrl_;
-    this.config = config;
+      $scope.noPrevious = function() {
+        return $scope.page === 1;
+      };
 
-    ngModelCtrl.$render = function() {
-      self.render();
-    };
+      $scope.noNext = function() {
+        return $scope.page === $scope.totalPages;
+      };
 
-    if ($attrs.itemsPerPage) {
-      $scope.$parent.$watch($parse($attrs.itemsPerPage), function(value) {
-        self.itemsPerPage = parseInt(value, 10);
-        $scope.totalPages = self.calculateTotalPages();
+      ctrl.updatePage = function() {
+        ctrl.setNumPages($scope.$parent, $scope.totalPages); // Readonly variable
+
+        if ($scope.page > $scope.totalPages) {
+          $scope.selectPage($scope.totalPages);
+        } else {
+          ctrl.ngModelCtrl.$render();
+        }
+      };
+
+      $scope.$on('$destroy', function() {
+        while (ctrl._watchers.length) {
+          ctrl._watchers.shift()();
+        }
       });
-    } else {
-      this.itemsPerPage = config.itemsPerPage;
     }
+  };
+}]);
 
-    $scope.$watch('totalItems', function() {
-      $scope.totalPages = self.calculateTotalPages();
-    });
+angular.module('ui.bootstrap.pager', ['ui.bootstrap.paging'])
 
-    $scope.$watch('totalPages', function(value) {
-      setNumPages($scope.$parent, value); // Readonly variable
+.controller('UibPagerController', ['$scope', '$attrs', 'uibPaging', 'uibPagerConfig', function($scope, $attrs, uibPaging, uibPagerConfig) {
+  $scope.align = angular.isDefined($attrs.align) ? $scope.$parent.$eval($attrs.align) : uibPagerConfig.align;
 
-      if ( $scope.page > value ) {
-        $scope.selectPage(value);
+  uibPaging.create(this, $scope, $attrs);
+}])
+
+.constant('uibPagerConfig', {
+  itemsPerPage: 10,
+  previousText: '« Previous',
+  nextText: 'Next »',
+  align: true
+})
+
+.directive('uibPager', ['uibPagerConfig', function(uibPagerConfig) {
+  return {
+    scope: {
+      totalItems: '=',
+      previousText: '@',
+      nextText: '@',
+      ngDisabled: '='
+    },
+    require: ['uibPager', '?ngModel'],
+    controller: 'UibPagerController',
+    controllerAs: 'pager',
+    templateUrl: function(element, attrs) {
+      return attrs.templateUrl || 'uib/template/pager/pager.html';
+    },
+    replace: true,
+    link: function(scope, element, attrs, ctrls) {
+      var paginationCtrl = ctrls[0], ngModelCtrl = ctrls[1];
+
+      if (!ngModelCtrl) {
+        return; // do nothing if no ng-model
+      }
+
+      paginationCtrl.init(ngModelCtrl, uibPagerConfig);
+    }
+  };
+}]);
+
+angular.module('ui.bootstrap.pagination', ['ui.bootstrap.paging'])
+.controller('UibPaginationController', ['$scope', '$attrs', '$parse', 'uibPaging', 'uibPaginationConfig', function($scope, $attrs, $parse, uibPaging, uibPaginationConfig) {
+  var ctrl = this;
+  // Setup configuration parameters
+  var maxSize = angular.isDefined($attrs.maxSize) ? $scope.$parent.$eval($attrs.maxSize) : uibPaginationConfig.maxSize,
+    rotate = angular.isDefined($attrs.rotate) ? $scope.$parent.$eval($attrs.rotate) : uibPaginationConfig.rotate,
+    forceEllipses = angular.isDefined($attrs.forceEllipses) ? $scope.$parent.$eval($attrs.forceEllipses) : uibPaginationConfig.forceEllipses,
+    boundaryLinkNumbers = angular.isDefined($attrs.boundaryLinkNumbers) ? $scope.$parent.$eval($attrs.boundaryLinkNumbers) : uibPaginationConfig.boundaryLinkNumbers;
+  $scope.boundaryLinks = angular.isDefined($attrs.boundaryLinks) ? $scope.$parent.$eval($attrs.boundaryLinks) : uibPaginationConfig.boundaryLinks;
+  $scope.directionLinks = angular.isDefined($attrs.directionLinks) ? $scope.$parent.$eval($attrs.directionLinks) : uibPaginationConfig.directionLinks;
+
+  uibPaging.create(this, $scope, $attrs);
+
+  if ($attrs.maxSize) {
+    ctrl._watchers.push($scope.$parent.$watch($parse($attrs.maxSize), function(value) {
+      maxSize = parseInt(value, 10);
+      ctrl.render();
+    }));
+  }
+
+  // Create page object used in template
+  function makePage(number, text, isActive) {
+    return {
+      number: number,
+      text: text,
+      active: isActive
+    };
+  }
+
+  function getPages(currentPage, totalPages) {
+    var pages = [];
+
+    // Default page limits
+    var startPage = 1, endPage = totalPages;
+    var isMaxSized = angular.isDefined(maxSize) && maxSize < totalPages;
+
+    // recompute if maxSize
+    if (isMaxSized) {
+      if (rotate) {
+        // Current page is displayed in the middle of the visible ones
+        startPage = Math.max(currentPage - Math.floor(maxSize / 2), 1);
+        endPage = startPage + maxSize - 1;
+
+        // Adjust if limit is exceeded
+        if (endPage > totalPages) {
+          endPage = totalPages;
+          startPage = endPage - maxSize + 1;
+        }
       } else {
-        ngModelCtrl.$render();
+        // Visible pages are paginated with maxSize
+        startPage = (Math.ceil(currentPage / maxSize) - 1) * maxSize + 1;
+
+        // Adjust last page if limit is exceeded
+        endPage = Math.min(startPage + maxSize - 1, totalPages);
       }
-    });
-  };
+    }
 
-  this.calculateTotalPages = function() {
-    var totalPages = this.itemsPerPage < 1 ? 1 : Math.ceil($scope.totalItems / this.itemsPerPage);
-    return Math.max(totalPages || 0, 1);
-  };
+    // Add page number links
+    for (var number = startPage; number <= endPage; number++) {
+      var page = makePage(number, number, number === currentPage);
+      pages.push(page);
+    }
 
+    // Add links to move between page sets
+    if (isMaxSized && maxSize > 0 && (!rotate || forceEllipses || boundaryLinkNumbers)) {
+      if (startPage > 1) {
+        if (!boundaryLinkNumbers || startPage > 3) { //need ellipsis for all options unless range is too close to beginning
+        var previousPageSet = makePage(startPage - 1, '...', false);
+        pages.unshift(previousPageSet);
+      }
+        if (boundaryLinkNumbers) {
+          if (startPage === 3) { //need to replace ellipsis when the buttons would be sequential
+            var secondPageLink = makePage(2, '2', false);
+            pages.unshift(secondPageLink);
+          }
+          //add the first page
+          var firstPageLink = makePage(1, '1', false);
+          pages.unshift(firstPageLink);
+        }
+      }
+
+      if (endPage < totalPages) {
+        if (!boundaryLinkNumbers || endPage < totalPages - 2) { //need ellipsis for all options unless range is too close to end
+        var nextPageSet = makePage(endPage + 1, '...', false);
+        pages.push(nextPageSet);
+      }
+        if (boundaryLinkNumbers) {
+          if (endPage === totalPages - 2) { //need to replace ellipsis when the buttons would be sequential
+            var secondToLastPageLink = makePage(totalPages - 1, totalPages - 1, false);
+            pages.push(secondToLastPageLink);
+          }
+          //add the last page
+          var lastPageLink = makePage(totalPages, totalPages, false);
+          pages.push(lastPageLink);
+        }
+      }
+    }
+    return pages;
+  }
+
+  var originalRender = this.render;
   this.render = function() {
-    $scope.page = parseInt(ngModelCtrl.$viewValue, 10) || 1;
-  };
-
-  $scope.selectPage = function(page, evt) {
-    if (evt) {
-      evt.preventDefault();
+    originalRender();
+    if ($scope.page > 0 && $scope.page <= $scope.totalPages) {
+      $scope.pages = getPages($scope.page, $scope.totalPages);
     }
-
-    var clickAllowed = !$scope.ngDisabled || !evt;
-    if (clickAllowed && $scope.page !== page && page > 0 && page <= $scope.totalPages) {
-      if (evt && evt.target) {
-        evt.target.blur();
-      }
-      ngModelCtrl.$setViewValue(page);
-      ngModelCtrl.$render();
-    }
-  };
-
-  $scope.getText = function(key) {
-    return $scope[key + 'Text'] || self.config[key + 'Text'];
-  };
-
-  $scope.noPrevious = function() {
-    return $scope.page === 1;
-  };
-
-  $scope.noNext = function() {
-    return $scope.page === $scope.totalPages;
   };
 }])
 
 .constant('uibPaginationConfig', {
   itemsPerPage: 10,
   boundaryLinks: false,
+  boundaryLinkNumbers: false,
   directionLinks: true,
   firstText: 'First',
   previousText: 'Previous',
   nextText: 'Next',
   lastText: 'Last',
-  rotate: true
+  rotate: true,
+  forceEllipses: false
 })
 
-.directive('uibPagination', ['$parse', 'uibPaginationConfig', function($parse, paginationConfig) {
+.directive('uibPagination', ['$parse', 'uibPaginationConfig', function($parse, uibPaginationConfig) {
   return {
-    restrict: 'EA',
     scope: {
       totalItems: '=',
       firstText: '@',
@@ -47974,7 +49484,7 @@ angular.module('ui.bootstrap.pagination', [])
     controller: 'UibPaginationController',
     controllerAs: 'pagination',
     templateUrl: function(element, attrs) {
-      return attrs.templateUrl || 'template/pagination/pagination.html';
+      return attrs.templateUrl || 'uib/template/pagination/pagination.html';
     },
     replace: true,
     link: function(scope, element, attrs, ctrls) {
@@ -47984,349 +49494,7 @@ angular.module('ui.bootstrap.pagination', [])
          return; // do nothing if no ng-model
       }
 
-      // Setup configuration parameters
-      var maxSize = angular.isDefined(attrs.maxSize) ? scope.$parent.$eval(attrs.maxSize) : paginationConfig.maxSize,
-          rotate = angular.isDefined(attrs.rotate) ? scope.$parent.$eval(attrs.rotate) : paginationConfig.rotate;
-      scope.boundaryLinks = angular.isDefined(attrs.boundaryLinks) ? scope.$parent.$eval(attrs.boundaryLinks) : paginationConfig.boundaryLinks;
-      scope.directionLinks = angular.isDefined(attrs.directionLinks) ? scope.$parent.$eval(attrs.directionLinks) : paginationConfig.directionLinks;
-
-      paginationCtrl.init(ngModelCtrl, paginationConfig);
-
-      if (attrs.maxSize) {
-        scope.$parent.$watch($parse(attrs.maxSize), function(value) {
-          maxSize = parseInt(value, 10);
-          paginationCtrl.render();
-        });
-      }
-
-      // Create page object used in template
-      function makePage(number, text, isActive) {
-        return {
-          number: number,
-          text: text,
-          active: isActive
-        };
-      }
-
-      function getPages(currentPage, totalPages) {
-        var pages = [];
-
-        // Default page limits
-        var startPage = 1, endPage = totalPages;
-        var isMaxSized = angular.isDefined(maxSize) && maxSize < totalPages;
-
-        // recompute if maxSize
-        if (isMaxSized) {
-          if (rotate) {
-            // Current page is displayed in the middle of the visible ones
-            startPage = Math.max(currentPage - Math.floor(maxSize/2), 1);
-            endPage   = startPage + maxSize - 1;
-
-            // Adjust if limit is exceeded
-            if (endPage > totalPages) {
-              endPage   = totalPages;
-              startPage = endPage - maxSize + 1;
-            }
-          } else {
-            // Visible pages are paginated with maxSize
-            startPage = ((Math.ceil(currentPage / maxSize) - 1) * maxSize) + 1;
-
-            // Adjust last page if limit is exceeded
-            endPage = Math.min(startPage + maxSize - 1, totalPages);
-          }
-        }
-
-        // Add page number links
-        for (var number = startPage; number <= endPage; number++) {
-          var page = makePage(number, number, number === currentPage);
-          pages.push(page);
-        }
-
-        // Add links to move between page sets
-        if (isMaxSized && ! rotate) {
-          if (startPage > 1) {
-            var previousPageSet = makePage(startPage - 1, '...', false);
-            pages.unshift(previousPageSet);
-          }
-
-          if (endPage < totalPages) {
-            var nextPageSet = makePage(endPage + 1, '...', false);
-            pages.push(nextPageSet);
-          }
-        }
-
-        return pages;
-      }
-
-      var originalRender = paginationCtrl.render;
-      paginationCtrl.render = function() {
-        originalRender();
-        if (scope.page > 0 && scope.page <= scope.totalPages) {
-          scope.pages = getPages(scope.page, scope.totalPages);
-        }
-      };
-    }
-  };
-}])
-
-.constant('uibPagerConfig', {
-  itemsPerPage: 10,
-  previousText: '« Previous',
-  nextText: 'Next »',
-  align: true
-})
-
-.directive('uibPager', ['uibPagerConfig', function(pagerConfig) {
-  return {
-    restrict: 'EA',
-    scope: {
-      totalItems: '=',
-      previousText: '@',
-      nextText: '@',
-      ngDisabled: '='
-    },
-    require: ['uibPager', '?ngModel'],
-    controller: 'UibPaginationController',
-    controllerAs: 'pagination',
-    templateUrl: function(element, attrs) {
-      return attrs.templateUrl || 'template/pagination/pager.html';
-    },
-    replace: true,
-    link: function(scope, element, attrs, ctrls) {
-      var paginationCtrl = ctrls[0], ngModelCtrl = ctrls[1];
-
-      if (!ngModelCtrl) {
-         return; // do nothing if no ng-model
-      }
-
-      scope.align = angular.isDefined(attrs.align) ? scope.$parent.$eval(attrs.align) : pagerConfig.align;
-      paginationCtrl.init(ngModelCtrl, pagerConfig);
-    }
-  };
-}]);
-
-/* Deprecated Pagination Below */
-
-angular.module('ui.bootstrap.pagination')
-.value('$paginationSuppressWarning', false)
-.controller('PaginationController', ['$scope', '$attrs', '$parse', '$log', '$paginationSuppressWarning', function($scope, $attrs, $parse, $log, $paginationSuppressWarning) {
-  if (!$paginationSuppressWarning) {
-    $log.warn('PaginationController is now deprecated. Use UibPaginationController instead.');
-  }
-
-  var self = this,
-    ngModelCtrl = { $setViewValue: angular.noop }, // nullModelCtrl
-    setNumPages = $attrs.numPages ? $parse($attrs.numPages).assign : angular.noop;
-
-  this.init = function(ngModelCtrl_, config) {
-    ngModelCtrl = ngModelCtrl_;
-    this.config = config;
-
-    ngModelCtrl.$render = function() {
-      self.render();
-    };
-
-    if ($attrs.itemsPerPage) {
-      $scope.$parent.$watch($parse($attrs.itemsPerPage), function(value) {
-        self.itemsPerPage = parseInt(value, 10);
-        $scope.totalPages = self.calculateTotalPages();
-      });
-    } else {
-      this.itemsPerPage = config.itemsPerPage;
-    }
-
-    $scope.$watch('totalItems', function() {
-      $scope.totalPages = self.calculateTotalPages();
-    });
-
-    $scope.$watch('totalPages', function(value) {
-      setNumPages($scope.$parent, value); // Readonly variable
-
-      if ( $scope.page > value ) {
-        $scope.selectPage(value);
-      } else {
-        ngModelCtrl.$render();
-      }
-    });
-  };
-
-  this.calculateTotalPages = function() {
-    var totalPages = this.itemsPerPage < 1 ? 1 : Math.ceil($scope.totalItems / this.itemsPerPage);
-    return Math.max(totalPages || 0, 1);
-  };
-
-  this.render = function() {
-    $scope.page = parseInt(ngModelCtrl.$viewValue, 10) || 1;
-  };
-
-  $scope.selectPage = function(page, evt) {
-    if (evt) {
-      evt.preventDefault();
-    }
-
-    var clickAllowed = !$scope.ngDisabled || !evt;
-    if (clickAllowed && $scope.page !== page && page > 0 && page <= $scope.totalPages) {
-      if (evt && evt.target) {
-        evt.target.blur();
-      }
-      ngModelCtrl.$setViewValue(page);
-      ngModelCtrl.$render();
-    }
-  };
-
-  $scope.getText = function(key) {
-    return $scope[key + 'Text'] || self.config[key + 'Text'];
-  };
-
-  $scope.noPrevious = function() {
-    return $scope.page === 1;
-  };
-
-  $scope.noNext = function() {
-    return $scope.page === $scope.totalPages;
-  };
-}])
-.directive('pagination', ['$parse', 'uibPaginationConfig', '$log', '$paginationSuppressWarning', function($parse, paginationConfig, $log, $paginationSuppressWarning) {
-  return {
-    restrict: 'EA',
-    scope: {
-      totalItems: '=',
-      firstText: '@',
-      previousText: '@',
-      nextText: '@',
-      lastText: '@',
-      ngDisabled:'='
-    },
-    require: ['pagination', '?ngModel'],
-    controller: 'PaginationController',
-    controllerAs: 'pagination',
-    templateUrl: function(element, attrs) {
-      return attrs.templateUrl || 'template/pagination/pagination.html';
-    },
-    replace: true,
-    link: function(scope, element, attrs, ctrls) {
-      if (!$paginationSuppressWarning) {
-        $log.warn('pagination is now deprecated. Use uib-pagination instead.');
-      }
-      var paginationCtrl = ctrls[0], ngModelCtrl = ctrls[1];
-
-      if (!ngModelCtrl) {
-         return; // do nothing if no ng-model
-      }
-
-      // Setup configuration parameters
-      var maxSize = angular.isDefined(attrs.maxSize) ? scope.$parent.$eval(attrs.maxSize) : paginationConfig.maxSize,
-          rotate = angular.isDefined(attrs.rotate) ? scope.$parent.$eval(attrs.rotate) : paginationConfig.rotate;
-      scope.boundaryLinks = angular.isDefined(attrs.boundaryLinks) ? scope.$parent.$eval(attrs.boundaryLinks) : paginationConfig.boundaryLinks;
-      scope.directionLinks = angular.isDefined(attrs.directionLinks) ? scope.$parent.$eval(attrs.directionLinks) : paginationConfig.directionLinks;
-
-      paginationCtrl.init(ngModelCtrl, paginationConfig);
-
-      if (attrs.maxSize) {
-        scope.$parent.$watch($parse(attrs.maxSize), function(value) {
-          maxSize = parseInt(value, 10);
-          paginationCtrl.render();
-        });
-      }
-
-      // Create page object used in template
-      function makePage(number, text, isActive) {
-        return {
-          number: number,
-          text: text,
-          active: isActive
-        };
-      }
-
-      function getPages(currentPage, totalPages) {
-        var pages = [];
-
-        // Default page limits
-        var startPage = 1, endPage = totalPages;
-        var isMaxSized = angular.isDefined(maxSize) && maxSize < totalPages;
-
-        // recompute if maxSize
-        if (isMaxSized) {
-          if (rotate) {
-            // Current page is displayed in the middle of the visible ones
-            startPage = Math.max(currentPage - Math.floor(maxSize/2), 1);
-            endPage   = startPage + maxSize - 1;
-
-            // Adjust if limit is exceeded
-            if (endPage > totalPages) {
-              endPage   = totalPages;
-              startPage = endPage - maxSize + 1;
-            }
-          } else {
-            // Visible pages are paginated with maxSize
-            startPage = ((Math.ceil(currentPage / maxSize) - 1) * maxSize) + 1;
-
-            // Adjust last page if limit is exceeded
-            endPage = Math.min(startPage + maxSize - 1, totalPages);
-          }
-        }
-
-        // Add page number links
-        for (var number = startPage; number <= endPage; number++) {
-          var page = makePage(number, number, number === currentPage);
-          pages.push(page);
-        }
-
-        // Add links to move between page sets
-        if (isMaxSized && ! rotate) {
-          if (startPage > 1) {
-            var previousPageSet = makePage(startPage - 1, '...', false);
-            pages.unshift(previousPageSet);
-          }
-
-          if (endPage < totalPages) {
-            var nextPageSet = makePage(endPage + 1, '...', false);
-            pages.push(nextPageSet);
-          }
-        }
-
-        return pages;
-      }
-
-      var originalRender = paginationCtrl.render;
-      paginationCtrl.render = function() {
-        originalRender();
-        if (scope.page > 0 && scope.page <= scope.totalPages) {
-          scope.pages = getPages(scope.page, scope.totalPages);
-        }
-      };
-    }
-  };
-}])
-
-.directive('pager', ['uibPagerConfig', '$log', '$paginationSuppressWarning', function(pagerConfig, $log, $paginationSuppressWarning) {
-  return {
-    restrict: 'EA',
-    scope: {
-      totalItems: '=',
-      previousText: '@',
-      nextText: '@',
-      ngDisabled: '='
-    },
-    require: ['pager', '?ngModel'],
-    controller: 'PaginationController',
-    controllerAs: 'pagination',
-    templateUrl: function(element, attrs) {
-      return attrs.templateUrl || 'template/pagination/pager.html';
-    },
-    replace: true,
-    link: function(scope, element, attrs, ctrls) {
-      if (!$paginationSuppressWarning) {
-        $log.warn('pager is now deprecated. Use uib-pager instead.');
-      }
-      var paginationCtrl = ctrls[0], ngModelCtrl = ctrls[1];
-
-      if (!ngModelCtrl) {
-         return; // do nothing if no ng-model
-      }
-
-      scope.align = angular.isDefined(attrs.align) ? scope.$parent.$eval(attrs.align) : pagerConfig.align;
-      paginationCtrl.init(ngModelCtrl, pagerConfig);
+      paginationCtrl.init(ngModelCtrl, uibPaginationConfig);
     }
   };
 }]);
@@ -48346,6 +49514,7 @@ angular.module('ui.bootstrap.tooltip', ['ui.bootstrap.position', 'ui.bootstrap.s
   // The default options tooltip and popover.
   var defaultOptions = {
     placement: 'top',
+    placementClassPrefix: '',
     animation: true,
     popupDelay: 0,
     popupCloseDelay: 0,
@@ -48356,6 +49525,7 @@ angular.module('ui.bootstrap.tooltip', ['ui.bootstrap.position', 'ui.bootstrap.s
   var triggerMap = {
     'mouseenter': 'mouseleave',
     'click': 'click',
+    'outsideClick': 'outsideClick',
     'focus': 'blur',
     'none': ''
   };
@@ -48386,7 +49556,7 @@ angular.module('ui.bootstrap.tooltip', ['ui.bootstrap.position', 'ui.bootstrap.s
   };
 
   /**
-   * This is a helper function for translating camel-case to snake-case.
+   * This is a helper function for translating camel-case to snake_case.
    */
   function snake_case(name) {
     var regexp = /[A-Z]/g;
@@ -48402,7 +49572,13 @@ angular.module('ui.bootstrap.tooltip', ['ui.bootstrap.position', 'ui.bootstrap.s
    */
   this.$get = ['$window', '$compile', '$timeout', '$document', '$uibPosition', '$interpolate', '$rootScope', '$parse', '$$stackedMap', function($window, $compile, $timeout, $document, $position, $interpolate, $rootScope, $parse, $$stackedMap) {
     var openedTooltips = $$stackedMap.createNew();
-    $document.on('keypress', function(e) {
+    $document.on('keypress', keypressListener);
+
+    $rootScope.$on('$destroy', function() {
+      $document.off('keypress', keypressListener);
+    });
+
+    function keypressListener(e) {
       if (e.which === 27) {
         var last = openedTooltips.top();
         if (last) {
@@ -48411,7 +49587,7 @@ angular.module('ui.bootstrap.tooltip', ['ui.bootstrap.position', 'ui.bootstrap.s
           last = null;
         }
       }
-    });
+    }
 
     return function $tooltip(ttType, prefix, defaultTriggerShow, options) {
       options = angular.extend({}, defaultOptions, globalOptions, options);
@@ -48490,11 +49666,32 @@ angular.module('ui.bootstrap.tooltip', ['ui.bootstrap.position', 'ui.bootstrap.s
                   tooltip.css({ top: 0, left: 0 });
 
                   // Now set the calculated positioning.
-                  var ttCss = $position.positionElements(element, tooltip, ttScope.placement, appendToBody);
-                  ttCss.top += 'px';
-                  ttCss.left += 'px';
-                  ttCss.visibility = 'visible';
-                  tooltip.css(ttCss);
+                  var ttPosition = $position.positionElements(element, tooltip, ttScope.placement, appendToBody);
+                  tooltip.css({ top: ttPosition.top + 'px', left: ttPosition.left + 'px', visibility: 'visible' });
+
+                  // If the placement class is prefixed, still need
+                  // to remove the TWBS standard class.
+                  if (options.placementClassPrefix) {
+                    tooltip.removeClass('top bottom left right');
+                  }
+
+                  tooltip.removeClass(
+                    options.placementClassPrefix + 'top ' +
+                    options.placementClassPrefix + 'top-left ' +
+                    options.placementClassPrefix + 'top-right ' +
+                    options.placementClassPrefix + 'bottom ' +
+                    options.placementClassPrefix + 'bottom-left ' +
+                    options.placementClassPrefix + 'bottom-right ' +
+                    options.placementClassPrefix + 'left ' +
+                    options.placementClassPrefix + 'left-top ' +
+                    options.placementClassPrefix + 'left-bottom ' +
+                    options.placementClassPrefix + 'right ' +
+                    options.placementClassPrefix + 'right-top ' +
+                    options.placementClassPrefix + 'right-bottom');
+
+                  var placement = ttPosition.placement.split('-');
+                  tooltip.addClass(placement[0] + ' ' + options.placementClassPrefix + ttPosition.placement);
+                  $position.positionArrow(tooltip, ttPosition.placement);
 
                   positionTimeout = null;
                 }, 0, false);
@@ -48585,27 +49782,26 @@ angular.module('ui.bootstrap.tooltip', ['ui.bootstrap.position', 'ui.bootstrap.s
 
             // Hide the tooltip popup element.
             function hide() {
-              cancelShow();
-              cancelHide();
-
               if (!ttScope) {
                 return;
               }
 
               // First things first: we don't show it anymore.
               ttScope.$evalAsync(function() {
-                ttScope.isOpen = false;
-                assignIsOpen(false);
-                // And now we remove it from the DOM. However, if we have animation, we
-                // need to wait for it to expire beforehand.
-                // FIXME: this is a placeholder for a port of the transitions library.
-                // The fade transition in TWBS is 150ms.
-                if (ttScope.animation) {
-                  if (!transitionTimeout) {
-                    transitionTimeout = $timeout(removeTooltip, 150, false);
+                if (ttScope) {
+                  ttScope.isOpen = false;
+                  assignIsOpen(false);
+                  // And now we remove it from the DOM. However, if we have animation, we
+                  // need to wait for it to expire beforehand.
+                  // FIXME: this is a placeholder for a port of the transitions library.
+                  // The fade transition in TWBS is 150ms.
+                  if (ttScope.animation) {
+                    if (!transitionTimeout) {
+                      transitionTimeout = $timeout(removeTooltip, 150, false);
+                    }
+                  } else {
+                    removeTooltip();
                   }
-                } else {
-                  removeTooltip();
                 }
               });
             }
@@ -48615,6 +49811,7 @@ angular.module('ui.bootstrap.tooltip', ['ui.bootstrap.position', 'ui.bootstrap.s
                 $timeout.cancel(hideTimeout);
                 hideTimeout = null;
               }
+
               if (transitionTimeout) {
                 $timeout.cancel(transitionTimeout);
                 transitionTimeout = null;
@@ -48640,9 +49837,10 @@ angular.module('ui.bootstrap.tooltip', ['ui.bootstrap.position', 'ui.bootstrap.s
             }
 
             function removeTooltip() {
+              cancelShow();
+              cancelHide();
               unregisterObservers();
 
-              transitionTimeout = null;
               if (tooltip) {
                 tooltip.remove();
                 tooltip = null;
@@ -48654,9 +49852,9 @@ angular.module('ui.bootstrap.tooltip', ['ui.bootstrap.position', 'ui.bootstrap.s
             }
 
             /**
-             * Set the inital scope values. Once
+             * Set the initial scope values. Once
              * the tooltip is created, the observers
-             * will be added to keep things in synch.
+             * will be added to keep things in sync.
              */
             function prepareTooltip() {
               ttScope.title = attrs[prefix + 'Title'];
@@ -48700,11 +49898,9 @@ angular.module('ui.bootstrap.tooltip', ['ui.bootstrap.position', 'ui.bootstrap.s
 
             if (isOpenParse) {
               scope.$watch(isOpenParse, function(val) {
-                /*jshint -W018 */
                 if (ttScope && !val === ttScope.isOpen) {
                   toggleTooltipBind();
                 }
-                /*jshint +W018 */
               });
             }
 
@@ -48775,14 +49971,32 @@ angular.module('ui.bootstrap.tooltip', ['ui.bootstrap.position', 'ui.bootstrap.s
               }
             }
 
+            // hide tooltips/popovers for outsideClick trigger
+            function bodyHideTooltipBind(e) {
+              if (!ttScope || !ttScope.isOpen || !tooltip) {
+                return;
+              }
+              // make sure the tooltip/popover link or tool tooltip/popover itself were not clicked
+              if (!element[0].contains(e.target) && !tooltip[0].contains(e.target)) {
+                hideTooltipBind();
+              }
+            }
+
             var unregisterTriggers = function() {
               triggers.show.forEach(function(trigger) {
-                element.unbind(trigger, showTooltipBind);
+                if (trigger === 'outsideClick') {
+                  element.off('click', toggleTooltipBind);
+                } else {
+                  element.off(trigger, showTooltipBind);
+                  element.off(trigger, toggleTooltipBind);
+                }
               });
               triggers.hide.forEach(function(trigger) {
-                trigger.split(' ').forEach(function(hideTrigger) {
-                  element[0].removeEventListener(hideTrigger, hideTooltipBind);
-                });
+                if (trigger === 'outsideClick') {
+                  $document.off('click', bodyHideTooltipBind);
+                } else {
+                  element.off(trigger, hideTooltipBind);
+                }
               });
             };
 
@@ -48794,14 +50008,14 @@ angular.module('ui.bootstrap.tooltip', ['ui.bootstrap.position', 'ui.bootstrap.s
 
               if (triggers.show !== 'none') {
                 triggers.show.forEach(function(trigger, idx) {
-                  // Using raw addEventListener due to jqLite/jQuery bug - #4060
-                  if (trigger === triggers.hide[idx]) {
-                    element[0].addEventListener(trigger, toggleTooltipBind);
+                  if (trigger === 'outsideClick') {
+                    element.on('click', toggleTooltipBind);
+                    $document.on('click', bodyHideTooltipBind);
+                  } else if (trigger === triggers.hide[idx]) {
+                    element.on(trigger, toggleTooltipBind);
                   } else if (trigger) {
-                    element[0].addEventListener(trigger, showTooltipBind);
-                    triggers.hide[idx].split(' ').forEach(function(trigger) {
-                      element[0].addEventListener(trigger, hideTooltipBind);
-                    });
+                    element.on(trigger, showTooltipBind);
+                    element.on(triggers.hide[idx], hideTooltipBind);
                   }
 
                   element.on('keypress', function(e) {
@@ -48818,24 +50032,18 @@ angular.module('ui.bootstrap.tooltip', ['ui.bootstrap.position', 'ui.bootstrap.s
             var animation = scope.$eval(attrs[prefix + 'Animation']);
             ttScope.animation = angular.isDefined(animation) ? !!animation : options.animation;
 
-            var appendToBodyVal = scope.$eval(attrs[prefix + 'AppendToBody']);
-            appendToBody = angular.isDefined(appendToBodyVal) ? appendToBodyVal : appendToBody;
-
-            // if a tooltip is attached to <body> we need to remove it on
-            // location change as its parent scope will probably not be destroyed
-            // by the change.
-            if (appendToBody) {
-              scope.$on('$locationChangeSuccess', function closeTooltipOnLocationChangeSuccess() {
-                if (ttScope.isOpen) {
-                  hide();
-                }
-              });
+            var appendToBodyVal;
+            var appendKey = prefix + 'AppendToBody';
+            if (appendKey in attrs && attrs[appendKey] === undefined) {
+              appendToBodyVal = true;
+            } else {
+              appendToBodyVal = scope.$eval(attrs[appendKey]);
             }
 
+            appendToBody = angular.isDefined(appendToBodyVal) ? appendToBodyVal : appendToBody;
+            
             // Make sure tooltip is destroyed and removed.
             scope.$on('$destroy', function onDestroyTooltip() {
-              cancelShow();
-              cancelHide();
               unregisterTriggers();
               removeTooltip();
               openedTooltips.remove(ttScope);
@@ -48851,7 +50059,7 @@ angular.module('ui.bootstrap.tooltip', ['ui.bootstrap.position', 'ui.bootstrap.s
 // This is mostly ngInclude code but with a custom scope
 .directive('uibTooltipTemplateTransclude', [
          '$animate', '$sce', '$compile', '$templateRequest',
-function ($animate ,  $sce ,  $compile ,  $templateRequest) {
+function ($animate, $sce, $compile, $templateRequest) {
   return {
     link: function(scope, elem, attrs) {
       var origScope = scope.$eval(attrs.tooltipTemplateTranscludeScope);
@@ -48923,12 +50131,20 @@ function ($animate ,  $sce ,  $compile ,  $templateRequest) {
  * They must not be animated as they're expected to be present on the tooltip on
  * initialization.
  */
-.directive('uibTooltipClasses', function() {
+.directive('uibTooltipClasses', ['$uibPosition', function($uibPosition) {
   return {
     restrict: 'A',
     link: function(scope, element, attrs) {
+      // need to set the primary position so the
+      // arrow has space during position measure.
+      // tooltip.positionTooltip()
       if (scope.placement) {
-        element.addClass(scope.placement);
+        // // There are no top-left etc... classes
+        // // in TWBS, so we need the primary position.
+        var position = $uibPosition.parsePlacement(scope.placement);
+        element.addClass(position[0]);
+      } else {
+        element.addClass('top');
       }
 
       if (scope.popupClass) {
@@ -48940,16 +50156,13 @@ function ($animate ,  $sce ,  $compile ,  $templateRequest) {
       }
     }
   };
-})
+}])
 
 .directive('uibTooltipPopup', function() {
   return {
     replace: true,
     scope: { content: '@', placement: '@', popupClass: '@', animation: '&', isOpen: '&' },
-    templateUrl: 'template/tooltip/tooltip-popup.html',
-    link: function(scope, element) {
-      element.addClass('tooltip');
-    }
+    templateUrl: 'uib/template/tooltip/tooltip-popup.html'
   };
 })
 
@@ -48962,10 +50175,7 @@ function ($animate ,  $sce ,  $compile ,  $templateRequest) {
     replace: true,
     scope: { contentExp: '&', placement: '@', popupClass: '@', animation: '&', isOpen: '&',
       originScope: '&' },
-    templateUrl: 'template/tooltip/tooltip-template-popup.html',
-    link: function(scope, element) {
-      element.addClass('tooltip');
-    }
+    templateUrl: 'uib/template/tooltip/tooltip-template-popup.html'
   };
 })
 
@@ -48979,188 +50189,12 @@ function ($animate ,  $sce ,  $compile ,  $templateRequest) {
   return {
     replace: true,
     scope: { contentExp: '&', placement: '@', popupClass: '@', animation: '&', isOpen: '&' },
-    templateUrl: 'template/tooltip/tooltip-html-popup.html',
-    link: function(scope, element) {
-      element.addClass('tooltip');
-    }
+    templateUrl: 'uib/template/tooltip/tooltip-html-popup.html'
   };
 })
 
 .directive('uibTooltipHtml', ['$uibTooltip', function($uibTooltip) {
   return $uibTooltip('uibTooltipHtml', 'tooltip', 'mouseenter', {
-    useContentExp: true
-  });
-}]);
-
-/* Deprecated tooltip below */
-
-angular.module('ui.bootstrap.tooltip')
-
-.value('$tooltipSuppressWarning', false)
-
-.provider('$tooltip', ['$uibTooltipProvider', function($uibTooltipProvider) {
-  angular.extend(this, $uibTooltipProvider);
-
-  this.$get = ['$log', '$tooltipSuppressWarning', '$injector', function($log, $tooltipSuppressWarning, $injector) {
-    if (!$tooltipSuppressWarning) {
-      $log.warn('$tooltip is now deprecated. Use $uibTooltip instead.');
-    }
-
-    return $injector.invoke($uibTooltipProvider.$get);
-  }];
-}])
-
-// This is mostly ngInclude code but with a custom scope
-.directive('tooltipTemplateTransclude', [
-         '$animate', '$sce', '$compile', '$templateRequest', '$log', '$tooltipSuppressWarning',
-function ($animate ,  $sce ,  $compile ,  $templateRequest,   $log,   $tooltipSuppressWarning) {
-  return {
-    link: function(scope, elem, attrs) {
-      if (!$tooltipSuppressWarning) {
-        $log.warn('tooltip-template-transclude is now deprecated. Use uib-tooltip-template-transclude instead.');
-      }
-
-      var origScope = scope.$eval(attrs.tooltipTemplateTranscludeScope);
-
-      var changeCounter = 0,
-        currentScope,
-        previousElement,
-        currentElement;
-
-      var cleanupLastIncludeContent = function() {
-        if (previousElement) {
-          previousElement.remove();
-          previousElement = null;
-        }
-        if (currentScope) {
-          currentScope.$destroy();
-          currentScope = null;
-        }
-        if (currentElement) {
-          $animate.leave(currentElement).then(function() {
-            previousElement = null;
-          });
-          previousElement = currentElement;
-          currentElement = null;
-        }
-      };
-
-      scope.$watch($sce.parseAsResourceUrl(attrs.tooltipTemplateTransclude), function(src) {
-        var thisChangeId = ++changeCounter;
-
-        if (src) {
-          //set the 2nd param to true to ignore the template request error so that the inner
-          //contents and scope can be cleaned up.
-          $templateRequest(src, true).then(function(response) {
-            if (thisChangeId !== changeCounter) { return; }
-            var newScope = origScope.$new();
-            var template = response;
-
-            var clone = $compile(template)(newScope, function(clone) {
-              cleanupLastIncludeContent();
-              $animate.enter(clone, elem);
-            });
-
-            currentScope = newScope;
-            currentElement = clone;
-
-            currentScope.$emit('$includeContentLoaded', src);
-          }, function() {
-            if (thisChangeId === changeCounter) {
-              cleanupLastIncludeContent();
-              scope.$emit('$includeContentError', src);
-            }
-          });
-          scope.$emit('$includeContentRequested', src);
-        } else {
-          cleanupLastIncludeContent();
-        }
-      });
-
-      scope.$on('$destroy', cleanupLastIncludeContent);
-    }
-  };
-}])
-
-.directive('tooltipClasses', ['$log', '$tooltipSuppressWarning', function($log, $tooltipSuppressWarning) {
-  return {
-    restrict: 'A',
-    link: function(scope, element, attrs) {
-      if (!$tooltipSuppressWarning) {
-        $log.warn('tooltip-classes is now deprecated. Use uib-tooltip-classes instead.');
-      }
-
-      if (scope.placement) {
-        element.addClass(scope.placement);
-      }
-      if (scope.popupClass) {
-        element.addClass(scope.popupClass);
-      }
-      if (scope.animation()) {
-        element.addClass(attrs.tooltipAnimationClass);
-      }
-    }
-  };
-}])
-
-.directive('tooltipPopup', ['$log', '$tooltipSuppressWarning', function($log, $tooltipSuppressWarning) {
-  return {
-    replace: true,
-    scope: { content: '@', placement: '@', popupClass: '@', animation: '&', isOpen: '&' },
-    templateUrl: 'template/tooltip/tooltip-popup.html',
-    link: function(scope, element) {
-      if (!$tooltipSuppressWarning) {
-        $log.warn('tooltip-popup is now deprecated. Use uib-tooltip-popup instead.');
-      }
-
-      element.addClass('tooltip');
-    }
-  };
-}])
-
-.directive('tooltip', ['$tooltip', function($tooltip) {
-  return $tooltip('tooltip', 'tooltip', 'mouseenter');
-}])
-
-.directive('tooltipTemplatePopup', ['$log', '$tooltipSuppressWarning', function($log, $tooltipSuppressWarning) {
-  return {
-    replace: true,
-    scope: { contentExp: '&', placement: '@', popupClass: '@', animation: '&', isOpen: '&',
-      originScope: '&' },
-    templateUrl: 'template/tooltip/tooltip-template-popup.html',
-    link: function(scope, element) {
-      if (!$tooltipSuppressWarning) {
-        $log.warn('tooltip-template-popup is now deprecated. Use uib-tooltip-template-popup instead.');
-      }
-
-      element.addClass('tooltip');
-    }
-  };
-}])
-
-.directive('tooltipTemplate', ['$tooltip', function($tooltip) {
-  return $tooltip('tooltipTemplate', 'tooltip', 'mouseenter', {
-    useContentExp: true
-  });
-}])
-
-.directive('tooltipHtmlPopup', ['$log', '$tooltipSuppressWarning', function($log, $tooltipSuppressWarning) {
-  return {
-    replace: true,
-    scope: { contentExp: '&', placement: '@', popupClass: '@', animation: '&', isOpen: '&' },
-    templateUrl: 'template/tooltip/tooltip-html-popup.html',
-    link: function(scope, element) {
-      if (!$tooltipSuppressWarning) {
-        $log.warn('tooltip-html-popup is now deprecated. Use uib-tooltip-html-popup instead.');
-      }
-
-      element.addClass('tooltip');
-    }
-  };
-}])
-
-.directive('tooltipHtml', ['$tooltip', function($tooltip) {
-  return $tooltip('tooltipHtml', 'tooltip', 'mouseenter', {
     useContentExp: true
   });
 }]);
@@ -49177,10 +50211,7 @@ angular.module('ui.bootstrap.popover', ['ui.bootstrap.tooltip'])
     replace: true,
     scope: { title: '@', contentExp: '&', placement: '@', popupClass: '@', animation: '&', isOpen: '&',
       originScope: '&' },
-    templateUrl: 'template/popover/popover-template.html',
-    link: function(scope, element) {
-      element.addClass('popover');
-    }
+    templateUrl: 'uib/template/popover/popover-template.html'
   };
 })
 
@@ -49194,10 +50225,7 @@ angular.module('ui.bootstrap.popover', ['ui.bootstrap.tooltip'])
   return {
     replace: true,
     scope: { contentExp: '&', title: '@', placement: '@', popupClass: '@', animation: '&', isOpen: '&' },
-    templateUrl: 'template/popover/popover-html.html',
-    link: function(scope, element) {
-      element.addClass('popover');
-    }
+    templateUrl: 'uib/template/popover/popover-html.html'
   };
 })
 
@@ -49211,84 +50239,12 @@ angular.module('ui.bootstrap.popover', ['ui.bootstrap.tooltip'])
   return {
     replace: true,
     scope: { title: '@', content: '@', placement: '@', popupClass: '@', animation: '&', isOpen: '&' },
-    templateUrl: 'template/popover/popover.html',
-    link: function(scope, element) {
-      element.addClass('popover');
-    }
+    templateUrl: 'uib/template/popover/popover.html'
   };
 })
 
 .directive('uibPopover', ['$uibTooltip', function($uibTooltip) {
   return $uibTooltip('uibPopover', 'popover', 'click');
-}]);
-
-/* Deprecated popover below */
-
-angular.module('ui.bootstrap.popover')
-
-.value('$popoverSuppressWarning', false)
-
-.directive('popoverTemplatePopup', ['$log', '$popoverSuppressWarning', function($log, $popoverSuppressWarning) {
-  return {
-    replace: true,
-    scope: { title: '@', contentExp: '&', placement: '@', popupClass: '@', animation: '&', isOpen: '&',
-      originScope: '&' },
-    templateUrl: 'template/popover/popover-template.html',
-    link: function(scope, element) {
-      if (!$popoverSuppressWarning) {
-        $log.warn('popover-template-popup is now deprecated. Use uib-popover-template-popup instead.');
-      }
-
-      element.addClass('popover');
-    }
-  };
-}])
-
-.directive('popoverTemplate', ['$tooltip', function($tooltip) {
-  return $tooltip('popoverTemplate', 'popover', 'click', {
-    useContentExp: true
-  });
-}])
-
-.directive('popoverHtmlPopup', ['$log', '$popoverSuppressWarning', function($log, $popoverSuppressWarning) {
-  return {
-    replace: true,
-    scope: { contentExp: '&', title: '@', placement: '@', popupClass: '@', animation: '&', isOpen: '&' },
-    templateUrl: 'template/popover/popover-html.html',
-    link: function(scope, element) {
-      if (!$popoverSuppressWarning) {
-        $log.warn('popover-html-popup is now deprecated. Use uib-popover-html-popup instead.');
-      }
-
-      element.addClass('popover');
-    }
-  };
-}])
-
-.directive('popoverHtml', ['$tooltip', function($tooltip) {
-  return $tooltip('popoverHtml', 'popover', 'click', {
-    useContentExp: true
-  });
-}])
-
-.directive('popoverPopup', ['$log', '$popoverSuppressWarning', function($log, $popoverSuppressWarning) {
-  return {
-    replace: true,
-    scope: { title: '@', content: '@', placement: '@', popupClass: '@', animation: '&', isOpen: '&' },
-    templateUrl: 'template/popover/popover.html',
-    link: function(scope, element) {
-      if (!$popoverSuppressWarning) {
-        $log.warn('popover-popup is now deprecated. Use uib-popover-popup instead.');
-      }
-
-      element.addClass('popover');
-    }
-  };
-}])
-
-.directive('popover', ['$tooltip', function($tooltip) {
-
-  return $tooltip('popover', 'popover', 'click');
 }]);
 
 angular.module('ui.bootstrap.progressbar', [])
@@ -49360,7 +50316,7 @@ angular.module('ui.bootstrap.progressbar', [])
     scope: {
       max: '=?'
     },
-    templateUrl: 'template/progressbar/progress.html'
+    templateUrl: 'uib/template/progressbar/progress.html'
   };
 })
 
@@ -49373,7 +50329,7 @@ angular.module('ui.bootstrap.progressbar', [])
       value: '=',
       type: '@'
     },
-    templateUrl: 'template/progressbar/bar.html',
+    templateUrl: 'uib/template/progressbar/bar.html',
     link: function(scope, element, attrs, progressCtrl) {
       progressCtrl.addBar(scope, element, attrs);
     }
@@ -49390,131 +50346,12 @@ angular.module('ui.bootstrap.progressbar', [])
       max: '=?',
       type: '@'
     },
-    templateUrl: 'template/progressbar/progressbar.html',
+    templateUrl: 'uib/template/progressbar/progressbar.html',
     link: function(scope, element, attrs, progressCtrl) {
       progressCtrl.addBar(scope, angular.element(element.children()[0]), {title: attrs.title});
     }
   };
 });
-
-/* Deprecated progressbar below */
-
-angular.module('ui.bootstrap.progressbar')
-
-.value('$progressSuppressWarning', false)
-
-.controller('ProgressController', ['$scope', '$attrs', 'uibProgressConfig', '$log', '$progressSuppressWarning', function($scope, $attrs, progressConfig, $log, $progressSuppressWarning) {
-  if (!$progressSuppressWarning) {
-    $log.warn('ProgressController is now deprecated. Use UibProgressController instead.');
-  }
-
-  var self = this,
-    animate = angular.isDefined($attrs.animate) ? $scope.$parent.$eval($attrs.animate) : progressConfig.animate;
-
-  this.bars = [];
-  $scope.max = angular.isDefined($scope.max) ? $scope.max : progressConfig.max;
-
-  this.addBar = function(bar, element, attrs) {
-    if (!animate) {
-      element.css({'transition': 'none'});
-    }
-
-    this.bars.push(bar);
-
-    bar.max = $scope.max;
-    bar.title = attrs && angular.isDefined(attrs.title) ? attrs.title : 'progressbar';
-
-    bar.$watch('value', function(value) {
-      bar.recalculatePercentage();
-    });
-
-    bar.recalculatePercentage = function() {
-      bar.percent = +(100 * bar.value / bar.max).toFixed(2);
-
-      var totalPercentage = self.bars.reduce(function(total, bar) {
-        return total + bar.percent;
-      }, 0);
-
-      if (totalPercentage > 100) {
-        bar.percent -= totalPercentage - 100;
-      }
-    };
-
-    bar.$on('$destroy', function() {
-      element = null;
-      self.removeBar(bar);
-    });
-  };
-
-  this.removeBar = function(bar) {
-    this.bars.splice(this.bars.indexOf(bar), 1);
-  };
-
-  $scope.$watch('max', function(max) {
-    self.bars.forEach(function(bar) {
-      bar.max = $scope.max;
-      bar.recalculatePercentage();
-    });
-  });
-}])
-
-.directive('progress', ['$log', '$progressSuppressWarning', function($log, $progressSuppressWarning) {
-  return {
-    replace: true,
-    transclude: true,
-    controller: 'ProgressController',
-    require: 'progress',
-    scope: {
-      max: '=?',
-      title: '@?'
-    },
-    templateUrl: 'template/progressbar/progress.html',
-    link: function() {
-      if (!$progressSuppressWarning) {
-        $log.warn('progress is now deprecated. Use uib-progress instead.');
-      }
-    }
-  };
-}])
-
-.directive('bar', ['$log', '$progressSuppressWarning', function($log, $progressSuppressWarning) {
-  return {
-    replace: true,
-    transclude: true,
-    require: '^progress',
-    scope: {
-      value: '=',
-      type: '@'
-    },
-    templateUrl: 'template/progressbar/bar.html',
-    link: function(scope, element, attrs, progressCtrl) {
-      if (!$progressSuppressWarning) {
-        $log.warn('bar is now deprecated. Use uib-bar instead.');
-      }
-      progressCtrl.addBar(scope, element);
-    }
-  };
-}])
-
-.directive('progressbar', ['$log', '$progressSuppressWarning', function($log, $progressSuppressWarning) {
-  return {
-    replace: true,
-    transclude: true,
-    controller: 'ProgressController',
-    scope: {
-      value: '=',
-      max: '=?',
-      type: '@'
-    },
-    templateUrl: 'template/progressbar/progressbar.html',
-    link: function(scope, element, attrs, progressCtrl) {
-      if (!$progressSuppressWarning) {
-        $log.warn('progressbar is now deprecated. Use uib-progressbar instead.');
-      }
-      progressCtrl.addBar(scope, angular.element(element.children()[0]), {title: attrs.title});
-    }
-  };
-}]);
 
 angular.module('ui.bootstrap.rating', [])
 
@@ -49526,7 +50363,7 @@ angular.module('ui.bootstrap.rating', [])
 })
 
 .controller('UibRatingController', ['$scope', '$attrs', 'uibRatingConfig', function($scope, $attrs, ratingConfig) {
-  var ngModelCtrl  = { $setViewValue: angular.noop };
+  var ngModelCtrl = { $setViewValue: angular.noop };
 
   this.init = function(ngModelCtrl_) {
     ngModelCtrl = ngModelCtrl_;
@@ -49536,12 +50373,13 @@ angular.module('ui.bootstrap.rating', [])
       if (angular.isNumber(value) && value << 0 !== value) {
         value = Math.round(value);
       }
+
       return value;
     });
 
     this.stateOn = angular.isDefined($attrs.stateOn) ? $scope.$parent.$eval($attrs.stateOn) : ratingConfig.stateOn;
     this.stateOff = angular.isDefined($attrs.stateOff) ? $scope.$parent.$eval($attrs.stateOff) : ratingConfig.stateOff;
-    var tmpTitles = angular.isDefined($attrs.titles)  ? $scope.$parent.$eval($attrs.titles) : ratingConfig.titles ;
+    var tmpTitles = angular.isDefined($attrs.titles) ? $scope.$parent.$eval($attrs.titles) : ratingConfig.titles ;
     this.titles = angular.isArray(tmpTitles) && tmpTitles.length > 0 ?
       tmpTitles : ratingConfig.titles;
 
@@ -49561,9 +50399,9 @@ angular.module('ui.bootstrap.rating', [])
   this.getTitle = function(index) {
     if (index >= this.titles.length) {
       return index + 1;
-    } else {
-      return this.titles[index];
     }
+
+    return this.titles[index];
   };
 
   $scope.rate = function(value) {
@@ -49607,7 +50445,7 @@ angular.module('ui.bootstrap.rating', [])
       onLeave: '&'
     },
     controller: 'UibRatingController',
-    templateUrl: 'template/rating/rating.html',
+    templateUrl: 'uib/template/rating/rating.html',
     replace: true,
     link: function(scope, element, attrs, ctrls) {
       var ratingCtrl = ctrls[0], ngModelCtrl = ctrls[1];
@@ -49615,53 +50453,6 @@ angular.module('ui.bootstrap.rating', [])
     }
   };
 });
-
-/* Deprecated rating below */
-
-angular.module('ui.bootstrap.rating')
-
-.value('$ratingSuppressWarning', false)
-
-.controller('RatingController', ['$scope', '$attrs', '$controller', '$log', '$ratingSuppressWarning', function($scope, $attrs, $controller, $log, $ratingSuppressWarning) {
-  if (!$ratingSuppressWarning) {
-    $log.warn('RatingController is now deprecated. Use UibRatingController instead.');
-  }
-
-  angular.extend(this, $controller('UibRatingController', {
-    $scope: $scope,
-    $attrs: $attrs
-  }));
-}])
-
-.directive('rating', ['$log', '$ratingSuppressWarning', function($log, $ratingSuppressWarning) {
-  return {
-    require: ['rating', 'ngModel'],
-    scope: {
-      readonly: '=?',
-      onHover: '&',
-      onLeave: '&'
-    },
-    controller: 'RatingController',
-    templateUrl: 'template/rating/rating.html',
-    replace: true,
-    link: function(scope, element, attrs, ctrls) {
-      if (!$ratingSuppressWarning) {
-        $log.warn('rating is now deprecated. Use uib-rating instead.');
-      }
-      var ratingCtrl = ctrls[0], ngModelCtrl = ctrls[1];
-      ratingCtrl.init(ngModelCtrl);
-    }
-  };
-}]);
-
-
-/**
- * @ngdoc overview
- * @name ui.bootstrap.tabs
- *
- * @description
- * AngularJS version of the tabs directive.
- */
 
 angular.module('ui.bootstrap.tabs', [])
 
@@ -49703,7 +50494,7 @@ angular.module('ui.bootstrap.tabs', [])
     //Select a new tab if the tab to be removed is selected and not destroyed
     if (tab.active && tabs.length > 1 && !destroyed) {
       //If this is the last tab, select the previous tab. else, the next tab.
-      var newActiveIndex = index == tabs.length - 1 ? index - 1 : index + 1;
+      var newActiveIndex = index === tabs.length - 1 ? index - 1 : index + 1;
       ctrl.select(tabs[newActiveIndex]);
     }
     tabs.splice(index, 1);
@@ -49715,46 +50506,15 @@ angular.module('ui.bootstrap.tabs', [])
   });
 }])
 
-/**
- * @ngdoc directive
- * @name ui.bootstrap.tabs.directive:tabset
- * @restrict EA
- *
- * @description
- * Tabset is the outer container for the tabs directive
- *
- * @param {boolean=} vertical Whether or not to use vertical styling for the tabs.
- * @param {boolean=} justified Whether or not to use justified styling for the tabs.
- *
- * @example
-<example module="ui.bootstrap">
-  <file name="index.html">
-    <uib-tabset>
-      <uib-tab heading="Tab 1"><b>First</b> Content!</uib-tab>
-      <uib-tab heading="Tab 2"><i>Second</i> Content!</uib-tab>
-    </uib-tabset>
-    <hr />
-    <uib-tabset vertical="true">
-      <uib-tab heading="Vertical Tab 1"><b>First</b> Vertical Content!</uib-tab>
-      <uib-tab heading="Vertical Tab 2"><i>Second</i> Vertical Content!</uib-tab>
-    </uib-tabset>
-    <uib-tabset justified="true">
-      <uib-tab heading="Justified Tab 1"><b>First</b> Justified Content!</uib-tab>
-      <uib-tab heading="Justified Tab 2"><i>Second</i> Justified Content!</uib-tab>
-    </uib-tabset>
-  </file>
-</example>
- */
 .directive('uibTabset', function() {
   return {
-    restrict: 'EA',
     transclude: true,
     replace: true,
     scope: {
       type: '@'
     },
     controller: 'UibTabsetController',
-    templateUrl: 'template/tabs/tabset.html',
+    templateUrl: 'uib/template/tabs/tabset.html',
     link: function(scope, element, attrs) {
       scope.vertical = angular.isDefined(attrs.vertical) ? scope.$parent.$eval(attrs.vertical) : false;
       scope.justified = angular.isDefined(attrs.justified) ? scope.$parent.$eval(attrs.justified) : false;
@@ -49762,92 +50522,11 @@ angular.module('ui.bootstrap.tabs', [])
   };
 })
 
-/**
- * @ngdoc directive
- * @name ui.bootstrap.tabs.directive:tab
- * @restrict EA
- *
- * @param {string=} heading The visible heading, or title, of the tab. Set HTML headings with {@link ui.bootstrap.tabs.directive:tabHeading tabHeading}.
- * @param {string=} select An expression to evaluate when the tab is selected.
- * @param {boolean=} active A binding, telling whether or not this tab is selected.
- * @param {boolean=} disabled A binding, telling whether or not this tab is disabled.
- *
- * @description
- * Creates a tab with a heading and content. Must be placed within a {@link ui.bootstrap.tabs.directive:tabset tabset}.
- *
- * @example
-<example module="ui.bootstrap">
-  <file name="index.html">
-    <div ng-controller="TabsDemoCtrl">
-      <button class="btn btn-small" ng-click="items[0].active = true">
-        Select item 1, using active binding
-      </button>
-      <button class="btn btn-small" ng-click="items[1].disabled = !items[1].disabled">
-        Enable/disable item 2, using disabled binding
-      </button>
-      <br />
-      <uib-tabset>
-        <uib-tab heading="Tab 1">First Tab</uib-tab>
-        <uib-tab select="alertMe()">
-          <uib-tab-heading><i class="icon-bell"></i> Alert me!</tab-heading>
-          Second Tab, with alert callback and html heading!
-        </uib-tab>
-        <uib-tab ng-repeat="item in items"
-          heading="{{item.title}}"
-          disabled="item.disabled"
-          active="item.active">
-          {{item.content}}
-        </uib-tab>
-      </uib-tabset>
-    </div>
-  </file>
-  <file name="script.js">
-    function TabsDemoCtrl($scope) {
-      $scope.items = [
-        { title:"Dynamic Title 1", content:"Dynamic Item 0" },
-        { title:"Dynamic Title 2", content:"Dynamic Item 1", disabled: true }
-      ];
-
-      $scope.alertMe = function() {
-        setTimeout(function() {
-          alert("You've selected the alert tab!");
-        });
-      };
-    };
-  </file>
-</example>
- */
-
-/**
- * @ngdoc directive
- * @name ui.bootstrap.tabs.directive:tabHeading
- * @restrict EA
- *
- * @description
- * Creates an HTML heading for a {@link ui.bootstrap.tabs.directive:tab tab}. Must be placed as a child of a tab element.
- *
- * @example
-<example module="ui.bootstrap">
-  <file name="index.html">
-    <uib-tabset>
-      <uib-tab>
-        <uib-tab-heading><b>HTML</b> in my titles?!</tab-heading>
-        And some content, too!
-      </uib-tab>
-      <uib-tab>
-        <uib-tab-heading><i class="icon-heart"></i> Icon heading?!?</tab-heading>
-        That's right.
-      </uib-tab>
-    </uib-tabset>
-  </file>
-</example>
- */
 .directive('uibTab', ['$parse', function($parse) {
   return {
     require: '^uibTabset',
-    restrict: 'EA',
     replace: true,
-    templateUrl: 'template/tabs/tab.html',
+    templateUrl: 'uib/template/tabs/tab.html',
     transclude: true,
     scope: {
       active: '=?',
@@ -49859,6 +50538,7 @@ angular.module('ui.bootstrap.tabs', [])
     controller: function() {
       //Empty controller so other directives can require being 'under' a tab
     },
+    controllerAs: 'tab',
     link: function(scope, elm, attrs, tabsetCtrl, transclude) {
       scope.$watch('active', function(active) {
         if (active) {
@@ -49894,7 +50574,7 @@ angular.module('ui.bootstrap.tabs', [])
 .directive('uibTabHeadingTransclude', function() {
   return {
     restrict: 'A',
-    require: ['?^uibTab', '?^tab'], // TODO: change to '^uibTab' after deprecation removal
+    require: '^uibTab',
     link: function(scope, elm) {
       scope.$watch('headingElement', function updateHeadingElement(heading) {
         if (heading) {
@@ -49909,7 +50589,7 @@ angular.module('ui.bootstrap.tabs', [])
 .directive('uibTabContentTransclude', function() {
   return {
     restrict: 'A',
-    require: ['?^uibTabset', '?^tabset'], // TODO: change to '^uibTabset' after deprecation removal
+    require: '^uibTabset',
     link: function(scope, elm, attrs) {
       var tab = scope.$eval(attrs.uibTabContentTransclude);
 
@@ -49930,15 +50610,9 @@ angular.module('ui.bootstrap.tabs', [])
 
   function isTabHeading(node) {
     return node.tagName && (
-      node.hasAttribute('tab-heading') || // TODO: remove after deprecation removal
-      node.hasAttribute('data-tab-heading') || // TODO: remove after deprecation removal
-      node.hasAttribute('x-tab-heading') || // TODO: remove after deprecation removal
       node.hasAttribute('uib-tab-heading') ||
       node.hasAttribute('data-uib-tab-heading') ||
       node.hasAttribute('x-uib-tab-heading') ||
-      node.tagName.toLowerCase() === 'tab-heading' || // TODO: remove after deprecation removal
-      node.tagName.toLowerCase() === 'data-tab-heading' || // TODO: remove after deprecation removal
-      node.tagName.toLowerCase() === 'x-tab-heading' || // TODO: remove after deprecation removal
       node.tagName.toLowerCase() === 'uib-tab-heading' ||
       node.tagName.toLowerCase() === 'data-uib-tab-heading' ||
       node.tagName.toLowerCase() === 'x-uib-tab-heading'
@@ -49946,171 +50620,27 @@ angular.module('ui.bootstrap.tabs', [])
   }
 });
 
-/* deprecated tabs below */
-
-angular.module('ui.bootstrap.tabs')
-
-  .value('$tabsSuppressWarning', false)
-
-  .controller('TabsetController', ['$scope', '$controller', '$log', '$tabsSuppressWarning', function($scope, $controller, $log, $tabsSuppressWarning) {
-    if (!$tabsSuppressWarning) {
-      $log.warn('TabsetController is now deprecated. Use UibTabsetController instead.');
-    }
-
-    angular.extend(this, $controller('UibTabsetController', {
-      $scope: $scope
-    }));
-  }])
-
-  .directive('tabset', ['$log', '$tabsSuppressWarning', function($log, $tabsSuppressWarning) {
-    return {
-      restrict: 'EA',
-      transclude: true,
-      replace: true,
-      scope: {
-        type: '@'
-      },
-      controller: 'TabsetController',
-      templateUrl: 'template/tabs/tabset.html',
-      link: function(scope, element, attrs) {
-
-        if (!$tabsSuppressWarning) {
-          $log.warn('tabset is now deprecated. Use uib-tabset instead.');
-        }
-        scope.vertical = angular.isDefined(attrs.vertical) ? scope.$parent.$eval(attrs.vertical) : false;
-        scope.justified = angular.isDefined(attrs.justified) ? scope.$parent.$eval(attrs.justified) : false;
-      }
-    };
-  }])
-
-  .directive('tab', ['$parse', '$log', '$tabsSuppressWarning', function($parse, $log, $tabsSuppressWarning) {
-    return {
-      require: '^tabset',
-      restrict: 'EA',
-      replace: true,
-      templateUrl: 'template/tabs/tab.html',
-      transclude: true,
-      scope: {
-        active: '=?',
-        heading: '@',
-        onSelect: '&select', //This callback is called in contentHeadingTransclude
-        //once it inserts the tab's content into the dom
-        onDeselect: '&deselect'
-      },
-      controller: function() {
-        //Empty controller so other directives can require being 'under' a tab
-      },
-      link: function(scope, elm, attrs, tabsetCtrl, transclude) {
-        if (!$tabsSuppressWarning) {
-          $log.warn('tab is now deprecated. Use uib-tab instead.');
-        }
-
-        scope.$watch('active', function(active) {
-          if (active) {
-            tabsetCtrl.select(scope);
-          }
-        });
-
-        scope.disabled = false;
-        if (attrs.disable) {
-          scope.$parent.$watch($parse(attrs.disable), function(value) {
-            scope.disabled = !!value;
-          });
-        }
-
-        scope.select = function() {
-          if (!scope.disabled) {
-            scope.active = true;
-          }
-        };
-
-        tabsetCtrl.addTab(scope);
-        scope.$on('$destroy', function() {
-          tabsetCtrl.removeTab(scope);
-        });
-
-        //We need to transclude later, once the content container is ready.
-        //when this link happens, we're inside a tab heading.
-        scope.$transcludeFn = transclude;
-      }
-    };
-  }])
-
-  .directive('tabHeadingTransclude', ['$log', '$tabsSuppressWarning', function($log, $tabsSuppressWarning) {
-    return {
-      restrict: 'A',
-      require: '^tab',
-      link: function(scope, elm) {
-        if (!$tabsSuppressWarning) {
-          $log.warn('tab-heading-transclude is now deprecated. Use uib-tab-heading-transclude instead.');
-        }
-
-        scope.$watch('headingElement', function updateHeadingElement(heading) {
-          if (heading) {
-            elm.html('');
-            elm.append(heading);
-          }
-        });
-      }
-    };
-  }])
-
-  .directive('tabContentTransclude', ['$log', '$tabsSuppressWarning', function($log, $tabsSuppressWarning) {
-    return {
-      restrict: 'A',
-      require: '^tabset',
-      link: function(scope, elm, attrs) {
-        if (!$tabsSuppressWarning) {
-          $log.warn('tab-content-transclude is now deprecated. Use uib-tab-content-transclude instead.');
-        }
-
-        var tab = scope.$eval(attrs.tabContentTransclude);
-
-        //Now our tab is ready to be transcluded: both the tab heading area
-        //and the tab content area are loaded.  Transclude 'em both.
-        tab.$transcludeFn(tab.$parent, function(contents) {
-          angular.forEach(contents, function(node) {
-            if (isTabHeading(node)) {
-              //Let tabHeadingTransclude know.
-              tab.headingElement = node;
-            }
-            else {
-              elm.append(node);
-            }
-          });
-        });
-      }
-    };
-
-    function isTabHeading(node) {
-      return node.tagName && (
-          node.hasAttribute('tab-heading') ||
-          node.hasAttribute('data-tab-heading') ||
-          node.hasAttribute('x-tab-heading') ||
-          node.tagName.toLowerCase() === 'tab-heading' ||
-          node.tagName.toLowerCase() === 'data-tab-heading' ||
-          node.tagName.toLowerCase() === 'x-tab-heading'
-        );
-    }
-  }]);
-
 angular.module('ui.bootstrap.timepicker', [])
 
 .constant('uibTimepickerConfig', {
   hourStep: 1,
   minuteStep: 1,
+  secondStep: 1,
   showMeridian: true,
+  showSeconds: false,
   meridians: null,
   readonlyInput: false,
   mousewheel: true,
   arrowkeys: true,
-  showSpinners: true
+  showSpinners: true,
+  templateUrl: 'uib/template/timepicker/timepicker.html'
 })
 
 .controller('UibTimepickerController', ['$scope', '$element', '$attrs', '$parse', '$log', '$locale', 'uibTimepickerConfig', function($scope, $element, $attrs, $parse, $log, $locale, timepickerConfig) {
   var selected = new Date(),
-      ngModelCtrl = { $setViewValue: angular.noop }, // nullModelCtrl
-      meridians = angular.isDefined($attrs.meridians) ? $scope.$parent.$eval($attrs.meridians) : timepickerConfig.meridians || $locale.DATETIME_FORMATS.AMPMS;
+    watchers = [],
+    ngModelCtrl = { $setViewValue: angular.noop }, // nullModelCtrl
+    meridians = angular.isDefined($attrs.meridians) ? $scope.$parent.$eval($attrs.meridians) : timepickerConfig.meridians || $locale.DATETIME_FORMATS.AMPMS;
 
   $scope.tabindex = angular.isDefined($attrs.tabindex) ? $attrs.tabindex : 0;
   $element.removeAttr('tabindex');
@@ -50124,84 +50654,119 @@ angular.module('ui.bootstrap.timepicker', [])
     });
 
     var hoursInputEl = inputs.eq(0),
-        minutesInputEl = inputs.eq(1);
+        minutesInputEl = inputs.eq(1),
+        secondsInputEl = inputs.eq(2);
 
     var mousewheel = angular.isDefined($attrs.mousewheel) ? $scope.$parent.$eval($attrs.mousewheel) : timepickerConfig.mousewheel;
+
     if (mousewheel) {
-      this.setupMousewheelEvents(hoursInputEl, minutesInputEl);
+      this.setupMousewheelEvents(hoursInputEl, minutesInputEl, secondsInputEl);
     }
 
     var arrowkeys = angular.isDefined($attrs.arrowkeys) ? $scope.$parent.$eval($attrs.arrowkeys) : timepickerConfig.arrowkeys;
     if (arrowkeys) {
-      this.setupArrowkeyEvents(hoursInputEl, minutesInputEl);
+      this.setupArrowkeyEvents(hoursInputEl, minutesInputEl, secondsInputEl);
     }
 
     $scope.readonlyInput = angular.isDefined($attrs.readonlyInput) ? $scope.$parent.$eval($attrs.readonlyInput) : timepickerConfig.readonlyInput;
-    this.setupInputEvents(hoursInputEl, minutesInputEl);
+    this.setupInputEvents(hoursInputEl, minutesInputEl, secondsInputEl);
   };
 
   var hourStep = timepickerConfig.hourStep;
   if ($attrs.hourStep) {
-    $scope.$parent.$watch($parse($attrs.hourStep), function(value) {
-      hourStep = parseInt(value, 10);
-    });
+    watchers.push($scope.$parent.$watch($parse($attrs.hourStep), function(value) {
+      hourStep = +value;
+    }));
   }
 
   var minuteStep = timepickerConfig.minuteStep;
   if ($attrs.minuteStep) {
-    $scope.$parent.$watch($parse($attrs.minuteStep), function(value) {
-      minuteStep = parseInt(value, 10);
-    });
+    watchers.push($scope.$parent.$watch($parse($attrs.minuteStep), function(value) {
+      minuteStep = +value;
+    }));
   }
 
   var min;
-  $scope.$parent.$watch($parse($attrs.min), function(value) {
+  watchers.push($scope.$parent.$watch($parse($attrs.min), function(value) {
     var dt = new Date(value);
     min = isNaN(dt) ? undefined : dt;
-  });
+  }));
 
   var max;
-  $scope.$parent.$watch($parse($attrs.max), function(value) {
+  watchers.push($scope.$parent.$watch($parse($attrs.max), function(value) {
     var dt = new Date(value);
     max = isNaN(dt) ? undefined : dt;
-  });
+  }));
+
+  var disabled = false;
+  if ($attrs.ngDisabled) {
+    watchers.push($scope.$parent.$watch($parse($attrs.ngDisabled), function(value) {
+      disabled = value;
+    }));
+  }
 
   $scope.noIncrementHours = function() {
     var incrementedSelected = addMinutes(selected, hourStep * 60);
-    return incrementedSelected > max ||
-      (incrementedSelected < selected && incrementedSelected < min);
+    return disabled || incrementedSelected > max ||
+      incrementedSelected < selected && incrementedSelected < min;
   };
 
   $scope.noDecrementHours = function() {
     var decrementedSelected = addMinutes(selected, -hourStep * 60);
-    return decrementedSelected < min ||
-      (decrementedSelected > selected && decrementedSelected > max);
+    return disabled || decrementedSelected < min ||
+      decrementedSelected > selected && decrementedSelected > max;
   };
 
   $scope.noIncrementMinutes = function() {
     var incrementedSelected = addMinutes(selected, minuteStep);
-    return incrementedSelected > max ||
-      (incrementedSelected < selected && incrementedSelected < min);
+    return disabled || incrementedSelected > max ||
+      incrementedSelected < selected && incrementedSelected < min;
   };
 
   $scope.noDecrementMinutes = function() {
     var decrementedSelected = addMinutes(selected, -minuteStep);
-    return decrementedSelected < min ||
-      (decrementedSelected > selected && decrementedSelected > max);
+    return disabled || decrementedSelected < min ||
+      decrementedSelected > selected && decrementedSelected > max;
+  };
+
+  $scope.noIncrementSeconds = function() {
+    var incrementedSelected = addSeconds(selected, secondStep);
+    return disabled || incrementedSelected > max ||
+      incrementedSelected < selected && incrementedSelected < min;
+  };
+
+  $scope.noDecrementSeconds = function() {
+    var decrementedSelected = addSeconds(selected, -secondStep);
+    return disabled || decrementedSelected < min ||
+      decrementedSelected > selected && decrementedSelected > max;
   };
 
   $scope.noToggleMeridian = function() {
-    if (selected.getHours() < 13) {
-      return addMinutes(selected, 12 * 60) > max;
-    } else {
-      return addMinutes(selected, -12 * 60) < min;
+    if (selected.getHours() < 12) {
+      return disabled || addMinutes(selected, 12 * 60) > max;
     }
+
+    return disabled || addMinutes(selected, -12 * 60) < min;
   };
+
+  var secondStep = timepickerConfig.secondStep;
+  if ($attrs.secondStep) {
+    watchers.push($scope.$parent.$watch($parse($attrs.secondStep), function(value) {
+      secondStep = +value;
+    }));
+  }
+
+  $scope.showSeconds = timepickerConfig.showSeconds;
+  if ($attrs.showSeconds) {
+    watchers.push($scope.$parent.$watch($parse($attrs.showSeconds), function(value) {
+      $scope.showSeconds = !!value;
+    }));
+  }
 
   // 12H / 24H mode
   $scope.showMeridian = timepickerConfig.showMeridian;
   if ($attrs.showMeridian) {
-    $scope.$parent.$watch($parse($attrs.showMeridian), function(value) {
+    watchers.push($scope.$parent.$watch($parse($attrs.showMeridian), function(value) {
       $scope.showMeridian = !!value;
 
       if (ngModelCtrl.$error.time) {
@@ -50214,13 +50779,14 @@ angular.module('ui.bootstrap.timepicker', [])
       } else {
         updateTemplate();
       }
-    });
+    }));
   }
 
   // Get $scope.hours in 24H mode if valid
   function getHoursFromTemplate() {
-    var hours = parseInt($scope.hours, 10);
-    var valid = $scope.showMeridian ? (hours > 0 && hours < 13) : (hours >= 0 && hours < 24);
+    var hours = +$scope.hours;
+    var valid = $scope.showMeridian ? hours > 0 && hours < 13 :
+      hours >= 0 && hours < 24;
     if (!valid) {
       return undefined;
     }
@@ -50237,79 +50803,123 @@ angular.module('ui.bootstrap.timepicker', [])
   }
 
   function getMinutesFromTemplate() {
-    var minutes = parseInt($scope.minutes, 10);
-    return (minutes >= 0 && minutes < 60) ? minutes : undefined;
+    var minutes = +$scope.minutes;
+    return minutes >= 0 && minutes < 60 ? minutes : undefined;
+  }
+
+  function getSecondsFromTemplate() {
+    var seconds = +$scope.seconds;
+    return seconds >= 0 && seconds < 60 ? seconds : undefined;
   }
 
   function pad(value) {
-    return (angular.isDefined(value) && value.toString().length < 2) ? '0' + value : value.toString();
+    if (value === null) {
+      return '';
+    }
+
+    return angular.isDefined(value) && value.toString().length < 2 ?
+      '0' + value : value.toString();
   }
 
   // Respond on mousewheel spin
-  this.setupMousewheelEvents = function(hoursInputEl, minutesInputEl) {
+  this.setupMousewheelEvents = function(hoursInputEl, minutesInputEl, secondsInputEl) {
     var isScrollingUp = function(e) {
       if (e.originalEvent) {
         e = e.originalEvent;
       }
       //pick correct delta variable depending on event
-      var delta = (e.wheelDelta) ? e.wheelDelta : -e.deltaY;
-      return (e.detail || delta > 0);
+      var delta = e.wheelDelta ? e.wheelDelta : -e.deltaY;
+      return e.detail || delta > 0;
     };
 
     hoursInputEl.bind('mousewheel wheel', function(e) {
-      $scope.$apply(isScrollingUp(e) ? $scope.incrementHours() : $scope.decrementHours());
+      if (!disabled) {
+        $scope.$apply(isScrollingUp(e) ? $scope.incrementHours() : $scope.decrementHours());
+      }
       e.preventDefault();
     });
 
     minutesInputEl.bind('mousewheel wheel', function(e) {
-      $scope.$apply(isScrollingUp(e) ? $scope.incrementMinutes() : $scope.decrementMinutes());
+      if (!disabled) {
+        $scope.$apply(isScrollingUp(e) ? $scope.incrementMinutes() : $scope.decrementMinutes());
+      }
       e.preventDefault();
     });
 
+     secondsInputEl.bind('mousewheel wheel', function(e) {
+      if (!disabled) {
+        $scope.$apply(isScrollingUp(e) ? $scope.incrementSeconds() : $scope.decrementSeconds());
+      }
+      e.preventDefault();
+    });
   };
 
   // Respond on up/down arrowkeys
-  this.setupArrowkeyEvents = function(hoursInputEl, minutesInputEl) {
+  this.setupArrowkeyEvents = function(hoursInputEl, minutesInputEl, secondsInputEl) {
     hoursInputEl.bind('keydown', function(e) {
-      if (e.which === 38) { // up
-        e.preventDefault();
-        $scope.incrementHours();
-        $scope.$apply();
-      } else if (e.which === 40) { // down
-        e.preventDefault();
-        $scope.decrementHours();
-        $scope.$apply();
+      if (!disabled) {
+        if (e.which === 38) { // up
+          e.preventDefault();
+          $scope.incrementHours();
+          $scope.$apply();
+        } else if (e.which === 40) { // down
+          e.preventDefault();
+          $scope.decrementHours();
+          $scope.$apply();
+        }
       }
     });
 
     minutesInputEl.bind('keydown', function(e) {
-      if (e.which === 38) { // up
-        e.preventDefault();
-        $scope.incrementMinutes();
-        $scope.$apply();
-      } else if (e.which === 40) { // down
-        e.preventDefault();
-        $scope.decrementMinutes();
-        $scope.$apply();
+      if (!disabled) {
+        if (e.which === 38) { // up
+          e.preventDefault();
+          $scope.incrementMinutes();
+          $scope.$apply();
+        } else if (e.which === 40) { // down
+          e.preventDefault();
+          $scope.decrementMinutes();
+          $scope.$apply();
+        }
+      }
+    });
+
+    secondsInputEl.bind('keydown', function(e) {
+      if (!disabled) {
+        if (e.which === 38) { // up
+          e.preventDefault();
+          $scope.incrementSeconds();
+          $scope.$apply();
+        } else if (e.which === 40) { // down
+          e.preventDefault();
+          $scope.decrementSeconds();
+          $scope.$apply();
+        }
       }
     });
   };
 
-  this.setupInputEvents = function(hoursInputEl, minutesInputEl) {
+  this.setupInputEvents = function(hoursInputEl, minutesInputEl, secondsInputEl) {
     if ($scope.readonlyInput) {
       $scope.updateHours = angular.noop;
       $scope.updateMinutes = angular.noop;
+      $scope.updateSeconds = angular.noop;
       return;
     }
 
-    var invalidate = function(invalidHours, invalidMinutes) {
+    var invalidate = function(invalidHours, invalidMinutes, invalidSeconds) {
       ngModelCtrl.$setViewValue(null);
       ngModelCtrl.$setValidity('time', false);
       if (angular.isDefined(invalidHours)) {
         $scope.invalidHours = invalidHours;
       }
+
       if (angular.isDefined(invalidMinutes)) {
         $scope.invalidMinutes = invalidMinutes;
+      }
+
+      if (angular.isDefined(invalidSeconds)) {
+        $scope.invalidSeconds = invalidSeconds;
       }
     };
 
@@ -50317,8 +50927,11 @@ angular.module('ui.bootstrap.timepicker', [])
       var hours = getHoursFromTemplate(),
         minutes = getMinutesFromTemplate();
 
+      ngModelCtrl.$setDirty();
+
       if (angular.isDefined(hours) && angular.isDefined(minutes)) {
         selected.setHours(hours);
+        selected.setMinutes(minutes);
         if (selected < min || selected > max) {
           invalidate(true);
         } else {
@@ -50330,7 +50943,10 @@ angular.module('ui.bootstrap.timepicker', [])
     };
 
     hoursInputEl.bind('blur', function(e) {
-      if (!$scope.invalidHours && $scope.hours < 10) {
+      ngModelCtrl.$setTouched();
+      if ($scope.hours === null || $scope.hours === '') {
+        invalidate(true);
+      } else if (!$scope.invalidHours && $scope.hours < 10) {
         $scope.$apply(function() {
           $scope.hours = pad($scope.hours);
         });
@@ -50341,7 +50957,10 @@ angular.module('ui.bootstrap.timepicker', [])
       var minutes = getMinutesFromTemplate(),
         hours = getHoursFromTemplate();
 
+      ngModelCtrl.$setDirty();
+
       if (angular.isDefined(minutes) && angular.isDefined(hours)) {
+        selected.setHours(hours);
         selected.setMinutes(minutes);
         if (selected < min || selected > max) {
           invalidate(undefined, true);
@@ -50354,9 +50973,33 @@ angular.module('ui.bootstrap.timepicker', [])
     };
 
     minutesInputEl.bind('blur', function(e) {
-      if (!$scope.invalidMinutes && $scope.minutes < 10) {
+      ngModelCtrl.$setTouched();
+      if ($scope.minutes === null) {
+        invalidate(undefined, true);
+      } else if (!$scope.invalidMinutes && $scope.minutes < 10) {
         $scope.$apply(function() {
           $scope.minutes = pad($scope.minutes);
+        });
+      }
+    });
+
+    $scope.updateSeconds = function() {
+      var seconds = getSecondsFromTemplate();
+
+      ngModelCtrl.$setDirty();
+
+      if (angular.isDefined(seconds)) {
+        selected.setSeconds(seconds);
+        refresh('s');
+      } else {
+        invalidate(undefined, undefined, true);
+      }
+    };
+
+    secondsInputEl.bind('blur', function(e) {
+      if (!$scope.invalidSeconds && $scope.seconds < 10) {
+        $scope.$apply( function() {
+          $scope.seconds = pad($scope.seconds);
         });
       }
     });
@@ -50396,32 +51039,51 @@ angular.module('ui.bootstrap.timepicker', [])
     ngModelCtrl.$setValidity('time', true);
     $scope.invalidHours = false;
     $scope.invalidMinutes = false;
+    $scope.invalidSeconds = false;
   }
 
   function updateTemplate(keyboardChange) {
-    var hours = selected.getHours(), minutes = selected.getMinutes();
+    if (!ngModelCtrl.$modelValue) {
+      $scope.hours = null;
+      $scope.minutes = null;
+      $scope.seconds = null;
+      $scope.meridian = meridians[0];
+    } else {
+      var hours = selected.getHours(),
+        minutes = selected.getMinutes(),
+        seconds = selected.getSeconds();
 
-    if ($scope.showMeridian) {
-      hours = (hours === 0 || hours === 12) ? 12 : hours % 12; // Convert 24 to 12 hour system
-    }
+      if ($scope.showMeridian) {
+        hours = hours === 0 || hours === 12 ? 12 : hours % 12; // Convert 24 to 12 hour system
+      }
 
-    $scope.hours = keyboardChange === 'h' ? hours : pad(hours);
-    if (keyboardChange !== 'm') {
-      $scope.minutes = pad(minutes);
+      $scope.hours = keyboardChange === 'h' ? hours : pad(hours);
+      if (keyboardChange !== 'm') {
+        $scope.minutes = pad(minutes);
+      }
+      $scope.meridian = selected.getHours() < 12 ? meridians[0] : meridians[1];
+
+      if (keyboardChange !== 's') {
+        $scope.seconds = pad(seconds);
+      }
+      $scope.meridian = selected.getHours() < 12 ? meridians[0] : meridians[1];
     }
-    $scope.meridian = selected.getHours() < 12 ? meridians[0] : meridians[1];
   }
 
-  function addMinutes(date, minutes) {
-    var dt = new Date(date.getTime() + minutes * 60000);
-    var newDate = new Date(date);
-    newDate.setHours(dt.getHours(), dt.getMinutes());
-    return newDate;
-  }
-
-  function addMinutesToSelected(minutes) {
-    selected = addMinutes(selected, minutes);
+  function addSecondsToSelected(seconds) {
+    selected = addSeconds(selected, seconds);
     refresh();
+  }
+
+  function addMinutes(selected, minutes) {
+    return addSeconds(selected, minutes*60);
+  }
+
+  function addSeconds(date, seconds) {
+    var dt = new Date(date.getTime() + seconds * 1000);
+    var newDate = new Date(date);
+    newDate.setHours(dt.getHours(), dt.getMinutes(), dt.getSeconds());
+    return newDate;
   }
 
   $scope.showSpinners = angular.isDefined($attrs.showSpinners) ?
@@ -50429,89 +51091,75 @@ angular.module('ui.bootstrap.timepicker', [])
 
   $scope.incrementHours = function() {
     if (!$scope.noIncrementHours()) {
-      addMinutesToSelected(hourStep * 60);
+      addSecondsToSelected(hourStep * 60 * 60);
     }
   };
 
   $scope.decrementHours = function() {
     if (!$scope.noDecrementHours()) {
-      addMinutesToSelected(-hourStep * 60);
+      addSecondsToSelected(-hourStep * 60 * 60);
     }
   };
 
   $scope.incrementMinutes = function() {
     if (!$scope.noIncrementMinutes()) {
-      addMinutesToSelected(minuteStep);
+      addSecondsToSelected(minuteStep * 60);
     }
   };
 
   $scope.decrementMinutes = function() {
     if (!$scope.noDecrementMinutes()) {
-      addMinutesToSelected(-minuteStep);
+      addSecondsToSelected(-minuteStep * 60);
+    }
+  };
+
+  $scope.incrementSeconds = function() {
+    if (!$scope.noIncrementSeconds()) {
+      addSecondsToSelected(secondStep);
+    }
+  };
+
+  $scope.decrementSeconds = function() {
+    if (!$scope.noDecrementSeconds()) {
+      addSecondsToSelected(-secondStep);
     }
   };
 
   $scope.toggleMeridian = function() {
+    var minutes = getMinutesFromTemplate(),
+        hours = getHoursFromTemplate();
+
     if (!$scope.noToggleMeridian()) {
-      addMinutesToSelected(12 * 60 * (selected.getHours() < 12 ? 1 : -1));
+      if (angular.isDefined(minutes) && angular.isDefined(hours)) {
+        addSecondsToSelected(12 * 60 * (selected.getHours() < 12 ? 60 : -60));
+      } else {
+        $scope.meridian = $scope.meridian === meridians[0] ? meridians[1] : meridians[0];
+      }
     }
   };
+
+  $scope.blur = function() {
+    ngModelCtrl.$setTouched();
+  };
+
+  $scope.$on('$destroy', function() {
+    while (watchers.length) {
+      watchers.shift()();
+    }
+  });
 }])
 
-.directive('uibTimepicker', function() {
+.directive('uibTimepicker', ['uibTimepickerConfig', function(uibTimepickerConfig) {
   return {
-    restrict: 'EA',
     require: ['uibTimepicker', '?^ngModel'],
     controller: 'UibTimepickerController',
     controllerAs: 'timepicker',
     replace: true,
     scope: {},
     templateUrl: function(element, attrs) {
-      return attrs.templateUrl || 'template/timepicker/timepicker.html';
+      return attrs.templateUrl || uibTimepickerConfig.templateUrl;
     },
     link: function(scope, element, attrs, ctrls) {
-      var timepickerCtrl = ctrls[0], ngModelCtrl = ctrls[1];
-
-      if (ngModelCtrl) {
-        timepickerCtrl.init(ngModelCtrl, element.find('input'));
-      }
-    }
-  };
-});
-
-/* Deprecated timepicker below */
-
-angular.module('ui.bootstrap.timepicker')
-
-.value('$timepickerSuppressWarning', false)
-
-.controller('TimepickerController', ['$scope', '$element', '$attrs', '$controller', '$log', '$timepickerSuppressWarning', function($scope, $element, $attrs, $controller, $log, $timepickerSuppressWarning) {
-  if (!$timepickerSuppressWarning) {
-    $log.warn('TimepickerController is now deprecated. Use UibTimepickerController instead.');
-  }
-
-  angular.extend(this, $controller('UibTimepickerController', {
-    $scope: $scope,
-    $element: $element,
-    $attrs: $attrs
-  }));
-}])
-
-.directive('timepicker', ['$log', '$timepickerSuppressWarning', function($log, $timepickerSuppressWarning) {
-  return {
-    restrict: 'EA',
-    require: ['timepicker', '?^ngModel'],
-    controller: 'TimepickerController',
-    controllerAs: 'timepicker',
-    replace: true,
-    scope: {},
-    templateUrl: function(element, attrs) {
-      return attrs.templateUrl || 'template/timepicker/timepicker.html';
-    },
-    link: function(scope, element, attrs, ctrls) {
-      if (!$timepickerSuppressWarning) {
-        $log.warn('timepicker is now deprecated. Use uib-timepicker instead.');
-      }
       var timepickerCtrl = ctrls[0], ngModelCtrl = ctrls[1];
 
       if (ngModelCtrl) {
@@ -50521,7 +51169,7 @@ angular.module('ui.bootstrap.timepicker')
   };
 }]);
 
-angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
+angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.debounce', 'ui.bootstrap.position'])
 
 /**
  * A helper service that can parse typeahead's syntax (string provided by users)
@@ -50549,8 +51197,8 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
     };
   }])
 
-  .controller('UibTypeaheadController', ['$scope', '$element', '$attrs', '$compile', '$parse', '$q', '$timeout', '$document', '$window', '$rootScope', '$uibPosition', 'uibTypeaheadParser',
-    function(originalScope, element, attrs, $compile, $parse, $q, $timeout, $document, $window, $rootScope, $position, typeaheadParser) {
+  .controller('UibTypeaheadController', ['$scope', '$element', '$attrs', '$compile', '$parse', '$q', '$timeout', '$document', '$window', '$rootScope', '$$debounce', '$uibPosition', 'uibTypeaheadParser',
+    function(originalScope, element, attrs, $compile, $parse, $q, $timeout, $document, $window, $rootScope, $$debounce, $position, typeaheadParser) {
     var HOT_KEYS = [9, 13, 27, 38, 40];
     var eventDebounceTime = 200;
     var modelCtrl, ngModelOptions;
@@ -50567,6 +51215,9 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
 
     //should it restrict model values to the ones selected from the popup only?
     var isEditable = originalScope.$eval(attrs.typeaheadEditable) !== false;
+    originalScope.$watch(attrs.typeaheadEditable, function (newVal) {
+      isEditable = newVal !== false;
+    });
 
     //binding to a variable that indicates if matches are being retrieved asynchronously
     var isLoadingSetter = $parse(attrs.typeaheadLoading).assign || angular.noop;
@@ -50582,14 +51233,20 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
 
     var inputFormatter = attrs.typeaheadInputFormatter ? $parse(attrs.typeaheadInputFormatter) : undefined;
 
-    var appendToBody =  attrs.typeaheadAppendToBody ? originalScope.$eval(attrs.typeaheadAppendToBody) : false;
+    var appendToBody = attrs.typeaheadAppendToBody ? originalScope.$eval(attrs.typeaheadAppendToBody) : false;
 
-    var appendToElementId =  attrs.typeaheadAppendToElementId || false;
+    var appendTo = attrs.typeaheadAppendTo ?
+      originalScope.$eval(attrs.typeaheadAppendTo) : null;
 
     var focusFirst = originalScope.$eval(attrs.typeaheadFocusFirst) !== false;
 
     //If input matches an item of the list exactly, select it automatically
     var selectOnExact = attrs.typeaheadSelectOnExact ? originalScope.$eval(attrs.typeaheadSelectOnExact) : false;
+
+    //binding to a variable that indicates if dropdown is open
+    var isOpenSetter = $parse(attrs.typeaheadIsOpen).assign || angular.noop;
+
+    var showHint = originalScope.$eval(attrs.typeaheadShowHint) || false;
 
     //INTERNAL VARIABLES
 
@@ -50600,9 +51257,9 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
       if (angular.isFunction(parsedModel(originalScope)) &&
         ngModelOptions && ngModelOptions.$options && ngModelOptions.$options.getterSetter) {
         return invokeModelSetter(scope, {$$$p: newValue});
-      } else {
-        return parsedModel.assign(scope, newValue);
       }
+
+      return parsedModel.assign(scope, newValue);
     };
 
     //expressions used by typeahead
@@ -50631,16 +51288,46 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
       'aria-owns': popupId
     });
 
+    var inputsContainer, hintInputElem;
+    //add read-only input to show hint
+    if (showHint) {
+      inputsContainer = angular.element('<div></div>');
+      inputsContainer.css('position', 'relative');
+      element.after(inputsContainer);
+      hintInputElem = element.clone();
+      hintInputElem.attr('placeholder', '');
+      hintInputElem.val('');
+      hintInputElem.css({
+        'position': 'absolute',
+        'top': '0px',
+        'left': '0px',
+        'border-color': 'transparent',
+        'box-shadow': 'none',
+        'opacity': 1,
+        'background': 'none 0% 0% / auto repeat scroll padding-box border-box rgb(255, 255, 255)',
+        'color': '#999'
+      });
+      element.css({
+        'position': 'relative',
+        'vertical-align': 'top',
+        'background-color': 'transparent'
+      });
+      inputsContainer.append(hintInputElem);
+      hintInputElem.after(element);
+    }
+
     //pop-up element used to display matches
     var popUpEl = angular.element('<div uib-typeahead-popup></div>');
     popUpEl.attr({
       id: popupId,
       matches: 'matches',
       active: 'activeIdx',
-      select: 'select(activeIdx)',
+      select: 'select(activeIdx, evt)',
       'move-in-progress': 'moveInProgress',
       query: 'query',
-      position: 'position'
+      position: 'position',
+      'assign-is-open': 'assignIsOpen(isOpen)',
+      debounce: 'debounceUpdate'
     });
     //custom item template
     if (angular.isDefined(attrs.typeaheadTemplateUrl)) {
@@ -50651,10 +51338,17 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
       popUpEl.attr('popup-template-url', attrs.typeaheadPopupTemplateUrl);
     }
 
+    var resetHint = function() {
+      if (showHint) {
+        hintInputElem.val('');
+      }
+    };
+
     var resetMatches = function() {
       scope.matches = [];
       scope.activeIdx = -1;
       element.attr('aria-expanded', false);
+      resetHint();
     };
 
     var getMatchId = function(index) {
@@ -50679,14 +51373,14 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
       return false;
     };
 
-    var getMatchesAsync = function(inputValue) {
+    var getMatchesAsync = function(inputValue, evt) {
       var locals = {$viewValue: inputValue};
       isLoadingSetter(originalScope, true);
       isNoResultsSetter(originalScope, false);
       $q.when(parserResult.source(originalScope, locals)).then(function(matches) {
         //it might happen that several async queries were in progress if a user were typing fast
         //but we are interested only in responses that correspond to the current view value
-        var onCurrentRequest = (inputValue === modelCtrl.$viewValue);
+        var onCurrentRequest = inputValue === modelCtrl.$viewValue;
         if (onCurrentRequest && hasFocus) {
           if (matches && matches.length > 0) {
             scope.activeIdx = focusFirst ? 0 : -1;
@@ -50713,7 +51407,24 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
 
             //Select the single remaining option if user input matches
             if (selectOnExact && scope.matches.length === 1 && inputIsExactMatch(inputValue, 0)) {
-              scope.select(0);
+              if (angular.isNumber(scope.debounceUpdate) || angular.isObject(scope.debounceUpdate)) {
+                $$debounce(function() {
+                  scope.select(0, evt);
+                }, angular.isNumber(scope.debounceUpdate) ? scope.debounceUpdate : scope.debounceUpdate['default']);
+              } else {
+                scope.select(0, evt);
+              }
+            }
+
+            if (showHint) {
+              var firstLabel = scope.matches[0].label;
+              if (angular.isString(inputValue) &&
+                inputValue.length > 0 &&
+                firstLabel.slice(0, inputValue.length).toUpperCase() === inputValue.toUpperCase()) {
+                hintInputElem.val(inputValue + firstLabel.slice(inputValue.length));
+              } else {
+                hintInputElem.val('');
+              }
             }
           } else {
             resetMatches();
@@ -50732,12 +51443,20 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
 
     // bind events only if appendToBody params exist - performance feature
     if (appendToBody) {
-      angular.element($window).bind('resize', fireRecalculating);
-      $document.find('body').bind('scroll', fireRecalculating);
+      angular.element($window).on('resize', fireRecalculating);
+      $document.find('body').on('scroll', fireRecalculating);
     }
 
-    // Declare the timeout promise var outside the function scope so that stacked calls can be cancelled later
-    var timeoutEventPromise;
+    // Declare the debounced function outside recalculating for
+    // proper debouncing
+    var debouncedRecalculate = $$debounce(function() {
+      // if popup is visible
+      if (scope.matches.length) {
+        recalculatePosition();
+      }
+
+      scope.moveInProgress = false;
+    }, eventDebounceTime);
 
     // Default progress type
     scope.moveInProgress = false;
@@ -50748,20 +51467,7 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
         scope.$digest();
       }
 
-      // Cancel previous timeout
-      if (timeoutEventPromise) {
-        $timeout.cancel(timeoutEventPromise);
-      }
-
-      // Debounced executing recalculate after events fired
-      timeoutEventPromise = $timeout(function() {
-        // if popup is visible
-        if (scope.matches.length) {
-          recalculatePosition();
-        }
-
-        scope.moveInProgress = false;
-      }, eventDebounceTime);
+      debouncedRecalculate();
     }
 
     // recalculate actual position and set new values to scope
@@ -50791,7 +51497,11 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
 
     resetMatches();
 
-    scope.select = function(activeIdx) {
+    scope.assignIsOpen = function (isOpen) {
+      isOpenSetter(originalScope, isOpen);
+    };
+
+    scope.select = function(activeIdx, evt) {
       //called from within the $digest() cycle
       var locals = {};
       var model, item;
@@ -50806,7 +51516,8 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
       onSelectCallback(originalScope, {
         $item: item,
         $model: model,
-        $label: parserResult.viewMapper(originalScope, locals)
+        $label: parserResult.viewMapper(originalScope, locals),
+        $event: evt
       });
 
       resetMatches();
@@ -50819,7 +51530,7 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
     };
 
     //bind keyboard events: arrows up(38) / down(40), enter(13) and tab(9), esc(27)
-    element.bind('keydown', function(evt) {
+    element.on('keydown', function(evt) {
       //typeahead is open and an "interesting" key was pressed
       if (scope.matches.length === 0 || HOT_KEYS.indexOf(evt.which) === -1) {
         return;
@@ -50833,31 +51544,66 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
       }
 
       evt.preventDefault();
+      var target;
+      switch (evt.which) {
+        case 9:
+        case 13:
+          scope.$apply(function () {
+            if (angular.isNumber(scope.debounceUpdate) || angular.isObject(scope.debounceUpdate)) {
+              $$debounce(function() {
+                scope.select(scope.activeIdx, evt);
+              }, angular.isNumber(scope.debounceUpdate) ? scope.debounceUpdate : scope.debounceUpdate['default']);
+            } else {
+              scope.select(scope.activeIdx, evt);
+            }
+          });
+          break;
+        case 27:
+          evt.stopPropagation();
 
-      if (evt.which === 40) {
-        scope.activeIdx = (scope.activeIdx + 1) % scope.matches.length;
-        scope.$digest();
-      } else if (evt.which === 38) {
-        scope.activeIdx = (scope.activeIdx > 0 ? scope.activeIdx : scope.matches.length) - 1;
-        scope.$digest();
-      } else if (evt.which === 13 || evt.which === 9) {
-        scope.$apply(function () {
-          scope.select(scope.activeIdx);
-        });
-      } else if (evt.which === 27) {
-        evt.stopPropagation();
-
-        resetMatches();
-        scope.$digest();
+          resetMatches();
+          scope.$digest();
+          break;
+        case 38:
+          scope.activeIdx = (scope.activeIdx > 0 ? scope.activeIdx : scope.matches.length) - 1;
+          scope.$digest();
+          target = popUpEl.find('li')[scope.activeIdx];
+          target.parentNode.scrollTop = target.offsetTop;
+          break;
+        case 40:
+          scope.activeIdx = (scope.activeIdx + 1) % scope.matches.length;
+          scope.$digest();
+          target = popUpEl.find('li')[scope.activeIdx];
+          target.parentNode.scrollTop = target.offsetTop;
+          break;
       }
     });
 
-    element.bind('blur', function() {
+    element.bind('focus', function (evt) {
+      hasFocus = true;
+      if (minLength === 0 && !modelCtrl.$viewValue) {
+        $timeout(function() {
+          getMatchesAsync(modelCtrl.$viewValue, evt);
+        }, 0);
+      }
+    });
+
+    element.bind('blur', function(evt) {
       if (isSelectOnBlur && scope.matches.length && scope.activeIdx !== -1 && !selected) {
         selected = true;
         scope.$apply(function() {
-          scope.select(scope.activeIdx);
+          if (angular.isObject(scope.debounceUpdate) && angular.isNumber(scope.debounceUpdate.blur)) {
+            $$debounce(function() {
+              scope.select(scope.activeIdx, evt);
+            }, scope.debounceUpdate.blur);
+          } else {
+            scope.select(scope.activeIdx, evt);
+          }
         });
+      }
+      if (!isEditable && modelCtrl.$error.editable) {
+        modelCtrl.$viewValue = '';
+        element.val('');
       }
       hasFocus = false;
       selected = false;
@@ -50875,28 +51621,32 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
       }
     };
 
-    $document.bind('click', dismissClickHandler);
+    $document.on('click', dismissClickHandler);
 
     originalScope.$on('$destroy', function() {
-      $document.unbind('click', dismissClickHandler);
-      if (appendToBody || appendToElementId) {
+      $document.off('click', dismissClickHandler);
+      if (appendToBody || appendTo) {
         $popup.remove();
       }
 
       if (appendToBody) {
-        angular.element($window).unbind('resize', fireRecalculating);
-        $document.find('body').unbind('scroll', fireRecalculating);
+        angular.element($window).off('resize', fireRecalculating);
+        $document.find('body').off('scroll', fireRecalculating);
       }
       // Prevent jQuery cache memory leak
       popUpEl.remove();
+
+      if (showHint) {
+          inputsContainer.remove();
+      }
     });
 
     var $popup = $compile(popUpEl)(scope);
 
     if (appendToBody) {
       $document.find('body').append($popup);
-    } else if (appendToElementId !== false) {
-      angular.element($document[0].getElementById(appendToElementId)).append($popup);
+    } else if (appendTo) {
+      angular.element(appendTo).eq(0).append($popup);
     } else {
       element.after($popup);
     }
@@ -50904,6 +51654,8 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
     this.init = function(_modelCtrl, _ngModelOptions) {
       modelCtrl = _modelCtrl;
       ngModelOptions = _ngModelOptions;
+
+      scope.debounceUpdate = modelCtrl.$options && $parse(modelCtrl.$options.debounce)(originalScope);
 
       //plug into $parsers pipeline to open a typeahead on view changes initiated from DOM
       //$parsers kick-in on all the changes coming from the view as well as manually triggered by $setViewValue
@@ -50925,16 +51677,16 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
 
         if (isEditable) {
           return inputValue;
-        } else {
-          if (!inputValue) {
-            // Reset in case user had typed something previously.
-            modelCtrl.$setValidity('editable', true);
-            return null;
-          } else {
-            modelCtrl.$setValidity('editable', false);
-            return undefined;
-          }
         }
+
+        if (!inputValue) {
+          // Reset in case user had typed something previously.
+          modelCtrl.$setValidity('editable', true);
+          return null;
+        }
+
+        modelCtrl.$setValidity('editable', false);
+        return undefined;
       });
 
       modelCtrl.$formatters.push(function(modelValue) {
@@ -50951,16 +51703,16 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
         if (inputFormatter) {
           locals.$model = modelValue;
           return inputFormatter(originalScope, locals);
-        } else {
-          //it might happen that we don't have enough info to properly render input value
-          //we need to check for this situation and simply return model value if we can't apply custom formatting
-          locals[parserResult.itemName] = modelValue;
-          candidateViewValue = parserResult.viewMapper(originalScope, locals);
-          locals[parserResult.itemName] = undefined;
-          emptyViewValue = parserResult.viewMapper(originalScope, locals);
-
-          return candidateViewValue !== emptyViewValue ? candidateViewValue : modelValue;
         }
+
+        //it might happen that we don't have enough info to properly render input value
+        //we need to check for this situation and simply return model value if we can't apply custom formatting
+        locals[parserResult.itemName] = modelValue;
+        candidateViewValue = parserResult.viewMapper(originalScope, locals);
+        locals[parserResult.itemName] = undefined;
+        emptyViewValue = parserResult.viewMapper(originalScope, locals);
+
+        return candidateViewValue !== emptyViewValue ? candidateViewValue : modelValue;
       });
     };
   }])
@@ -50975,7 +51727,7 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
     };
   })
 
-  .directive('uibTypeaheadPopup', function() {
+  .directive('uibTypeaheadPopup', ['$$debounce', function($$debounce) {
     return {
       scope: {
         matches: '=',
@@ -50983,33 +51735,44 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
         active: '=',
         position: '&',
         moveInProgress: '=',
-        select: '&'
+        select: '&',
+        assignIsOpen: '&',
+        debounce: '&'
       },
       replace: true,
       templateUrl: function(element, attrs) {
-        return attrs.popupTemplateUrl || 'template/typeahead/typeahead-popup.html';
+        return attrs.popupTemplateUrl || 'uib/template/typeahead/typeahead-popup.html';
       },
       link: function(scope, element, attrs) {
         scope.templateUrl = attrs.templateUrl;
 
         scope.isOpen = function() {
-          return scope.matches.length > 0;
+          var isDropdownOpen = scope.matches.length > 0;
+          scope.assignIsOpen({ isOpen: isDropdownOpen });
+          return isDropdownOpen;
         };
 
         scope.isActive = function(matchIdx) {
-          return scope.active == matchIdx;
+          return scope.active === matchIdx;
         };
 
         scope.selectActive = function(matchIdx) {
           scope.active = matchIdx;
         };
 
-        scope.selectMatch = function(activeIdx) {
-          scope.select({activeIdx:activeIdx});
+        scope.selectMatch = function(activeIdx, evt) {
+          var debounce = scope.debounce();
+          if (angular.isNumber(debounce) || angular.isObject(debounce)) {
+            $$debounce(function() {
+              scope.select({activeIdx: activeIdx, evt: evt});
+            }, angular.isNumber(debounce) ? debounce : debounce['default']);
+          } else {
+            scope.select({activeIdx: activeIdx, evt: evt});
+          }
         };
       }
     };
-  })
+  }])
 
   .directive('uibTypeaheadMatch', ['$templateRequest', '$compile', '$parse', function($templateRequest, $compile, $parse) {
     return {
@@ -51018,12 +51781,12 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
         match: '=',
         query: '='
       },
-      link:function(scope, element, attrs) {
-        var tplUrl = $parse(attrs.templateUrl)(scope.$parent) || 'template/typeahead/typeahead-match.html';
+      link: function(scope, element, attrs) {
+        var tplUrl = $parse(attrs.templateUrl)(scope.$parent) || 'uib/template/typeahead/typeahead-match.html';
         $templateRequest(tplUrl).then(function(tplContent) {
-          $compile(tplContent.trim())(scope, function(clonedElement) {
-            element.replaceWith(clonedElement);
-          });
+          var tplEl = angular.element(tplContent.trim());
+          element.replaceWith(tplEl);
+          $compile(tplEl)(scope);
         });
       }
     };
@@ -51047,7 +51810,7 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
       if (!isSanitizePresent && containsHtml(matchItem)) {
         $log.warn('Unsafe use of typeahead please use ngSanitize'); // Warn the user about the danger
       }
-      matchItem = query? ('' + matchItem).replace(new RegExp(escapeRegexp(query), 'gi'), '<strong>$&</strong>') : matchItem; // Replaces the capture string with a the same string inside of a "strong" tag
+      matchItem = query ? ('' + matchItem).replace(new RegExp(escapeRegexp(query), 'gi'), '<strong>$&</strong>') : matchItem; // Replaces the capture string with a the same string inside of a "strong" tag
       if (!isSanitizePresent) {
         matchItem = $sce.trustAsHtml(matchItem); // If $sanitize is not present we pack the string in a $sce object for the ng-bind-html directive
       }
@@ -51055,555 +51818,28 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position'])
     };
   }]);
 
-/* Deprecated typeahead below */
-  
-angular.module('ui.bootstrap.typeahead')
-  .value('$typeaheadSuppressWarning', false)
-  .service('typeaheadParser', ['$parse', 'uibTypeaheadParser', '$log', '$typeaheadSuppressWarning', function($parse, uibTypeaheadParser, $log, $typeaheadSuppressWarning) {
-    if (!$typeaheadSuppressWarning) {
-      $log.warn('typeaheadParser is now deprecated. Use uibTypeaheadParser instead.');
-    }
-
-    return uibTypeaheadParser;
-  }])
-
-  .directive('typeahead', ['$compile', '$parse', '$q', '$timeout', '$document', '$window', '$rootScope', '$uibPosition', 'typeaheadParser', '$log', '$typeaheadSuppressWarning',
-    function($compile, $parse, $q, $timeout, $document, $window, $rootScope, $position, typeaheadParser, $log, $typeaheadSuppressWarning) {
-    var HOT_KEYS = [9, 13, 27, 38, 40];
-    var eventDebounceTime = 200;
-    return {
-      require: ['ngModel', '^?ngModelOptions'],
-      link: function(originalScope, element, attrs, ctrls) {
-        if (!$typeaheadSuppressWarning) {
-          $log.warn('typeahead is now deprecated. Use uib-typeahead instead.');
-        }
-        var modelCtrl = ctrls[0];
-        var ngModelOptions = ctrls[1];
-        //SUPPORTED ATTRIBUTES (OPTIONS)
-
-        //minimal no of characters that needs to be entered before typeahead kicks-in
-        var minLength = originalScope.$eval(attrs.typeaheadMinLength);
-        if (!minLength && minLength !== 0) {
-          minLength = 1;
-        }
-
-        //minimal wait time after last character typed before typeahead kicks-in
-        var waitTime = originalScope.$eval(attrs.typeaheadWaitMs) || 0;
-
-        //should it restrict model values to the ones selected from the popup only?
-        var isEditable = originalScope.$eval(attrs.typeaheadEditable) !== false;
-
-        //binding to a variable that indicates if matches are being retrieved asynchronously
-        var isLoadingSetter = $parse(attrs.typeaheadLoading).assign || angular.noop;
-
-        //a callback executed when a match is selected
-        var onSelectCallback = $parse(attrs.typeaheadOnSelect);
-
-        //should it select highlighted popup value when losing focus?
-        var isSelectOnBlur = angular.isDefined(attrs.typeaheadSelectOnBlur) ? originalScope.$eval(attrs.typeaheadSelectOnBlur) : false;
-
-        //binding to a variable that indicates if there were no results after the query is completed
-        var isNoResultsSetter = $parse(attrs.typeaheadNoResults).assign || angular.noop;
-
-        var inputFormatter = attrs.typeaheadInputFormatter ? $parse(attrs.typeaheadInputFormatter) : undefined;
-
-        var appendToBody =  attrs.typeaheadAppendToBody ? originalScope.$eval(attrs.typeaheadAppendToBody) : false;
-
-        var appendToElementId =  attrs.typeaheadAppendToElementId || false;
-
-        var focusFirst = originalScope.$eval(attrs.typeaheadFocusFirst) !== false;
-
-        //If input matches an item of the list exactly, select it automatically
-        var selectOnExact = attrs.typeaheadSelectOnExact ? originalScope.$eval(attrs.typeaheadSelectOnExact) : false;
-
-        //INTERNAL VARIABLES
-
-        //model setter executed upon match selection
-        var parsedModel = $parse(attrs.ngModel);
-        var invokeModelSetter = $parse(attrs.ngModel + '($$$p)');
-        var $setModelValue = function(scope, newValue) {
-          if (angular.isFunction(parsedModel(originalScope)) &&
-            ngModelOptions && ngModelOptions.$options && ngModelOptions.$options.getterSetter) {
-            return invokeModelSetter(scope, {$$$p: newValue});
-          } else {
-            return parsedModel.assign(scope, newValue);
-          }
-        };
-
-        //expressions used by typeahead
-        var parserResult = typeaheadParser.parse(attrs.typeahead);
-
-        var hasFocus;
-
-        //Used to avoid bug in iOS webview where iOS keyboard does not fire
-        //mousedown & mouseup events
-        //Issue #3699
-        var selected;
-
-        //create a child scope for the typeahead directive so we are not polluting original scope
-        //with typeahead-specific data (matches, query etc.)
-        var scope = originalScope.$new();
-        var offDestroy = originalScope.$on('$destroy', function() {
-			    scope.$destroy();
-        });
-        scope.$on('$destroy', offDestroy);
-
-        // WAI-ARIA
-        var popupId = 'typeahead-' + scope.$id + '-' + Math.floor(Math.random() * 10000);
-        element.attr({
-          'aria-autocomplete': 'list',
-          'aria-expanded': false,
-          'aria-owns': popupId
-        });
-
-        //pop-up element used to display matches
-        var popUpEl = angular.element('<div typeahead-popup></div>');
-        popUpEl.attr({
-          id: popupId,
-          matches: 'matches',
-          active: 'activeIdx',
-          select: 'select(activeIdx)',
-          'move-in-progress': 'moveInProgress',
-          query: 'query',
-          position: 'position'
-        });
-        //custom item template
-        if (angular.isDefined(attrs.typeaheadTemplateUrl)) {
-          popUpEl.attr('template-url', attrs.typeaheadTemplateUrl);
-        }
-
-        if (angular.isDefined(attrs.typeaheadPopupTemplateUrl)) {
-          popUpEl.attr('popup-template-url', attrs.typeaheadPopupTemplateUrl);
-        }
-
-        var resetMatches = function() {
-          scope.matches = [];
-          scope.activeIdx = -1;
-          element.attr('aria-expanded', false);
-        };
-
-        var getMatchId = function(index) {
-          return popupId + '-option-' + index;
-        };
-
-        // Indicate that the specified match is the active (pre-selected) item in the list owned by this typeahead.
-        // This attribute is added or removed automatically when the `activeIdx` changes.
-        scope.$watch('activeIdx', function(index) {
-          if (index < 0) {
-            element.removeAttr('aria-activedescendant');
-          } else {
-            element.attr('aria-activedescendant', getMatchId(index));
-          }
-        });
-
-        var inputIsExactMatch = function(inputValue, index) {
-          if (scope.matches.length > index && inputValue) {
-            return inputValue.toUpperCase() === scope.matches[index].label.toUpperCase();
-          }
-
-          return false;
-        };
-
-        var getMatchesAsync = function(inputValue) {
-          var locals = {$viewValue: inputValue};
-          isLoadingSetter(originalScope, true);
-          isNoResultsSetter(originalScope, false);
-          $q.when(parserResult.source(originalScope, locals)).then(function(matches) {
-            //it might happen that several async queries were in progress if a user were typing fast
-            //but we are interested only in responses that correspond to the current view value
-            var onCurrentRequest = (inputValue === modelCtrl.$viewValue);
-            if (onCurrentRequest && hasFocus) {
-              if (matches && matches.length > 0) {
-                scope.activeIdx = focusFirst ? 0 : -1;
-                isNoResultsSetter(originalScope, false);
-                scope.matches.length = 0;
-
-                //transform labels
-                for (var i = 0; i < matches.length; i++) {
-                  locals[parserResult.itemName] = matches[i];
-                  scope.matches.push({
-                    id: getMatchId(i),
-                    label: parserResult.viewMapper(scope, locals),
-                    model: matches[i]
-                  });
-                }
-
-                scope.query = inputValue;
-                //position pop-up with matches - we need to re-calculate its position each time we are opening a window
-                //with matches as a pop-up might be absolute-positioned and position of an input might have changed on a page
-                //due to other elements being rendered
-                recalculatePosition();
-
-                element.attr('aria-expanded', true);
-
-                //Select the single remaining option if user input matches
-                if (selectOnExact && scope.matches.length === 1 && inputIsExactMatch(inputValue, 0)) {
-                  scope.select(0);
-                }
-              } else {
-                resetMatches();
-                isNoResultsSetter(originalScope, true);
-              }
-            }
-            if (onCurrentRequest) {
-              isLoadingSetter(originalScope, false);
-            }
-          }, function() {
-            resetMatches();
-            isLoadingSetter(originalScope, false);
-            isNoResultsSetter(originalScope, true);
-          });
-        };
-
-        // bind events only if appendToBody params exist - performance feature
-        if (appendToBody) {
-          angular.element($window).bind('resize', fireRecalculating);
-          $document.find('body').bind('scroll', fireRecalculating);
-        }
-
-        // Declare the timeout promise var outside the function scope so that stacked calls can be cancelled later
-        var timeoutEventPromise;
-
-        // Default progress type
-        scope.moveInProgress = false;
-
-        function fireRecalculating() {
-          if (!scope.moveInProgress) {
-            scope.moveInProgress = true;
-            scope.$digest();
-          }
-
-          // Cancel previous timeout
-          if (timeoutEventPromise) {
-            $timeout.cancel(timeoutEventPromise);
-          }
-
-          // Debounced executing recalculate after events fired
-          timeoutEventPromise = $timeout(function() {
-            // if popup is visible
-            if (scope.matches.length) {
-              recalculatePosition();
-            }
-
-            scope.moveInProgress = false;
-          }, eventDebounceTime);
-        }
-
-        // recalculate actual position and set new values to scope
-        // after digest loop is popup in right position
-        function recalculatePosition() {
-          scope.position = appendToBody ? $position.offset(element) : $position.position(element);
-          scope.position.top += element.prop('offsetHeight');
-        }
-
-        resetMatches();
-
-        //we need to propagate user's query so we can higlight matches
-        scope.query = undefined;
-
-        //Declare the timeout promise var outside the function scope so that stacked calls can be cancelled later
-        var timeoutPromise;
-
-        var scheduleSearchWithTimeout = function(inputValue) {
-          timeoutPromise = $timeout(function() {
-            getMatchesAsync(inputValue);
-          }, waitTime);
-        };
-
-        var cancelPreviousTimeout = function() {
-          if (timeoutPromise) {
-            $timeout.cancel(timeoutPromise);
-          }
-        };
-
-        //plug into $parsers pipeline to open a typeahead on view changes initiated from DOM
-        //$parsers kick-in on all the changes coming from the view as well as manually triggered by $setViewValue
-        modelCtrl.$parsers.unshift(function(inputValue) {
-          hasFocus = true;
-
-          if (minLength === 0 || inputValue && inputValue.length >= minLength) {
-            if (waitTime > 0) {
-              cancelPreviousTimeout();
-              scheduleSearchWithTimeout(inputValue);
-            } else {
-              getMatchesAsync(inputValue);
-            }
-          } else {
-            isLoadingSetter(originalScope, false);
-            cancelPreviousTimeout();
-            resetMatches();
-          }
-
-          if (isEditable) {
-            return inputValue;
-          } else {
-            if (!inputValue) {
-              // Reset in case user had typed something previously.
-              modelCtrl.$setValidity('editable', true);
-              return null;
-            } else {
-              modelCtrl.$setValidity('editable', false);
-              return undefined;
-            }
-          }
-        });
-
-        modelCtrl.$formatters.push(function(modelValue) {
-          var candidateViewValue, emptyViewValue;
-          var locals = {};
-
-          // The validity may be set to false via $parsers (see above) if
-          // the model is restricted to selected values. If the model
-          // is set manually it is considered to be valid.
-          if (!isEditable) {
-            modelCtrl.$setValidity('editable', true);
-          }
-
-          if (inputFormatter) {
-            locals.$model = modelValue;
-            return inputFormatter(originalScope, locals);
-          } else {
-            //it might happen that we don't have enough info to properly render input value
-            //we need to check for this situation and simply return model value if we can't apply custom formatting
-            locals[parserResult.itemName] = modelValue;
-            candidateViewValue = parserResult.viewMapper(originalScope, locals);
-            locals[parserResult.itemName] = undefined;
-            emptyViewValue = parserResult.viewMapper(originalScope, locals);
-
-            return candidateViewValue !== emptyViewValue ? candidateViewValue : modelValue;
-          }
-        });
-
-        scope.select = function(activeIdx) {
-          //called from within the $digest() cycle
-          var locals = {};
-          var model, item;
-
-          selected = true;
-          locals[parserResult.itemName] = item = scope.matches[activeIdx].model;
-          model = parserResult.modelMapper(originalScope, locals);
-          $setModelValue(originalScope, model);
-          modelCtrl.$setValidity('editable', true);
-          modelCtrl.$setValidity('parse', true);
-
-          onSelectCallback(originalScope, {
-            $item: item,
-            $model: model,
-            $label: parserResult.viewMapper(originalScope, locals)
-          });
-
-          resetMatches();
-
-          //return focus to the input element if a match was selected via a mouse click event
-          // use timeout to avoid $rootScope:inprog error
-          if (scope.$eval(attrs.typeaheadFocusOnSelect) !== false) {
-            $timeout(function() { element[0].focus(); }, 0, false);
-          }
-        };
-
-        //bind keyboard events: arrows up(38) / down(40), enter(13) and tab(9), esc(27)
-        element.bind('keydown', function(evt) {
-          //typeahead is open and an "interesting" key was pressed
-          if (scope.matches.length === 0 || HOT_KEYS.indexOf(evt.which) === -1) {
-            return;
-          }
-
-          // if there's nothing selected (i.e. focusFirst) and enter or tab is hit, clear the results
-          if (scope.activeIdx === -1 && (evt.which === 9 || evt.which === 13)) {
-            resetMatches();
-            scope.$digest();
-            return;
-          }
-
-          evt.preventDefault();
-
-          if (evt.which === 40) {
-            scope.activeIdx = (scope.activeIdx + 1) % scope.matches.length;
-            scope.$digest();
-          } else if (evt.which === 38) {
-            scope.activeIdx = (scope.activeIdx > 0 ? scope.activeIdx : scope.matches.length) - 1;
-            scope.$digest();
-          } else if (evt.which === 13 || evt.which === 9) {
-            scope.$apply(function () {
-              scope.select(scope.activeIdx);
-            });
-          } else if (evt.which === 27) {
-            evt.stopPropagation();
-
-            resetMatches();
-            scope.$digest();
-          }
-        });
-
-        element.bind('blur', function() {
-          if (isSelectOnBlur && scope.matches.length && scope.activeIdx !== -1 && !selected) {
-            selected = true;
-            scope.$apply(function() {
-              scope.select(scope.activeIdx);
-            });
-          }
-          hasFocus = false;
-          selected = false;
-        });
-
-        // Keep reference to click handler to unbind it.
-        var dismissClickHandler = function(evt) {
-          // Issue #3973
-          // Firefox treats right click as a click on document
-          if (element[0] !== evt.target && evt.which !== 3 && scope.matches.length !== 0) {
-            resetMatches();
-            if (!$rootScope.$$phase) {
-              scope.$digest();
-            }
-          }
-        };
-
-        $document.bind('click', dismissClickHandler);
-
-        originalScope.$on('$destroy', function() {
-          $document.unbind('click', dismissClickHandler);
-          if (appendToBody || appendToElementId) {
-            $popup.remove();
-          }
-
-          if (appendToBody) {
-            angular.element($window).unbind('resize', fireRecalculating);
-            $document.find('body').unbind('scroll', fireRecalculating);
-          }
-          // Prevent jQuery cache memory leak
-          popUpEl.remove();
-        });
-
-        var $popup = $compile(popUpEl)(scope);
-
-        if (appendToBody) {
-          $document.find('body').append($popup);
-        } else if (appendToElementId !== false) {
-          angular.element($document[0].getElementById(appendToElementId)).append($popup);
-        } else {
-          element.after($popup);
-        }
-      }
-    };
-  }])
-  
-  .directive('typeaheadPopup', ['$typeaheadSuppressWarning', '$log', function($typeaheadSuppressWarning, $log) {
-    return {
-      scope: {
-        matches: '=',
-        query: '=',
-        active: '=',
-        position: '&',
-        moveInProgress: '=',
-        select: '&'
-      },
-      replace: true,
-      templateUrl: function(element, attrs) {
-        return attrs.popupTemplateUrl || 'template/typeahead/typeahead-popup.html';
-      },
-      link: function(scope, element, attrs) {
-        
-        if (!$typeaheadSuppressWarning) {
-          $log.warn('typeahead-popup is now deprecated. Use uib-typeahead-popup instead.');
-        }
-        scope.templateUrl = attrs.templateUrl;
-
-        scope.isOpen = function() {
-          return scope.matches.length > 0;
-        };
-
-        scope.isActive = function(matchIdx) {
-          return scope.active == matchIdx;
-        };
-
-        scope.selectActive = function(matchIdx) {
-          scope.active = matchIdx;
-        };
-
-        scope.selectMatch = function(activeIdx) {
-          scope.select({activeIdx:activeIdx});
-        };
-      }
-    };
-  }])
-  
-  .directive('typeaheadMatch', ['$templateRequest', '$compile', '$parse', '$typeaheadSuppressWarning', '$log', function($templateRequest, $compile, $parse, $typeaheadSuppressWarning, $log) {
-    return {
-      restrict: 'EA',
-      scope: {
-        index: '=',
-        match: '=',
-        query: '='
-      },
-      link:function(scope, element, attrs) {
-        if (!$typeaheadSuppressWarning) {
-          $log.warn('typeahead-match is now deprecated. Use uib-typeahead-match instead.');
-        }
-
-        var tplUrl = $parse(attrs.templateUrl)(scope.$parent) || 'template/typeahead/typeahead-match.html';
-        $templateRequest(tplUrl).then(function(tplContent) {
-          $compile(tplContent.trim())(scope, function(clonedElement) {
-            element.replaceWith(clonedElement);
-          });
-        });
-      }
-    };
-  }])
-  
-  .filter('typeaheadHighlight', ['$sce', '$injector', '$log', '$typeaheadSuppressWarning', function($sce, $injector, $log, $typeaheadSuppressWarning) {
-    var isSanitizePresent;
-    isSanitizePresent = $injector.has('$sanitize');
-
-    function escapeRegexp(queryToEscape) {
-      // Regex: capture the whole query string and replace it with the string that will be used to match
-      // the results, for example if the capture is "a" the result will be \a
-      return queryToEscape.replace(/([.?*+^$[\]\\(){}|-])/g, '\\$1');
-    }
-
-    function containsHtml(matchItem) {
-      return /<.*>/g.test(matchItem);
-    }
-
-    return function(matchItem, query) {
-      if (!$typeaheadSuppressWarning) {
-        $log.warn('typeaheadHighlight is now deprecated. Use uibTypeaheadHighlight instead.');
-      }
-
-      if (!isSanitizePresent && containsHtml(matchItem)) {
-        $log.warn('Unsafe use of typeahead please use ngSanitize'); // Warn the user about the danger
-      }
-
-      matchItem = query? ('' + matchItem).replace(new RegExp(escapeRegexp(query), 'gi'), '<strong>$&</strong>') : matchItem; // Replaces the capture string with a the same string inside of a "strong" tag
-      if (!isSanitizePresent) {
-        matchItem = $sce.trustAsHtml(matchItem); // If $sanitize is not present we pack the string in a $sce object for the ng-bind-html directive
-      }
-
-      return matchItem;
-    };
-  }]);
-
-angular.module("template/accordion/accordion-group.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/accordion/accordion-group.html",
-    "<div class=\"panel {{panelClass || 'panel-default'}}\">\n" +
-    "  <div class=\"panel-heading\" ng-keypress=\"toggleOpen($event)\">\n" +
+angular.module("uib/template/accordion/accordion-group.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/accordion/accordion-group.html",
+    "<div class=\"panel\" ng-class=\"panelClass || 'panel-default'\">\n" +
+    "  <div role=\"tab\" id=\"{{::headingId}}\" aria-selected=\"{{isOpen}}\" class=\"panel-heading\" ng-keypress=\"toggleOpen($event)\">\n" +
     "    <h4 class=\"panel-title\">\n" +
-    "      <a href tabindex=\"0\" class=\"accordion-toggle\" ng-click=\"toggleOpen()\" uib-accordion-transclude=\"heading\"><span ng-class=\"{'text-muted': isDisabled}\">{{heading}}</span></a>\n" +
+    "      <a role=\"button\" data-toggle=\"collapse\" href aria-expanded=\"{{isOpen}}\" aria-controls=\"{{::panelId}}\" tabindex=\"0\" class=\"accordion-toggle\" ng-click=\"toggleOpen()\" uib-accordion-transclude=\"heading\"><span ng-class=\"{'text-muted': isDisabled}\">{{heading}}</span></a>\n" +
     "    </h4>\n" +
     "  </div>\n" +
-    "  <div class=\"panel-collapse collapse\" uib-collapse=\"!isOpen\">\n" +
-    "	  <div class=\"panel-body\" ng-transclude></div>\n" +
+    "  <div id=\"{{::panelId}}\" aria-labelledby=\"{{::headingId}}\" aria-hidden=\"{{!isOpen}}\" role=\"tabpanel\" class=\"panel-collapse collapse\" uib-collapse=\"!isOpen\">\n" +
+    "    <div class=\"panel-body\" ng-transclude></div>\n" +
     "  </div>\n" +
     "</div>\n" +
     "");
 }]);
 
-angular.module("template/accordion/accordion.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/accordion/accordion.html",
-    "<div class=\"panel-group\" ng-transclude></div>");
+angular.module("uib/template/accordion/accordion.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/accordion/accordion.html",
+    "<div role=\"tablist\" class=\"panel-group\" ng-transclude></div>");
 }]);
 
-angular.module("template/alert/alert.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/alert/alert.html",
+angular.module("uib/template/alert/alert.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/alert/alert.html",
     "<div class=\"alert\" ng-class=\"['alert-' + (type || 'warning'), closeable ? 'alert-dismissible' : null]\" role=\"alert\">\n" +
     "    <button ng-show=\"closeable\" type=\"button\" class=\"close\" ng-click=\"close({$event: $event})\">\n" +
     "        <span aria-hidden=\"true\">&times;</span>\n" +
@@ -51614,8 +51850,8 @@ angular.module("template/alert/alert.html", []).run(["$templateCache", function(
     "");
 }]);
 
-angular.module("template/carousel/carousel.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/carousel/carousel.html",
+angular.module("uib/template/carousel/carousel.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/carousel/carousel.html",
     "<div ng-mouseenter=\"pause()\" ng-mouseleave=\"play()\" class=\"carousel\" ng-swipe-right=\"prev()\" ng-swipe-left=\"next()\">\n" +
     "  <div class=\"carousel-inner\" ng-transclude></div>\n" +
     "  <a role=\"button\" href class=\"left carousel-control\" ng-click=\"prev()\" ng-show=\"slides.length > 1\">\n" +
@@ -51634,31 +51870,31 @@ angular.module("template/carousel/carousel.html", []).run(["$templateCache", fun
     "</div>");
 }]);
 
-angular.module("template/carousel/slide.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/carousel/slide.html",
+angular.module("uib/template/carousel/slide.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/carousel/slide.html",
     "<div ng-class=\"{\n" +
     "    'active': active\n" +
     "  }\" class=\"item text-center\" ng-transclude></div>\n" +
     "");
 }]);
 
-angular.module("template/datepicker/datepicker.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/datepicker/datepicker.html",
-    "<div ng-switch=\"datepickerMode\" role=\"application\" ng-keydown=\"keydown($event)\">\n" +
+angular.module("uib/template/datepicker/datepicker.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/datepicker/datepicker.html",
+    "<div class=\"uib-datepicker\" ng-switch=\"datepickerMode\" role=\"application\" ng-keydown=\"keydown($event)\">\n" +
     "  <uib-daypicker ng-switch-when=\"day\" tabindex=\"0\"></uib-daypicker>\n" +
     "  <uib-monthpicker ng-switch-when=\"month\" tabindex=\"0\"></uib-monthpicker>\n" +
     "  <uib-yearpicker ng-switch-when=\"year\" tabindex=\"0\"></uib-yearpicker>\n" +
     "</div>");
 }]);
 
-angular.module("template/datepicker/day.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/datepicker/day.html",
-    "<table role=\"grid\" aria-labelledby=\"{{::uniqueId}}-title\" aria-activedescendant=\"{{activeDateId}}\">\n" +
+angular.module("uib/template/datepicker/day.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/datepicker/day.html",
+    "<table class=\"uib-daypicker\" role=\"grid\" aria-labelledby=\"{{::uniqueId}}-title\" aria-activedescendant=\"{{activeDateId}}\">\n" +
     "  <thead>\n" +
     "    <tr>\n" +
-    "      <th><button type=\"button\" class=\"btn btn-default btn-sm pull-left\" ng-click=\"move(-1)\" tabindex=\"-1\"><i class=\"glyphicon glyphicon-chevron-left\"></i></button></th>\n" +
-    "      <th colspan=\"{{::5 + showWeeks}}\"><button id=\"{{::uniqueId}}-title\" role=\"heading\" aria-live=\"assertive\" aria-atomic=\"true\" type=\"button\" class=\"btn btn-default btn-sm\" ng-click=\"toggleMode()\" ng-disabled=\"datepickerMode === maxMode\" tabindex=\"-1\" style=\"width:100%;\"><strong>{{title}}</strong></button></th>\n" +
-    "      <th><button type=\"button\" class=\"btn btn-default btn-sm pull-right\" ng-click=\"move(1)\" tabindex=\"-1\"><i class=\"glyphicon glyphicon-chevron-right\"></i></button></th>\n" +
+    "      <th><button type=\"button\" class=\"btn btn-default btn-sm pull-left uib-left\" ng-click=\"move(-1)\" tabindex=\"-1\"><i class=\"glyphicon glyphicon-chevron-left\"></i></button></th>\n" +
+    "      <th colspan=\"{{::5 + showWeeks}}\"><button id=\"{{::uniqueId}}-title\" role=\"heading\" aria-live=\"assertive\" aria-atomic=\"true\" type=\"button\" class=\"btn btn-default btn-sm uib-title\" ng-click=\"toggleMode()\" ng-disabled=\"datepickerMode === maxMode\" tabindex=\"-1\"><strong>{{title}}</strong></button></th>\n" +
+    "      <th><button type=\"button\" class=\"btn btn-default btn-sm pull-right uib-right\" ng-click=\"move(1)\" tabindex=\"-1\"><i class=\"glyphicon glyphicon-chevron-right\"></i></button></th>\n" +
     "    </tr>\n" +
     "    <tr>\n" +
     "      <th ng-if=\"showWeeks\" class=\"text-center\"></th>\n" +
@@ -51666,10 +51902,19 @@ angular.module("template/datepicker/day.html", []).run(["$templateCache", functi
     "    </tr>\n" +
     "  </thead>\n" +
     "  <tbody>\n" +
-    "    <tr ng-repeat=\"row in rows track by $index\">\n" +
+    "    <tr class=\"uib-weeks\" ng-repeat=\"row in rows track by $index\">\n" +
     "      <td ng-if=\"showWeeks\" class=\"text-center h6\"><em>{{ weekNumbers[$index] }}</em></td>\n" +
-    "      <td ng-repeat=\"dt in row track by dt.date\" class=\"text-center\" role=\"gridcell\" id=\"{{::dt.uid}}\" ng-class=\"::dt.customClass\">\n" +
-    "        <button type=\"button\" style=\"min-width:100%;\" class=\"btn btn-default btn-sm\" ng-class=\"{'btn-info': dt.selected, active: isActive(dt)}\" ng-click=\"select(dt.date)\" ng-disabled=\"dt.disabled\" tabindex=\"-1\"><span ng-class=\"::{'text-muted': dt.secondary, 'text-info': dt.current}\">{{::dt.label}}</span></button>\n" +
+    "      <td ng-repeat=\"dt in row\" class=\"uib-day text-center\" role=\"gridcell\"\n" +
+    "        id=\"{{::dt.uid}}\"\n" +
+    "        ng-class=\"::dt.customClass\">\n" +
+    "        <button type=\"button\" class=\"btn btn-default btn-sm\"\n" +
+    "          uib-is-class=\"\n" +
+    "            'btn-info' for selectedDt,\n" +
+    "            'active' for activeDt\n" +
+    "            on dt\"\n" +
+    "          ng-click=\"select(dt.date)\"\n" +
+    "          ng-disabled=\"::dt.disabled\"\n" +
+    "          tabindex=\"-1\"><span ng-class=\"::{'text-muted': dt.secondary, 'text-info': dt.current}\">{{::dt.label}}</span></button>\n" +
     "      </td>\n" +
     "    </tr>\n" +
     "  </tbody>\n" +
@@ -51677,20 +51922,29 @@ angular.module("template/datepicker/day.html", []).run(["$templateCache", functi
     "");
 }]);
 
-angular.module("template/datepicker/month.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/datepicker/month.html",
-    "<table role=\"grid\" aria-labelledby=\"{{::uniqueId}}-title\" aria-activedescendant=\"{{activeDateId}}\">\n" +
+angular.module("uib/template/datepicker/month.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/datepicker/month.html",
+    "<table class=\"uib-monthpicker\" role=\"grid\" aria-labelledby=\"{{::uniqueId}}-title\" aria-activedescendant=\"{{activeDateId}}\">\n" +
     "  <thead>\n" +
     "    <tr>\n" +
-    "      <th><button type=\"button\" class=\"btn btn-default btn-sm pull-left\" ng-click=\"move(-1)\" tabindex=\"-1\"><i class=\"glyphicon glyphicon-chevron-left\"></i></button></th>\n" +
-    "      <th><button id=\"{{::uniqueId}}-title\" role=\"heading\" aria-live=\"assertive\" aria-atomic=\"true\" type=\"button\" class=\"btn btn-default btn-sm\" ng-click=\"toggleMode()\" ng-disabled=\"datepickerMode === maxMode\" tabindex=\"-1\" style=\"width:100%;\"><strong>{{title}}</strong></button></th>\n" +
-    "      <th><button type=\"button\" class=\"btn btn-default btn-sm pull-right\" ng-click=\"move(1)\" tabindex=\"-1\"><i class=\"glyphicon glyphicon-chevron-right\"></i></button></th>\n" +
+    "      <th><button type=\"button\" class=\"btn btn-default btn-sm pull-left uib-left\" ng-click=\"move(-1)\" tabindex=\"-1\"><i class=\"glyphicon glyphicon-chevron-left\"></i></button></th>\n" +
+    "      <th><button id=\"{{::uniqueId}}-title\" role=\"heading\" aria-live=\"assertive\" aria-atomic=\"true\" type=\"button\" class=\"btn btn-default btn-sm uib-title\" ng-click=\"toggleMode()\" ng-disabled=\"datepickerMode === maxMode\" tabindex=\"-1\"><strong>{{title}}</strong></button></th>\n" +
+    "      <th><button type=\"button\" class=\"btn btn-default btn-sm pull-right uib-right\" ng-click=\"move(1)\" tabindex=\"-1\"><i class=\"glyphicon glyphicon-chevron-right\"></i></button></th>\n" +
     "    </tr>\n" +
     "  </thead>\n" +
     "  <tbody>\n" +
-    "    <tr ng-repeat=\"row in rows track by $index\">\n" +
-    "      <td ng-repeat=\"dt in row track by dt.date\" class=\"text-center\" role=\"gridcell\" id=\"{{::dt.uid}}\" ng-class=\"::dt.customClass\">\n" +
-    "        <button type=\"button\" style=\"min-width:100%;\" class=\"btn btn-default\" ng-class=\"{'btn-info': dt.selected, active: isActive(dt)}\" ng-click=\"select(dt.date)\" ng-disabled=\"dt.disabled\" tabindex=\"-1\"><span ng-class=\"::{'text-info': dt.current}\">{{::dt.label}}</span></button>\n" +
+    "    <tr class=\"uib-months\" ng-repeat=\"row in rows track by $index\">\n" +
+    "      <td ng-repeat=\"dt in row\" class=\"uib-month text-center\" role=\"gridcell\"\n" +
+    "        id=\"{{::dt.uid}}\"\n" +
+    "        ng-class=\"::dt.customClass\">\n" +
+    "        <button type=\"button\" class=\"btn btn-default\"\n" +
+    "          uib-is-class=\"\n" +
+    "            'btn-info' for selectedDt,\n" +
+    "            'active' for activeDt\n" +
+    "            on dt\"\n" +
+    "          ng-click=\"select(dt.date)\"\n" +
+    "          ng-disabled=\"::dt.disabled\"\n" +
+    "          tabindex=\"-1\"><span ng-class=\"::{'text-info': dt.current}\">{{::dt.label}}</span></button>\n" +
     "      </td>\n" +
     "    </tr>\n" +
     "  </tbody>\n" +
@@ -51698,35 +51952,46 @@ angular.module("template/datepicker/month.html", []).run(["$templateCache", func
     "");
 }]);
 
-angular.module("template/datepicker/popup.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/datepicker/popup.html",
-    "<ul class=\"dropdown-menu\" dropdown-nested ng-if=\"isOpen\" style=\"display: block\" ng-style=\"{top: position.top+'px', left: position.left+'px'}\" ng-keydown=\"keydown($event)\" ng-click=\"$event.stopPropagation()\">\n" +
-    "	<li ng-transclude></li>\n" +
-    "	<li ng-if=\"showButtonBar\" style=\"padding:10px 9px 2px\">\n" +
-    "		<span class=\"btn-group pull-left\">\n" +
-    "			<button type=\"button\" class=\"btn btn-sm btn-info\" ng-click=\"select('today')\" ng-disabled=\"isDisabled('today')\">{{ getText('current') }}</button>\n" +
-    "			<button type=\"button\" class=\"btn btn-sm btn-danger\" ng-click=\"select(null)\">{{ getText('clear') }}</button>\n" +
-    "		</span>\n" +
-    "		<button type=\"button\" class=\"btn btn-sm btn-success pull-right\" ng-click=\"close()\">{{ getText('close') }}</button>\n" +
-    "	</li>\n" +
-    "</ul>\n" +
+angular.module("uib/template/datepicker/popup.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/datepicker/popup.html",
+    "<div>\n" +
+    "  <ul class=\"uib-datepicker-popup dropdown-menu\" dropdown-nested ng-if=\"isOpen\" ng-style=\"{top: position.top+'px', left: position.left+'px'}\" ng-keydown=\"keydown($event)\" ng-click=\"$event.stopPropagation()\">\n" +
+    "    <li ng-transclude></li>\n" +
+    "    <li ng-if=\"showButtonBar\" class=\"uib-button-bar\">\n" +
+    "    <span class=\"btn-group pull-left\">\n" +
+    "      <button type=\"button\" class=\"btn btn-sm btn-info uib-datepicker-current\" ng-click=\"select('today')\" ng-disabled=\"isDisabled('today')\">{{ getText('current') }}</button>\n" +
+    "      <button type=\"button\" class=\"btn btn-sm btn-danger uib-clear\" ng-click=\"select(null)\">{{ getText('clear') }}</button>\n" +
+    "    </span>\n" +
+    "      <button type=\"button\" class=\"btn btn-sm btn-success pull-right uib-close\" ng-click=\"close()\">{{ getText('close') }}</button>\n" +
+    "    </li>\n" +
+    "  </ul>\n" +
+    "</div>\n" +
     "");
 }]);
 
-angular.module("template/datepicker/year.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/datepicker/year.html",
-    "<table role=\"grid\" aria-labelledby=\"{{::uniqueId}}-title\" aria-activedescendant=\"{{activeDateId}}\">\n" +
+angular.module("uib/template/datepicker/year.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/datepicker/year.html",
+    "<table class=\"uib-yearpicker\" role=\"grid\" aria-labelledby=\"{{::uniqueId}}-title\" aria-activedescendant=\"{{activeDateId}}\">\n" +
     "  <thead>\n" +
     "    <tr>\n" +
-    "      <th><button type=\"button\" class=\"btn btn-default btn-sm pull-left\" ng-click=\"move(-1)\" tabindex=\"-1\"><i class=\"glyphicon glyphicon-chevron-left\"></i></button></th>\n" +
-    "      <th colspan=\"3\"><button id=\"{{::uniqueId}}-title\" role=\"heading\" aria-live=\"assertive\" aria-atomic=\"true\" type=\"button\" class=\"btn btn-default btn-sm\" ng-click=\"toggleMode()\" ng-disabled=\"datepickerMode === maxMode\" tabindex=\"-1\" style=\"width:100%;\"><strong>{{title}}</strong></button></th>\n" +
-    "      <th><button type=\"button\" class=\"btn btn-default btn-sm pull-right\" ng-click=\"move(1)\" tabindex=\"-1\"><i class=\"glyphicon glyphicon-chevron-right\"></i></button></th>\n" +
+    "      <th><button type=\"button\" class=\"btn btn-default btn-sm pull-left uib-left\" ng-click=\"move(-1)\" tabindex=\"-1\"><i class=\"glyphicon glyphicon-chevron-left\"></i></button></th>\n" +
+    "      <th colspan=\"{{::columns - 2}}\"><button id=\"{{::uniqueId}}-title\" role=\"heading\" aria-live=\"assertive\" aria-atomic=\"true\" type=\"button\" class=\"btn btn-default btn-sm uib-title\" ng-click=\"toggleMode()\" ng-disabled=\"datepickerMode === maxMode\" tabindex=\"-1\"><strong>{{title}}</strong></button></th>\n" +
+    "      <th><button type=\"button\" class=\"btn btn-default btn-sm pull-right uib-right\" ng-click=\"move(1)\" tabindex=\"-1\"><i class=\"glyphicon glyphicon-chevron-right\"></i></button></th>\n" +
     "    </tr>\n" +
     "  </thead>\n" +
     "  <tbody>\n" +
-    "    <tr ng-repeat=\"row in rows track by $index\">\n" +
-    "      <td ng-repeat=\"dt in row track by dt.date\" class=\"text-center\" role=\"gridcell\" id=\"{{::dt.uid}}\" ng-class=\"::dt.customClass\">\n" +
-    "        <button type=\"button\" style=\"min-width:100%;\" class=\"btn btn-default\" ng-class=\"{'btn-info': dt.selected, active: isActive(dt)}\" ng-click=\"select(dt.date)\" ng-disabled=\"dt.disabled\" tabindex=\"-1\"><span ng-class=\"::{'text-info': dt.current}\">{{::dt.label}}</span></button>\n" +
+    "    <tr class=\"uib-years\" ng-repeat=\"row in rows track by $index\">\n" +
+    "      <td ng-repeat=\"dt in row\" class=\"uib-year text-center\" role=\"gridcell\"\n" +
+    "        id=\"{{::dt.uid}}\"\n" +
+    "        ng-class=\"::dt.customClass\">\n" +
+    "        <button type=\"button\" class=\"btn btn-default\"\n" +
+    "          uib-is-class=\"\n" +
+    "            'btn-info' for selectedDt,\n" +
+    "            'active' for activeDt\n" +
+    "            on dt\"\n" +
+    "          ng-click=\"select(dt.date)\"\n" +
+    "          ng-disabled=\"::dt.disabled\"\n" +
+    "          tabindex=\"-1\"><span ng-class=\"::{'text-info': dt.current}\">{{::dt.label}}</span></button>\n" +
     "      </td>\n" +
     "    </tr>\n" +
     "  </tbody>\n" +
@@ -51734,28 +51999,29 @@ angular.module("template/datepicker/year.html", []).run(["$templateCache", funct
     "");
 }]);
 
-angular.module("template/modal/backdrop.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/modal/backdrop.html",
-    "<div uib-modal-animation-class=\"fade\"\n" +
+angular.module("uib/template/modal/backdrop.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/modal/backdrop.html",
+    "<div class=\"modal-backdrop\"\n" +
+    "     uib-modal-animation-class=\"fade\"\n" +
     "     modal-in-class=\"in\"\n" +
     "     ng-style=\"{'z-index': 1040 + (index && 1 || 0) + index*10}\"\n" +
     "></div>\n" +
     "");
 }]);
 
-angular.module("template/modal/window.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/modal/window.html",
+angular.module("uib/template/modal/window.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/modal/window.html",
     "<div modal-render=\"{{$isRendered}}\" tabindex=\"-1\" role=\"dialog\" class=\"modal\"\n" +
     "    uib-modal-animation-class=\"fade\"\n" +
     "    modal-in-class=\"in\"\n" +
     "    ng-style=\"{'z-index': 1050 + index*10, display: 'block'}\">\n" +
-    "    <div class=\"modal-dialog\" ng-class=\"size ? 'modal-' + size : ''\"><div class=\"modal-content\" uib-modal-transclude></div></div>\n" +
+    "    <div class=\"modal-dialog {{size ? 'modal-' + size : ''}}\"><div class=\"modal-content\" uib-modal-transclude></div></div>\n" +
     "</div>\n" +
     "");
 }]);
 
-angular.module("template/pagination/pager.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/pagination/pager.html",
+angular.module("uib/template/pager/pager.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/pager/pager.html",
     "<ul class=\"pager\">\n" +
     "  <li ng-class=\"{disabled: noPrevious()||ngDisabled, previous: align}\"><a href ng-click=\"selectPage(page - 1, $event)\">{{::getText('previous')}}</a></li>\n" +
     "  <li ng-class=\"{disabled: noNext()||ngDisabled, next: align}\"><a href ng-click=\"selectPage(page + 1, $event)\">{{::getText('next')}}</a></li>\n" +
@@ -51763,8 +52029,8 @@ angular.module("template/pagination/pager.html", []).run(["$templateCache", func
     "");
 }]);
 
-angular.module("template/pagination/pagination.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/pagination/pagination.html",
+angular.module("uib/template/pagination/pagination.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/pagination/pagination.html",
     "<ul class=\"pagination\">\n" +
     "  <li ng-if=\"::boundaryLinks\" ng-class=\"{disabled: noPrevious()||ngDisabled}\" class=\"pagination-first\"><a href ng-click=\"selectPage(1, $event)\">{{::getText('first')}}</a></li>\n" +
     "  <li ng-if=\"::directionLinks\" ng-class=\"{disabled: noPrevious()||ngDisabled}\" class=\"pagination-prev\"><a href ng-click=\"selectPage(page - 1, $event)\">{{::getText('previous')}}</a></li>\n" +
@@ -51775,9 +52041,9 @@ angular.module("template/pagination/pagination.html", []).run(["$templateCache",
     "");
 }]);
 
-angular.module("template/tooltip/tooltip-html-popup.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/tooltip/tooltip-html-popup.html",
-    "<div\n" +
+angular.module("uib/template/tooltip/tooltip-html-popup.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/tooltip/tooltip-html-popup.html",
+    "<div class=\"tooltip\"\n" +
     "  tooltip-animation-class=\"fade\"\n" +
     "  uib-tooltip-classes\n" +
     "  ng-class=\"{ in: isOpen() }\">\n" +
@@ -51787,9 +52053,9 @@ angular.module("template/tooltip/tooltip-html-popup.html", []).run(["$templateCa
     "");
 }]);
 
-angular.module("template/tooltip/tooltip-popup.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/tooltip/tooltip-popup.html",
-    "<div\n" +
+angular.module("uib/template/tooltip/tooltip-popup.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/tooltip/tooltip-popup.html",
+    "<div class=\"tooltip\"\n" +
     "  tooltip-animation-class=\"fade\"\n" +
     "  uib-tooltip-classes\n" +
     "  ng-class=\"{ in: isOpen() }\">\n" +
@@ -51799,9 +52065,9 @@ angular.module("template/tooltip/tooltip-popup.html", []).run(["$templateCache",
     "");
 }]);
 
-angular.module("template/tooltip/tooltip-template-popup.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/tooltip/tooltip-template-popup.html",
-    "<div\n" +
+angular.module("uib/template/tooltip/tooltip-template-popup.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/tooltip/tooltip-template-popup.html",
+    "<div class=\"tooltip\"\n" +
     "  tooltip-animation-class=\"fade\"\n" +
     "  uib-tooltip-classes\n" +
     "  ng-class=\"{ in: isOpen() }\">\n" +
@@ -51813,9 +52079,10 @@ angular.module("template/tooltip/tooltip-template-popup.html", []).run(["$templa
     "");
 }]);
 
-angular.module("template/popover/popover-html.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/popover/popover-html.html",
-    "<div tooltip-animation-class=\"fade\"\n" +
+angular.module("uib/template/popover/popover-html.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/popover/popover-html.html",
+    "<div class=\"popover\"\n" +
+    "  tooltip-animation-class=\"fade\"\n" +
     "  uib-tooltip-classes\n" +
     "  ng-class=\"{ in: isOpen() }\">\n" +
     "  <div class=\"arrow\"></div>\n" +
@@ -51828,9 +52095,10 @@ angular.module("template/popover/popover-html.html", []).run(["$templateCache", 
     "");
 }]);
 
-angular.module("template/popover/popover-template.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/popover/popover-template.html",
-    "<div tooltip-animation-class=\"fade\"\n" +
+angular.module("uib/template/popover/popover-template.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/popover/popover-template.html",
+    "<div class=\"popover\"\n" +
+    "  tooltip-animation-class=\"fade\"\n" +
     "  uib-tooltip-classes\n" +
     "  ng-class=\"{ in: isOpen() }\">\n" +
     "  <div class=\"arrow\"></div>\n" +
@@ -51845,9 +52113,10 @@ angular.module("template/popover/popover-template.html", []).run(["$templateCach
     "");
 }]);
 
-angular.module("template/popover/popover.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/popover/popover.html",
-    "<div tooltip-animation-class=\"fade\"\n" +
+angular.module("uib/template/popover/popover.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/popover/popover.html",
+    "<div class=\"popover\"\n" +
+    "  tooltip-animation-class=\"fade\"\n" +
     "  uib-tooltip-classes\n" +
     "  ng-class=\"{ in: isOpen() }\">\n" +
     "  <div class=\"arrow\"></div>\n" +
@@ -51860,27 +52129,27 @@ angular.module("template/popover/popover.html", []).run(["$templateCache", funct
     "");
 }]);
 
-angular.module("template/progressbar/bar.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/progressbar/bar.html",
-    "<div class=\"progress-bar\" ng-class=\"type && 'progress-bar-' + type\" role=\"progressbar\" aria-valuenow=\"{{value}}\" aria-valuemin=\"0\" aria-valuemax=\"{{max}}\" ng-style=\"{width: (percent < 100 ? percent : 100) + '%'}\" aria-valuetext=\"{{percent | number:0}}%\" aria-labelledby=\"{{::title}}\" style=\"min-width: 0;\" ng-transclude></div>\n" +
+angular.module("uib/template/progressbar/bar.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/progressbar/bar.html",
+    "<div class=\"progress-bar\" ng-class=\"type && 'progress-bar-' + type\" role=\"progressbar\" aria-valuenow=\"{{value}}\" aria-valuemin=\"0\" aria-valuemax=\"{{max}}\" ng-style=\"{width: (percent < 100 ? percent : 100) + '%'}\" aria-valuetext=\"{{percent | number:0}}%\" aria-labelledby=\"{{::title}}\" ng-transclude></div>\n" +
     "");
 }]);
 
-angular.module("template/progressbar/progress.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/progressbar/progress.html",
+angular.module("uib/template/progressbar/progress.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/progressbar/progress.html",
     "<div class=\"progress\" ng-transclude aria-labelledby=\"{{::title}}\"></div>");
 }]);
 
-angular.module("template/progressbar/progressbar.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/progressbar/progressbar.html",
+angular.module("uib/template/progressbar/progressbar.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/progressbar/progressbar.html",
     "<div class=\"progress\">\n" +
-    "  <div class=\"progress-bar\" ng-class=\"type && 'progress-bar-' + type\" role=\"progressbar\" aria-valuenow=\"{{value}}\" aria-valuemin=\"0\" aria-valuemax=\"{{max}}\" ng-style=\"{width: (percent < 100 ? percent : 100) + '%'}\" aria-valuetext=\"{{percent | number:0}}%\" aria-labelledby=\"{{::title}}\" style=\"min-width: 0;\" ng-transclude></div>\n" +
+    "  <div class=\"progress-bar\" ng-class=\"type && 'progress-bar-' + type\" role=\"progressbar\" aria-valuenow=\"{{value}}\" aria-valuemin=\"0\" aria-valuemax=\"{{max}}\" ng-style=\"{width: (percent < 100 ? percent : 100) + '%'}\" aria-valuetext=\"{{percent | number:0}}%\" aria-labelledby=\"{{::title}}\" ng-transclude></div>\n" +
     "</div>\n" +
     "");
 }]);
 
-angular.module("template/rating/rating.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/rating/rating.html",
+angular.module("uib/template/rating/rating.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/rating/rating.html",
     "<span ng-mouseleave=\"reset()\" ng-keydown=\"onKeydown($event)\" tabindex=\"0\" role=\"slider\" aria-valuemin=\"0\" aria-valuemax=\"{{range.length}}\" aria-valuenow=\"{{value}}\">\n" +
     "    <span ng-repeat-start=\"r in range track by $index\" class=\"sr-only\">({{ $index < value ? '*' : ' ' }})</span>\n" +
     "    <i ng-repeat-end ng-mouseenter=\"enter($index + 1)\" ng-click=\"rate($index + 1)\" class=\"glyphicon\" ng-class=\"$index < value && (r.stateOn || 'glyphicon-star') || (r.stateOff || 'glyphicon-star-empty')\" ng-attr-title=\"{{r.title}}\" aria-valuetext=\"{{r.title}}\"></i>\n" +
@@ -51888,16 +52157,16 @@ angular.module("template/rating/rating.html", []).run(["$templateCache", functio
     "");
 }]);
 
-angular.module("template/tabs/tab.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/tabs/tab.html",
-    "<li ng-class=\"{active: active, disabled: disabled}\">\n" +
+angular.module("uib/template/tabs/tab.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/tabs/tab.html",
+    "<li ng-class=\"{active: active, disabled: disabled}\" class=\"uib-tab\">\n" +
     "  <a href ng-click=\"select()\" uib-tab-heading-transclude>{{heading}}</a>\n" +
     "</li>\n" +
     "");
 }]);
 
-angular.module("template/tabs/tabset.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/tabs/tabset.html",
+angular.module("uib/template/tabs/tabset.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/tabs/tabset.html",
     "<div>\n" +
     "  <ul class=\"nav nav-{{type || 'tabs'}}\" ng-class=\"{'nav-stacked': vertical, 'nav-justified': justified}\" ng-transclude></ul>\n" +
     "  <div class=\"tab-content\">\n" +
@@ -51911,30 +52180,38 @@ angular.module("template/tabs/tabset.html", []).run(["$templateCache", function(
     "");
 }]);
 
-angular.module("template/timepicker/timepicker.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/timepicker/timepicker.html",
-    "<table>\n" +
+angular.module("uib/template/timepicker/timepicker.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/timepicker/timepicker.html",
+    "<table class=\"uib-timepicker\">\n" +
     "  <tbody>\n" +
     "    <tr class=\"text-center\" ng-show=\"::showSpinners\">\n" +
-    "      <td><a ng-click=\"incrementHours()\" ng-class=\"{disabled: noIncrementHours()}\" class=\"btn btn-link\" ng-disabled=\"noIncrementHours()\" tabindex=\"{{::tabindex}}\"><span class=\"glyphicon glyphicon-chevron-up\"></span></a></td>\n" +
+    "      <td class=\"uib-increment hours\"><a ng-click=\"incrementHours()\" ng-class=\"{disabled: noIncrementHours()}\" class=\"btn btn-link\" ng-disabled=\"noIncrementHours()\" tabindex=\"{{::tabindex}}\"><span class=\"glyphicon glyphicon-chevron-up\"></span></a></td>\n" +
     "      <td>&nbsp;</td>\n" +
-    "      <td><a ng-click=\"incrementMinutes()\" ng-class=\"{disabled: noIncrementMinutes()}\" class=\"btn btn-link\" ng-disabled=\"noIncrementMinutes()\" tabindex=\"{{::tabindex}}\"><span class=\"glyphicon glyphicon-chevron-up\"></span></a></td>\n" +
+    "      <td class=\"uib-increment minutes\"><a ng-click=\"incrementMinutes()\" ng-class=\"{disabled: noIncrementMinutes()}\" class=\"btn btn-link\" ng-disabled=\"noIncrementMinutes()\" tabindex=\"{{::tabindex}}\"><span class=\"glyphicon glyphicon-chevron-up\"></span></a></td>\n" +
+    "      <td ng-show=\"showSeconds\">&nbsp;</td>\n" +
+    "      <td ng-show=\"showSeconds\" class=\"uib-increment seconds\"><a ng-click=\"incrementSeconds()\" ng-class=\"{disabled: noIncrementSeconds()}\" class=\"btn btn-link\" ng-disabled=\"noIncrementSeconds()\" tabindex=\"{{::tabindex}}\"><span class=\"glyphicon glyphicon-chevron-up\"></span></a></td>\n" +
     "      <td ng-show=\"showMeridian\"></td>\n" +
     "    </tr>\n" +
     "    <tr>\n" +
-    "      <td class=\"form-group\" ng-class=\"{'has-error': invalidHours}\">\n" +
-    "        <input style=\"width:50px;\" type=\"text\" ng-model=\"hours\" ng-change=\"updateHours()\" class=\"form-control text-center\" ng-readonly=\"::readonlyInput\" maxlength=\"2\" tabindex=\"{{::tabindex}}\">\n" +
+    "      <td class=\"form-group uib-time hours\" ng-class=\"{'has-error': invalidHours}\">\n" +
+    "        <input style=\"width:50px;\" type=\"text\" placeholder=\"HH\" ng-model=\"hours\" ng-change=\"updateHours()\" class=\"form-control text-center\" ng-readonly=\"::readonlyInput\" maxlength=\"2\" tabindex=\"{{::tabindex}}\" ng-disabled=\"noIncrementHours()\" ng-blur=\"blur()\">\n" +
     "      </td>\n" +
-    "      <td>:</td>\n" +
-    "      <td class=\"form-group\" ng-class=\"{'has-error': invalidMinutes}\">\n" +
-    "        <input style=\"width:50px;\" type=\"text\" ng-model=\"minutes\" ng-change=\"updateMinutes()\" class=\"form-control text-center\" ng-readonly=\"::readonlyInput\" maxlength=\"2\" tabindex=\"{{::tabindex}}\">\n" +
+    "      <td class=\"uib-separator\">:</td>\n" +
+    "      <td class=\"form-group uib-time minutes\" ng-class=\"{'has-error': invalidMinutes}\">\n" +
+    "        <input style=\"width:50px;\" type=\"text\" placeholder=\"MM\" ng-model=\"minutes\" ng-change=\"updateMinutes()\" class=\"form-control text-center\" ng-readonly=\"::readonlyInput\" maxlength=\"2\" tabindex=\"{{::tabindex}}\" ng-disabled=\"noIncrementMinutes()\" ng-blur=\"blur()\">\n" +
     "      </td>\n" +
-    "      <td ng-show=\"showMeridian\"><button type=\"button\" ng-class=\"{disabled: noToggleMeridian()}\" class=\"btn btn-default text-center\" ng-click=\"toggleMeridian()\" ng-disabled=\"noToggleMeridian()\" tabindex=\"{{::tabindex}}\">{{meridian}}</button></td>\n" +
+    "      <td ng-show=\"showSeconds\" class=\"uib-separator\">:</td>\n" +
+    "      <td class=\"form-group uib-time seconds\" ng-class=\"{'has-error': invalidSeconds}\" ng-show=\"showSeconds\">\n" +
+    "        <input style=\"width:50px;\" type=\"text\" placeholder=\"SS\" ng-model=\"seconds\" ng-change=\"updateSeconds()\" class=\"form-control text-center\" ng-readonly=\"readonlyInput\" maxlength=\"2\" tabindex=\"{{::tabindex}}\" ng-disabled=\"noIncrementSeconds()\" ng-blur=\"blur()\">\n" +
+    "      </td>\n" +
+    "      <td ng-show=\"showMeridian\" class=\"uib-time am-pm\"><button type=\"button\" ng-class=\"{disabled: noToggleMeridian()}\" class=\"btn btn-default text-center\" ng-click=\"toggleMeridian()\" ng-disabled=\"noToggleMeridian()\" tabindex=\"{{::tabindex}}\">{{meridian}}</button></td>\n" +
     "    </tr>\n" +
     "    <tr class=\"text-center\" ng-show=\"::showSpinners\">\n" +
-    "      <td><a ng-click=\"decrementHours()\" ng-class=\"{disabled: noDecrementHours()}\" class=\"btn btn-link\" ng-disabled=\"noDecrementHours()\" tabindex=\"{{::tabindex}}\"><span class=\"glyphicon glyphicon-chevron-down\"></span></a></td>\n" +
+    "      <td class=\"uib-decrement hours\"><a ng-click=\"decrementHours()\" ng-class=\"{disabled: noDecrementHours()}\" class=\"btn btn-link\" ng-disabled=\"noDecrementHours()\" tabindex=\"{{::tabindex}}\"><span class=\"glyphicon glyphicon-chevron-down\"></span></a></td>\n" +
     "      <td>&nbsp;</td>\n" +
-    "      <td><a ng-click=\"decrementMinutes()\" ng-class=\"{disabled: noDecrementMinutes()}\" class=\"btn btn-link\" ng-disabled=\"noDecrementMinutes()\" tabindex=\"{{::tabindex}}\"><span class=\"glyphicon glyphicon-chevron-down\"></span></a></td>\n" +
+    "      <td class=\"uib-decrement minutes\"><a ng-click=\"decrementMinutes()\" ng-class=\"{disabled: noDecrementMinutes()}\" class=\"btn btn-link\" ng-disabled=\"noDecrementMinutes()\" tabindex=\"{{::tabindex}}\"><span class=\"glyphicon glyphicon-chevron-down\"></span></a></td>\n" +
+    "      <td ng-show=\"showSeconds\">&nbsp;</td>\n" +
+    "      <td ng-show=\"showSeconds\" class=\"uib-decrement seconds\"><a ng-click=\"decrementSeconds()\" ng-class=\"{disabled: noDecrementSeconds()}\" class=\"btn btn-link\" ng-disabled=\"noDecrementSeconds()\" tabindex=\"{{::tabindex}}\"><span class=\"glyphicon glyphicon-chevron-down\"></span></a></td>\n" +
     "      <td ng-show=\"showMeridian\"></td>\n" +
     "    </tr>\n" +
     "  </tbody>\n" +
@@ -51942,28 +52219,34 @@ angular.module("template/timepicker/timepicker.html", []).run(["$templateCache",
     "");
 }]);
 
-angular.module("template/typeahead/typeahead-match.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/typeahead/typeahead-match.html",
-    "<a href tabindex=\"-1\" ng-bind-html=\"match.label | uibTypeaheadHighlight:query\"></a>\n" +
+angular.module("uib/template/typeahead/typeahead-match.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/typeahead/typeahead-match.html",
+    "<a href\n" +
+    "   tabindex=\"-1\"\n" +
+    "   ng-bind-html=\"match.label | uibTypeaheadHighlight:query\"\n" +
+    "   ng-attr-title=\"{{match.label}}\"></a>\n" +
     "");
 }]);
 
-angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCache", function($templateCache) {
-  $templateCache.put("template/typeahead/typeahead-popup.html",
-    "<ul class=\"dropdown-menu\" ng-show=\"isOpen() && !moveInProgress\" ng-style=\"{top: position().top+'px', left: position().left+'px'}\" style=\"display: block;\" role=\"listbox\" aria-hidden=\"{{!isOpen()}}\">\n" +
-    "    <li ng-repeat=\"match in matches track by $index\" ng-class=\"{active: isActive($index) }\" ng-mouseenter=\"selectActive($index)\" ng-click=\"selectMatch($index)\" role=\"option\" id=\"{{::match.id}}\">\n" +
+angular.module("uib/template/typeahead/typeahead-popup.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("uib/template/typeahead/typeahead-popup.html",
+    "<ul class=\"dropdown-menu\" ng-show=\"isOpen() && !moveInProgress\" ng-style=\"{top: position().top+'px', left: position().left+'px'}\" role=\"listbox\" aria-hidden=\"{{!isOpen()}}\">\n" +
+    "    <li ng-repeat=\"match in matches track by $index\" ng-class=\"{active: isActive($index) }\" ng-mouseenter=\"selectActive($index)\" ng-click=\"selectMatch($index, $event)\" role=\"option\" id=\"{{::match.id}}\">\n" +
     "        <div uib-typeahead-match index=\"$index\" match=\"match\" query=\"query\" template-url=\"templateUrl\"></div>\n" +
     "    </li>\n" +
     "</ul>\n" +
     "");
 }]);
-!angular.$$csp() && angular.element(document).find('head').prepend('<style type="text/css">.ng-animate.item:not(.left):not(.right){-webkit-transition:0s ease-in-out left;transition:0s ease-in-out left}</style>');;//! moment.js
-//! version : 2.10.6
+angular.module('ui.bootstrap.carousel').run(function() {!angular.$$csp().noInlineStyle && angular.element(document).find('head').prepend('<style type="text/css">.ng-animate.item:not(.left):not(.right){-webkit-transition:0s ease-in-out left;transition:0s ease-in-out left}</style>'); });
+angular.module('ui.bootstrap.datepicker').run(function() {!angular.$$csp().noInlineStyle && angular.element(document).find('head').prepend('<style type="text/css">.uib-datepicker .uib-title{width:100%;}.uib-day button,.uib-month button,.uib-year button{min-width:100%;}.uib-datepicker-popup.dropdown-menu{display:block;}.uib-button-bar{padding:10px 9px 2px;}</style>'); });
+angular.module('ui.bootstrap.timepicker').run(function() {!angular.$$csp().noInlineStyle && angular.element(document).find('head').prepend('<style type="text/css">.uib-time input{width:50px;}</style>'); });
+angular.module('ui.bootstrap.typeahead').run(function() {!angular.$$csp().noInlineStyle && angular.element(document).find('head').prepend('<style type="text/css">[uib-typeahead-popup].dropdown-menu{display:block;}</style>'); });;//! moment.js
+//! version : 2.11.2
 //! authors : Tim Wood, Iskren Chernev, Moment.js contributors
 //! license : MIT
 //! momentjs.com
 
-(function (global, factory) {
+;(function (global, factory) {
     typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
     typeof define === 'function' && define.amd ? define(factory) :
     global.moment = factory()
@@ -52080,39 +52363,45 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
         return m;
     }
 
+    function isUndefined(input) {
+        return input === void 0;
+    }
+
+    // Plugins that add properties should also add the key here (null value),
+    // so we can properly clone ourselves.
     var momentProperties = utils_hooks__hooks.momentProperties = [];
 
     function copyConfig(to, from) {
         var i, prop, val;
 
-        if (typeof from._isAMomentObject !== 'undefined') {
+        if (!isUndefined(from._isAMomentObject)) {
             to._isAMomentObject = from._isAMomentObject;
         }
-        if (typeof from._i !== 'undefined') {
+        if (!isUndefined(from._i)) {
             to._i = from._i;
         }
-        if (typeof from._f !== 'undefined') {
+        if (!isUndefined(from._f)) {
             to._f = from._f;
         }
-        if (typeof from._l !== 'undefined') {
+        if (!isUndefined(from._l)) {
             to._l = from._l;
         }
-        if (typeof from._strict !== 'undefined') {
+        if (!isUndefined(from._strict)) {
             to._strict = from._strict;
         }
-        if (typeof from._tzm !== 'undefined') {
+        if (!isUndefined(from._tzm)) {
             to._tzm = from._tzm;
         }
-        if (typeof from._isUTC !== 'undefined') {
+        if (!isUndefined(from._isUTC)) {
             to._isUTC = from._isUTC;
         }
-        if (typeof from._offset !== 'undefined') {
+        if (!isUndefined(from._offset)) {
             to._offset = from._offset;
         }
-        if (typeof from._pf !== 'undefined') {
+        if (!isUndefined(from._pf)) {
             to._pf = getParsingFlags(from);
         }
-        if (typeof from._locale !== 'undefined') {
+        if (!isUndefined(from._locale)) {
             to._locale = from._locale;
         }
 
@@ -52120,7 +52409,7 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
             for (i in momentProperties) {
                 prop = momentProperties[i];
                 val = from[prop];
-                if (typeof val !== 'undefined') {
+                if (!isUndefined(val)) {
                     to[prop] = val;
                 }
             }
@@ -52167,6 +52456,7 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
         return value;
     }
 
+    // compare two arrays, return the number of differences
     function compareArrays(array1, array2, dontConvert) {
         var len = Math.min(array1.length, array2.length),
             lengthDiff = Math.abs(array1.length - array2.length),
@@ -52184,6 +52474,7 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     function Locale() {
     }
 
+    // internal storage for locale config files
     var locales = {};
     var globalLocale;
 
@@ -52221,7 +52512,7 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     function loadLocale(name) {
         var oldLocale = null;
         // TODO: Find a better way to register and load all the locales in Node
-        if (!locales[name] && typeof module !== 'undefined' &&
+        if (!locales[name] && (typeof module !== 'undefined') &&
                 module && module.exports) {
             try {
                 oldLocale = globalLocale._abbr;
@@ -52240,7 +52531,7 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     function locale_locales__getSetGlobalLocale (key, values) {
         var data;
         if (key) {
-            if (typeof values === 'undefined') {
+            if (isUndefined(values)) {
                 data = locale_locales__getLocale(key);
             }
             else {
@@ -52325,6 +52616,10 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
         return normalizedInput;
     }
 
+    function isFunction(input) {
+        return input instanceof Function || Object.prototype.toString.call(input) === '[object Function]';
+    }
+
     function makeGetSet (unit, keepTime) {
         return function (value) {
             if (value != null) {
@@ -52338,11 +52633,14 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     }
 
     function get_set__get (mom, unit) {
-        return mom._d['get' + (mom._isUTC ? 'UTC' : '') + unit]();
+        return mom.isValid() ?
+            mom._d['get' + (mom._isUTC ? 'UTC' : '') + unit]() : NaN;
     }
 
     function get_set__set (mom, unit, value) {
-        return mom._d['set' + (mom._isUTC ? 'UTC' : '') + unit](value);
+        if (mom.isValid()) {
+            mom._d['set' + (mom._isUTC ? 'UTC' : '') + unit](value);
+        }
     }
 
     // MOMENTS
@@ -52355,7 +52653,7 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
             }
         } else {
             units = normalizeUnits(units);
-            if (typeof this[units] === 'function') {
+            if (isFunction(this[units])) {
                 return this[units](value);
             }
         }
@@ -52370,7 +52668,7 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
             Math.pow(10, Math.max(0, zerosToFill)).toString().substr(1) + absNumber;
     }
 
-    var formattingTokens = /(\[[^\[]*\])|(\\)?(Mo|MM?M?M?|Do|DDDo|DD?D?D?|ddd?d?|do?|w[o|w]?|W[o|W]?|Q|YYYYYY|YYYYY|YYYY|YY|gg(ggg?)?|GG(GGG?)?|e|E|a|A|hh?|HH?|mm?|ss?|S{1,9}|x|X|zz?|ZZ?|.)/g;
+    var formattingTokens = /(\[[^\[]*\])|(\\)?([Hh]mm(ss)?|Mo|MM?M?M?|Do|DDDo|DD?D?D?|ddd?d?|do?|w[o|w]?|W[o|W]?|Qo?|YYYYYY|YYYYY|YYYY|YY|gg(ggg?)?|GG(GGG?)?|e|E|a|A|hh?|HH?|mm?|ss?|S{1,9}|x|X|zz?|ZZ?|.)/g;
 
     var localFormattingTokens = /(\[[^\[]*\])|(\\)?(LTS|LT|LL?L?L?|l{1,4})/g;
 
@@ -52466,6 +52764,8 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     var match4         = /\d{4}/;         //    0000 - 9999
     var match6         = /[+-]?\d{6}/;    // -999999 - 999999
     var match1to2      = /\d\d?/;         //       0 - 99
+    var match3to4      = /\d\d\d\d?/;     //     999 - 9999
+    var match5to6      = /\d\d\d\d\d\d?/; //   99999 - 999999
     var match1to3      = /\d{1,3}/;       //       0 - 999
     var match1to4      = /\d{1,4}/;       //       0 - 9999
     var match1to6      = /[+-]?\d{1,6}/;  // -999999 - 999999
@@ -52474,23 +52774,19 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     var matchSigned    = /[+-]?\d+/;      //    -inf - inf
 
     var matchOffset    = /Z|[+-]\d\d:?\d\d/gi; // +00:00 -00:00 +0000 -0000 or Z
+    var matchShortOffset = /Z|[+-]\d\d(?::?\d\d)?/gi; // +00 -00 +00:00 -00:00 +0000 -0000 or Z
 
     var matchTimestamp = /[+-]?\d+(\.\d{1,3})?/; // 123456789 123456789.123
 
     // any word (or two) characters or numbers including two/three word month in arabic.
+    // includes scottish gaelic two word and hyphenated months
     var matchWord = /[0-9]*['a-z\u00A0-\u05FF\u0700-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF]+|[\u0600-\u06FF\/]+(\s*?[\u0600-\u06FF]+){1,2}/i;
+
 
     var regexes = {};
 
-    function isFunction (sth) {
-        // https://github.com/moment/moment/issues/2325
-        return typeof sth === 'function' &&
-            Object.prototype.toString.call(sth) === '[object Function]';
-    }
-
-
     function addRegexToken (token, regex, strictRegex) {
-        regexes[token] = isFunction(regex) ? regex : function (isStrict) {
+        regexes[token] = isFunction(regex) ? regex : function (isStrict, localeData) {
             return (isStrict && strictRegex) ? strictRegex : regex;
         };
     }
@@ -52505,9 +52801,13 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
 
     // Code from http://stackoverflow.com/questions/3561493/is-there-a-regexp-escape-function-in-javascript
     function unescapeFormat(s) {
-        return s.replace('\\', '').replace(/\\(\[)|\\(\])|\[([^\]\[]*)\]|\\(.)/g, function (matched, p1, p2, p3, p4) {
+        return regexEscape(s.replace('\\', '').replace(/\\(\[)|\\(\])|\[([^\]\[]*)\]|\\(.)/g, function (matched, p1, p2, p3, p4) {
             return p1 || p2 || p3 || p4;
-        }).replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        }));
+    }
+
+    function regexEscape(s) {
+        return s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
     }
 
     var tokens = {};
@@ -52547,6 +52847,8 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     var MINUTE = 4;
     var SECOND = 5;
     var MILLISECOND = 6;
+    var WEEK = 7;
+    var WEEKDAY = 8;
 
     function daysInMonth(year, month) {
         return new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
@@ -52574,8 +52876,12 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
 
     addRegexToken('M',    match1to2);
     addRegexToken('MM',   match1to2, match2);
-    addRegexToken('MMM',  matchWord);
-    addRegexToken('MMMM', matchWord);
+    addRegexToken('MMM',  function (isStrict, locale) {
+        return locale.monthsShortRegex(isStrict);
+    });
+    addRegexToken('MMMM', function (isStrict, locale) {
+        return locale.monthsRegex(isStrict);
+    });
 
     addParseToken(['M', 'MM'], function (input, array) {
         array[MONTH] = toInt(input) - 1;
@@ -52593,14 +52899,17 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
 
     // LOCALES
 
+    var MONTHS_IN_FORMAT = /D[oD]?(\[[^\[\]]*\]|\s+)+MMMM?/;
     var defaultLocaleMonths = 'January_February_March_April_May_June_July_August_September_October_November_December'.split('_');
-    function localeMonths (m) {
-        return this._months[m.month()];
+    function localeMonths (m, format) {
+        return isArray(this._months) ? this._months[m.month()] :
+            this._months[MONTHS_IN_FORMAT.test(format) ? 'format' : 'standalone'][m.month()];
     }
 
     var defaultLocaleMonthsShort = 'Jan_Feb_Mar_Apr_May_Jun_Jul_Aug_Sep_Oct_Nov_Dec'.split('_');
-    function localeMonthsShort (m) {
-        return this._monthsShort[m.month()];
+    function localeMonthsShort (m, format) {
+        return isArray(this._monthsShort) ? this._monthsShort[m.month()] :
+            this._monthsShort[MONTHS_IN_FORMAT.test(format) ? 'format' : 'standalone'][m.month()];
     }
 
     function localeMonthsParse (monthName, format, strict) {
@@ -52639,6 +52948,11 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     function setMonth (mom, value) {
         var dayOfMonth;
 
+        if (!mom.isValid()) {
+            // No op
+            return mom;
+        }
+
         // TODO: Move this out of here!
         if (typeof value === 'string') {
             value = mom.localeData().monthsParse(value);
@@ -52667,6 +52981,72 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
         return daysInMonth(this.year(), this.month());
     }
 
+    var defaultMonthsShortRegex = matchWord;
+    function monthsShortRegex (isStrict) {
+        if (this._monthsParseExact) {
+            if (!hasOwnProp(this, '_monthsRegex')) {
+                computeMonthsParse.call(this);
+            }
+            if (isStrict) {
+                return this._monthsShortStrictRegex;
+            } else {
+                return this._monthsShortRegex;
+            }
+        } else {
+            return this._monthsShortStrictRegex && isStrict ?
+                this._monthsShortStrictRegex : this._monthsShortRegex;
+        }
+    }
+
+    var defaultMonthsRegex = matchWord;
+    function monthsRegex (isStrict) {
+        if (this._monthsParseExact) {
+            if (!hasOwnProp(this, '_monthsRegex')) {
+                computeMonthsParse.call(this);
+            }
+            if (isStrict) {
+                return this._monthsStrictRegex;
+            } else {
+                return this._monthsRegex;
+            }
+        } else {
+            return this._monthsStrictRegex && isStrict ?
+                this._monthsStrictRegex : this._monthsRegex;
+        }
+    }
+
+    function computeMonthsParse () {
+        function cmpLenRev(a, b) {
+            return b.length - a.length;
+        }
+
+        var shortPieces = [], longPieces = [], mixedPieces = [],
+            i, mom;
+        for (i = 0; i < 12; i++) {
+            // make the regex if we don't have it already
+            mom = create_utc__createUTC([2000, i]);
+            shortPieces.push(this.monthsShort(mom, ''));
+            longPieces.push(this.months(mom, ''));
+            mixedPieces.push(this.months(mom, ''));
+            mixedPieces.push(this.monthsShort(mom, ''));
+        }
+        // Sorting makes sure if one month (or abbr) is a prefix of another it
+        // will match the longer piece.
+        shortPieces.sort(cmpLenRev);
+        longPieces.sort(cmpLenRev);
+        mixedPieces.sort(cmpLenRev);
+        for (i = 0; i < 12; i++) {
+            shortPieces[i] = regexEscape(shortPieces[i]);
+            longPieces[i] = regexEscape(longPieces[i]);
+            mixedPieces[i] = regexEscape(mixedPieces[i]);
+        }
+
+        this._monthsRegex = new RegExp('^(' + mixedPieces.join('|') + ')', 'i');
+        this._monthsShortRegex = this._monthsRegex;
+        this._monthsStrictRegex = new RegExp('^(' + longPieces.join('|') + ')$', 'i');
+        this._monthsShortStrictRegex = new RegExp('^(' + shortPieces.join('|') + ')$', 'i');
+    }
+
     function checkOverflow (m) {
         var overflow;
         var a = m._a;
@@ -52684,6 +53064,12 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
             if (getParsingFlags(m)._overflowDayOfYear && (overflow < YEAR || overflow > DATE)) {
                 overflow = DATE;
             }
+            if (getParsingFlags(m)._overflowWeeks && overflow === -1) {
+                overflow = WEEK;
+            }
+            if (getParsingFlags(m)._overflowWeekday && overflow === -1) {
+                overflow = WEEKDAY;
+            }
 
             getParsingFlags(m).overflow = overflow;
         }
@@ -52692,7 +53078,8 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     }
 
     function warn(msg) {
-        if (utils_hooks__hooks.suppressDeprecationWarnings === false && typeof console !== 'undefined' && console.warn) {
+        if (utils_hooks__hooks.suppressDeprecationWarnings === false &&
+                (typeof console !==  'undefined') && console.warn) {
             console.warn('Deprecation warning: ' + msg);
         }
     }
@@ -52702,7 +53089,7 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
 
         return extend(function () {
             if (firstTime) {
-                warn(msg + '\n' + (new Error()).stack);
+                warn(msg + '\nArguments: ' + Array.prototype.slice.call(arguments).join(', ') + '\n' + (new Error()).stack);
                 firstTime = false;
             }
             return fn.apply(this, arguments);
@@ -52720,22 +53107,39 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
 
     utils_hooks__hooks.suppressDeprecationWarnings = false;
 
-    var from_string__isoRegex = /^\s*(?:[+-]\d{6}|\d{4})-(?:(\d\d-\d\d)|(W\d\d$)|(W\d\d-\d)|(\d\d\d))((T| )(\d\d(:\d\d(:\d\d(\.\d+)?)?)?)?([\+\-]\d\d(?::?\d\d)?|\s*Z)?)?$/;
+    // iso 8601 regex
+    // 0000-00-00 0000-W00 or 0000-W00-0 + T + 00 or 00:00 or 00:00:00 or 00:00:00.000 + +00:00 or +0000 or +00)
+    var extendedIsoRegex = /^\s*((?:[+-]\d{6}|\d{4})-(?:\d\d-\d\d|W\d\d-\d|W\d\d|\d\d\d|\d\d))(?:(T| )(\d\d(?::\d\d(?::\d\d(?:[.,]\d+)?)?)?)([\+\-]\d\d(?::?\d\d)?|\s*Z)?)?/;
+    var basicIsoRegex = /^\s*((?:[+-]\d{6}|\d{4})(?:\d\d\d\d|W\d\d\d|W\d\d|\d\d\d|\d\d))(?:(T| )(\d\d(?:\d\d(?:\d\d(?:[.,]\d+)?)?)?)([\+\-]\d\d(?::?\d\d)?|\s*Z)?)?/;
+
+    var tzRegex = /Z|[+-]\d\d(?::?\d\d)?/;
 
     var isoDates = [
-        ['YYYYYY-MM-DD', /[+-]\d{6}-\d{2}-\d{2}/],
-        ['YYYY-MM-DD', /\d{4}-\d{2}-\d{2}/],
-        ['GGGG-[W]WW-E', /\d{4}-W\d{2}-\d/],
-        ['GGGG-[W]WW', /\d{4}-W\d{2}/],
-        ['YYYY-DDD', /\d{4}-\d{3}/]
+        ['YYYYYY-MM-DD', /[+-]\d{6}-\d\d-\d\d/],
+        ['YYYY-MM-DD', /\d{4}-\d\d-\d\d/],
+        ['GGGG-[W]WW-E', /\d{4}-W\d\d-\d/],
+        ['GGGG-[W]WW', /\d{4}-W\d\d/, false],
+        ['YYYY-DDD', /\d{4}-\d{3}/],
+        ['YYYY-MM', /\d{4}-\d\d/, false],
+        ['YYYYYYMMDD', /[+-]\d{10}/],
+        ['YYYYMMDD', /\d{8}/],
+        // YYYYMM is NOT allowed by the standard
+        ['GGGG[W]WWE', /\d{4}W\d{3}/],
+        ['GGGG[W]WW', /\d{4}W\d{2}/, false],
+        ['YYYYDDD', /\d{7}/]
     ];
 
     // iso time formats and regexes
     var isoTimes = [
-        ['HH:mm:ss.SSSS', /(T| )\d\d:\d\d:\d\d\.\d+/],
-        ['HH:mm:ss', /(T| )\d\d:\d\d:\d\d/],
-        ['HH:mm', /(T| )\d\d:\d\d/],
-        ['HH', /(T| )\d\d/]
+        ['HH:mm:ss.SSSS', /\d\d:\d\d:\d\d\.\d+/],
+        ['HH:mm:ss,SSSS', /\d\d:\d\d:\d\d,\d+/],
+        ['HH:mm:ss', /\d\d:\d\d:\d\d/],
+        ['HH:mm', /\d\d:\d\d/],
+        ['HHmmss.SSSS', /\d\d\d\d\d\d\.\d+/],
+        ['HHmmss,SSSS', /\d\d\d\d\d\d,\d+/],
+        ['HHmmss', /\d\d\d\d\d\d/],
+        ['HHmm', /\d\d\d\d/],
+        ['HH', /\d\d/]
     ];
 
     var aspNetJsonRegex = /^\/?Date\((\-?\d+)/i;
@@ -52744,26 +53148,49 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     function configFromISO(config) {
         var i, l,
             string = config._i,
-            match = from_string__isoRegex.exec(string);
+            match = extendedIsoRegex.exec(string) || basicIsoRegex.exec(string),
+            allowTime, dateFormat, timeFormat, tzFormat;
 
         if (match) {
             getParsingFlags(config).iso = true;
+
             for (i = 0, l = isoDates.length; i < l; i++) {
-                if (isoDates[i][1].exec(string)) {
-                    config._f = isoDates[i][0];
+                if (isoDates[i][1].exec(match[1])) {
+                    dateFormat = isoDates[i][0];
+                    allowTime = isoDates[i][2] !== false;
                     break;
                 }
             }
-            for (i = 0, l = isoTimes.length; i < l; i++) {
-                if (isoTimes[i][1].exec(string)) {
-                    // match[6] should be 'T' or space
-                    config._f += (match[6] || ' ') + isoTimes[i][0];
-                    break;
+            if (dateFormat == null) {
+                config._isValid = false;
+                return;
+            }
+            if (match[3]) {
+                for (i = 0, l = isoTimes.length; i < l; i++) {
+                    if (isoTimes[i][1].exec(match[3])) {
+                        // match[2] should be 'T' or space
+                        timeFormat = (match[2] || ' ') + isoTimes[i][0];
+                        break;
+                    }
+                }
+                if (timeFormat == null) {
+                    config._isValid = false;
+                    return;
                 }
             }
-            if (string.match(matchOffset)) {
-                config._f += 'Z';
+            if (!allowTime && timeFormat != null) {
+                config._isValid = false;
+                return;
             }
+            if (match[4]) {
+                if (tzRegex.exec(match[4])) {
+                    tzFormat = 'Z';
+                } else {
+                    config._isValid = false;
+                    return;
+                }
+            }
+            config._f = dateFormat + (timeFormat || '') + (tzFormat || '');
             configFromStringAndFormat(config);
         } else {
             config._isValid = false;
@@ -52801,8 +53228,8 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
         //http://stackoverflow.com/questions/181348/instantiating-a-javascript-object-by-calling-prototype-constructor-apply
         var date = new Date(y, m, d, h, M, s, ms);
 
-        //the date constructor doesn't accept years < 1970
-        if (y < 1970) {
+        //the date constructor remaps years 0-99 to 1900-1999
+        if (y < 100 && y >= 0 && isFinite(date.getFullYear())) {
             date.setFullYear(y);
         }
         return date;
@@ -52810,11 +53237,20 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
 
     function createUTCDate (y) {
         var date = new Date(Date.UTC.apply(null, arguments));
-        if (y < 1970) {
+
+        //the Date.UTC function remaps years 0-99 to 1900-1999
+        if (y < 100 && y >= 0 && isFinite(date.getUTCFullYear())) {
             date.setUTCFullYear(y);
         }
         return date;
     }
+
+    // FORMATTING
+
+    addFormatToken('Y', 0, 0, function () {
+        var y = this.year();
+        return y <= 9999 ? '' + y : '+' + y;
+    });
 
     addFormatToken(0, ['YY', 2], 0, function () {
         return this.year() % 100;
@@ -52843,6 +53279,9 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     addParseToken('YY', function (input, array) {
         array[YEAR] = utils_hooks__hooks.parseTwoDigitYear(input);
     });
+    addParseToken('Y', function (input, array) {
+        array[YEAR] = parseInt(input, 10);
+    });
 
     // HELPERS
 
@@ -52868,124 +53307,66 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
         return isLeapYear(this.year());
     }
 
-    addFormatToken('w', ['ww', 2], 'wo', 'week');
-    addFormatToken('W', ['WW', 2], 'Wo', 'isoWeek');
+    // start-of-first-week - start-of-year
+    function firstWeekOffset(year, dow, doy) {
+        var // first-week day -- which january is always in the first week (4 for iso, 1 for other)
+            fwd = 7 + dow - doy,
+            // first-week day local weekday -- which local weekday is fwd
+            fwdlw = (7 + createUTCDate(year, 0, fwd).getUTCDay() - dow) % 7;
 
-    // ALIASES
-
-    addUnitAlias('week', 'w');
-    addUnitAlias('isoWeek', 'W');
-
-    // PARSING
-
-    addRegexToken('w',  match1to2);
-    addRegexToken('ww', match1to2, match2);
-    addRegexToken('W',  match1to2);
-    addRegexToken('WW', match1to2, match2);
-
-    addWeekParseToken(['w', 'ww', 'W', 'WW'], function (input, week, config, token) {
-        week[token.substr(0, 1)] = toInt(input);
-    });
-
-    // HELPERS
-
-    // firstDayOfWeek       0 = sun, 6 = sat
-    //                      the day of the week that starts the week
-    //                      (usually sunday or monday)
-    // firstDayOfWeekOfYear 0 = sun, 6 = sat
-    //                      the first week is the week that contains the first
-    //                      of this day of the week
-    //                      (eg. ISO weeks use thursday (4))
-    function weekOfYear(mom, firstDayOfWeek, firstDayOfWeekOfYear) {
-        var end = firstDayOfWeekOfYear - firstDayOfWeek,
-            daysToDayOfWeek = firstDayOfWeekOfYear - mom.day(),
-            adjustedMoment;
-
-
-        if (daysToDayOfWeek > end) {
-            daysToDayOfWeek -= 7;
-        }
-
-        if (daysToDayOfWeek < end - 7) {
-            daysToDayOfWeek += 7;
-        }
-
-        adjustedMoment = local__createLocal(mom).add(daysToDayOfWeek, 'd');
-        return {
-            week: Math.ceil(adjustedMoment.dayOfYear() / 7),
-            year: adjustedMoment.year()
-        };
+        return -fwdlw + fwd - 1;
     }
-
-    // LOCALES
-
-    function localeWeek (mom) {
-        return weekOfYear(mom, this._week.dow, this._week.doy).week;
-    }
-
-    var defaultLocaleWeek = {
-        dow : 0, // Sunday is the first day of the week.
-        doy : 6  // The week that contains Jan 1st is the first week of the year.
-    };
-
-    function localeFirstDayOfWeek () {
-        return this._week.dow;
-    }
-
-    function localeFirstDayOfYear () {
-        return this._week.doy;
-    }
-
-    // MOMENTS
-
-    function getSetWeek (input) {
-        var week = this.localeData().week(this);
-        return input == null ? week : this.add((input - week) * 7, 'd');
-    }
-
-    function getSetISOWeek (input) {
-        var week = weekOfYear(this, 1, 4).week;
-        return input == null ? week : this.add((input - week) * 7, 'd');
-    }
-
-    addFormatToken('DDD', ['DDDD', 3], 'DDDo', 'dayOfYear');
-
-    // ALIASES
-
-    addUnitAlias('dayOfYear', 'DDD');
-
-    // PARSING
-
-    addRegexToken('DDD',  match1to3);
-    addRegexToken('DDDD', match3);
-    addParseToken(['DDD', 'DDDD'], function (input, array, config) {
-        config._dayOfYear = toInt(input);
-    });
-
-    // HELPERS
 
     //http://en.wikipedia.org/wiki/ISO_week_date#Calculating_a_date_given_the_year.2C_week_number_and_weekday
-    function dayOfYearFromWeeks(year, week, weekday, firstDayOfWeekOfYear, firstDayOfWeek) {
-        var week1Jan = 6 + firstDayOfWeek - firstDayOfWeekOfYear, janX = createUTCDate(year, 0, 1 + week1Jan), d = janX.getUTCDay(), dayOfYear;
-        if (d < firstDayOfWeek) {
-            d += 7;
+    function dayOfYearFromWeeks(year, week, weekday, dow, doy) {
+        var localWeekday = (7 + weekday - dow) % 7,
+            weekOffset = firstWeekOffset(year, dow, doy),
+            dayOfYear = 1 + 7 * (week - 1) + localWeekday + weekOffset,
+            resYear, resDayOfYear;
+
+        if (dayOfYear <= 0) {
+            resYear = year - 1;
+            resDayOfYear = daysInYear(resYear) + dayOfYear;
+        } else if (dayOfYear > daysInYear(year)) {
+            resYear = year + 1;
+            resDayOfYear = dayOfYear - daysInYear(year);
+        } else {
+            resYear = year;
+            resDayOfYear = dayOfYear;
         }
 
-        weekday = weekday != null ? 1 * weekday : firstDayOfWeek;
-
-        dayOfYear = 1 + week1Jan + 7 * (week - 1) - d + weekday;
-
         return {
-            year: dayOfYear > 0 ? year : year - 1,
-            dayOfYear: dayOfYear > 0 ?  dayOfYear : daysInYear(year - 1) + dayOfYear
+            year: resYear,
+            dayOfYear: resDayOfYear
         };
     }
 
-    // MOMENTS
+    function weekOfYear(mom, dow, doy) {
+        var weekOffset = firstWeekOffset(mom.year(), dow, doy),
+            week = Math.floor((mom.dayOfYear() - weekOffset - 1) / 7) + 1,
+            resWeek, resYear;
 
-    function getSetDayOfYear (input) {
-        var dayOfYear = Math.round((this.clone().startOf('day') - this.clone().startOf('year')) / 864e5) + 1;
-        return input == null ? dayOfYear : this.add((input - dayOfYear), 'd');
+        if (week < 1) {
+            resYear = mom.year() - 1;
+            resWeek = week + weeksInYear(resYear, dow, doy);
+        } else if (week > weeksInYear(mom.year(), dow, doy)) {
+            resWeek = week - weeksInYear(mom.year(), dow, doy);
+            resYear = mom.year() + 1;
+        } else {
+            resYear = mom.year();
+            resWeek = week;
+        }
+
+        return {
+            week: resWeek,
+            year: resYear
+        };
+    }
+
+    function weeksInYear(year, dow, doy) {
+        var weekOffset = firstWeekOffset(year, dow, doy),
+            weekOffsetNext = firstWeekOffset(year + 1, dow, doy);
+        return (daysInYear(year) - weekOffset + weekOffsetNext) / 7;
     }
 
     // Pick the first defined of two or three arguments.
@@ -53000,11 +53381,12 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     }
 
     function currentDateArray(config) {
-        var now = new Date();
+        // hooks is actually the exported moment object
+        var nowValue = new Date(utils_hooks__hooks.now());
         if (config._useUTC) {
-            return [now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()];
+            return [nowValue.getUTCFullYear(), nowValue.getUTCMonth(), nowValue.getUTCDate()];
         }
-        return [now.getFullYear(), now.getMonth(), now.getDate()];
+        return [nowValue.getFullYear(), nowValue.getMonth(), nowValue.getDate()];
     }
 
     // convert an array to a date.
@@ -53074,7 +53456,7 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     }
 
     function dayOfYearFromWeekInfo(config) {
-        var w, weekYear, week, weekday, dow, doy, temp;
+        var w, weekYear, week, weekday, dow, doy, temp, weekdayOverflow;
 
         w = config._w;
         if (w.GG != null || w.W != null || w.E != null) {
@@ -53088,6 +53470,9 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
             weekYear = defaults(w.GG, config._a[YEAR], weekOfYear(local__createLocal(), 1, 4).year);
             week = defaults(w.W, 1);
             weekday = defaults(w.E, 1);
+            if (weekday < 1 || weekday > 7) {
+                weekdayOverflow = true;
+            }
         } else {
             dow = config._locale._week.dow;
             doy = config._locale._week.doy;
@@ -53098,23 +53483,32 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
             if (w.d != null) {
                 // weekday -- low day numbers are considered next week
                 weekday = w.d;
-                if (weekday < dow) {
-                    ++week;
+                if (weekday < 0 || weekday > 6) {
+                    weekdayOverflow = true;
                 }
             } else if (w.e != null) {
                 // local weekday -- counting starts from begining of week
                 weekday = w.e + dow;
+                if (w.e < 0 || w.e > 6) {
+                    weekdayOverflow = true;
+                }
             } else {
                 // default to begining of week
                 weekday = dow;
             }
         }
-        temp = dayOfYearFromWeeks(weekYear, week, weekday, doy, dow);
-
-        config._a[YEAR] = temp.year;
-        config._dayOfYear = temp.dayOfYear;
+        if (week < 1 || week > weeksInYear(weekYear, dow, doy)) {
+            getParsingFlags(config)._overflowWeeks = true;
+        } else if (weekdayOverflow != null) {
+            getParsingFlags(config)._overflowWeekday = true;
+        } else {
+            temp = dayOfYearFromWeeks(weekYear, week, weekday, dow, doy);
+            config._a[YEAR] = temp.year;
+            config._dayOfYear = temp.dayOfYear;
+        }
     }
 
+    // constant that refers to the ISO standard
     utils_hooks__hooks.ISO_8601 = function () {};
 
     // date from string and format string
@@ -53139,6 +53533,8 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
         for (i = 0; i < tokens.length; i++) {
             token = tokens[i];
             parsedInput = (string.match(getParseRegexForToken(token, config)) || [])[0];
+            // console.log('token', token, 'parsedInput', parsedInput,
+            //         'regex', getParseRegexForToken(token, config));
             if (parsedInput) {
                 skipped = string.substr(0, string.indexOf(parsedInput));
                 if (skipped.length > 0) {
@@ -53207,6 +53603,7 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
         }
     }
 
+    // date from string and array of format strings
     function configFromStringAndArray(config) {
         var tempConfig,
             bestMoment,
@@ -53257,7 +53654,9 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
         }
 
         var i = normalizeObjectUnits(config._i);
-        config._a = [i.year, i.month, i.day || i.date, i.hour, i.minute, i.second, i.millisecond];
+        config._a = map([i.year, i.month, i.day || i.date, i.hour, i.minute, i.second, i.millisecond], function (obj) {
+            return obj && parseInt(obj, 10);
+        });
 
         configFromArray(config);
     }
@@ -53299,13 +53698,17 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
             configFromInput(config);
         }
 
+        if (!valid__isValid(config)) {
+            config._d = null;
+        }
+
         return config;
     }
 
     function configFromInput(config) {
         var input = config._i;
         if (input === undefined) {
-            config._d = new Date();
+            config._d = new Date(utils_hooks__hooks.now());
         } else if (isDate(input)) {
             config._d = new Date(+input);
         } else if (typeof input === 'string') {
@@ -53352,7 +53755,11 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
          'moment().min is deprecated, use moment.min instead. https://github.com/moment/moment/issues/1548',
          function () {
              var other = local__createLocal.apply(null, arguments);
-             return other < this ? this : other;
+             if (this.isValid() && other.isValid()) {
+                 return other < this ? this : other;
+             } else {
+                 return valid__createInvalid();
+             }
          }
      );
 
@@ -53360,7 +53767,11 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
         'moment().max is deprecated, use moment.max instead. https://github.com/moment/moment/issues/1548',
         function () {
             var other = local__createLocal.apply(null, arguments);
-            return other > this ? this : other;
+            if (this.isValid() && other.isValid()) {
+                return other > this ? this : other;
+            } else {
+                return valid__createInvalid();
+            }
         }
     );
 
@@ -53398,6 +53809,10 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
 
         return pickBy('isAfter', args);
     }
+
+    var now = function () {
+        return Date.now ? Date.now() : +(new Date());
+    };
 
     function Duration (duration) {
         var normalizedInput = normalizeObjectUnits(duration),
@@ -53438,6 +53853,8 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
         return obj instanceof Duration;
     }
 
+    // FORMATTING
+
     function offset (token, separator) {
         addFormatToken(token, 0, 0, function () {
             var offset = this.utcOffset();
@@ -53455,11 +53872,11 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
 
     // PARSING
 
-    addRegexToken('Z',  matchOffset);
-    addRegexToken('ZZ', matchOffset);
+    addRegexToken('Z',  matchShortOffset);
+    addRegexToken('ZZ', matchShortOffset);
     addParseToken(['Z', 'ZZ'], function (input, array, config) {
         config._useUTC = true;
-        config._tzm = offsetFromString(input);
+        config._tzm = offsetFromString(matchShortOffset, input);
     });
 
     // HELPERS
@@ -53469,8 +53886,8 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     // '-1530'  > ['-15', '30']
     var chunkOffset = /([\+\-]|\d\d)/gi;
 
-    function offsetFromString(string) {
-        var matches = ((string || '').match(matchOffset) || []);
+    function offsetFromString(matcher, string) {
+        var matches = ((string || '').match(matcher) || []);
         var chunk   = matches[matches.length - 1] || [];
         var parts   = (chunk + '').match(chunkOffset) || ['-', 0, 0];
         var minutes = +(parts[1] * 60) + toInt(parts[2]);
@@ -53520,11 +53937,13 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     function getSetOffset (input, keepLocalTime) {
         var offset = this._offset || 0,
             localAdjust;
+        if (!this.isValid()) {
+            return input != null ? this : NaN;
+        }
         if (input != null) {
             if (typeof input === 'string') {
-                input = offsetFromString(input);
-            }
-            if (Math.abs(input) < 16) {
+                input = offsetFromString(matchShortOffset, input);
+            } else if (Math.abs(input) < 16) {
                 input = input * 60;
             }
             if (!this._isUTC && keepLocalTime) {
@@ -53584,12 +54003,15 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
         if (this._tzm) {
             this.utcOffset(this._tzm);
         } else if (typeof this._i === 'string') {
-            this.utcOffset(offsetFromString(this._i));
+            this.utcOffset(offsetFromString(matchOffset, this._i));
         }
         return this;
     }
 
     function hasAlignedHourOffset (input) {
+        if (!this.isValid()) {
+            return false;
+        }
         input = input ? local__createLocal(input).utcOffset() : 0;
 
         return (this.utcOffset() - input) % 60 === 0;
@@ -53603,7 +54025,7 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     }
 
     function isDaylightSavingTimeShifted () {
-        if (typeof this._isDSTShifted !== 'undefined') {
+        if (!isUndefined(this._isDSTShifted)) {
             return this._isDSTShifted;
         }
 
@@ -53624,22 +54046,23 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     }
 
     function isLocal () {
-        return !this._isUTC;
+        return this.isValid() ? !this._isUTC : false;
     }
 
     function isUtcOffset () {
-        return this._isUTC;
+        return this.isValid() ? this._isUTC : false;
     }
 
     function isUtc () {
-        return this._isUTC && this._offset === 0;
+        return this.isValid() ? this._isUTC && this._offset === 0 : false;
     }
 
-    var aspNetRegex = /(\-)?(?:(\d*)\.)?(\d+)\:(\d+)(?:\:(\d+)\.?(\d{3})?)?/;
+    // ASP.NET json date format regex
+    var aspNetRegex = /^(\-)?(?:(\d*)[. ])?(\d+)\:(\d+)(?:\:(\d+)\.?(\d{3})?\d*)?$/;
 
     // from http://docs.closure-library.googlecode.com/git/closure_goog_date_date.js.source.html
     // somewhat more in line with 4.4.3.2 2004 spec, but allows decimal anywhere
-    var create__isoRegex = /^(-)?P(?:(?:([0-9,.]*)Y)?(?:([0-9,.]*)M)?(?:([0-9,.]*)D)?(?:T(?:([0-9,.]*)H)?(?:([0-9,.]*)M)?(?:([0-9,.]*)S)?)?|([0-9,.]*)W)$/;
+    var isoRegex = /^(-)?P(?:(?:([0-9,.]*)Y)?(?:([0-9,.]*)M)?(?:([0-9,.]*)D)?(?:T(?:([0-9,.]*)H)?(?:([0-9,.]*)M)?(?:([0-9,.]*)S)?)?|([0-9,.]*)W)$/;
 
     function create__createDuration (input, key) {
         var duration = input,
@@ -53672,7 +54095,7 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
                 s  : toInt(match[SECOND])      * sign,
                 ms : toInt(match[MILLISECOND]) * sign
             };
-        } else if (!!(match = create__isoRegex.exec(input))) {
+        } else if (!!(match = isoRegex.exec(input))) {
             sign = (match[1] === '-') ? -1 : 1;
             duration = {
                 y : parseIso(match[2], sign),
@@ -53729,6 +54152,10 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
 
     function momentsDifference(base, other) {
         var res;
+        if (!(base.isValid() && other.isValid())) {
+            return {milliseconds: 0, months: 0};
+        }
+
         other = cloneWithOffset(other, base);
         if (base.isBefore(other)) {
             res = positiveMomentsDifference(base, other);
@@ -53741,6 +54168,7 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
         return res;
     }
 
+    // TODO: remove 'name' arg after deprecation is removed
     function createAdder(direction, name) {
         return function (val, period) {
             var dur, tmp;
@@ -53761,6 +54189,12 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
         var milliseconds = duration._milliseconds,
             days = duration._days,
             months = duration._months;
+
+        if (!mom.isValid()) {
+            // No op
+            return;
+        }
+
         updateOffset = updateOffset == null ? true : updateOffset;
 
         if (milliseconds) {
@@ -53792,7 +54226,10 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
                 diff < 1 ? 'sameDay' :
                 diff < 2 ? 'nextDay' :
                 diff < 7 ? 'nextWeek' : 'sameElse';
-        return this.format(formats && formats[format] || this.localeData().calendar(format, this, local__createLocal(now)));
+
+        var output = formats && (isFunction(formats[format]) ? formats[format]() : formats[format]);
+
+        return this.format(output || this.localeData().calendar(format, this, local__createLocal(now)));
     }
 
     function clone () {
@@ -53800,26 +54237,28 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     }
 
     function isAfter (input, units) {
-        var inputMs;
-        units = normalizeUnits(typeof units !== 'undefined' ? units : 'millisecond');
+        var localInput = isMoment(input) ? input : local__createLocal(input);
+        if (!(this.isValid() && localInput.isValid())) {
+            return false;
+        }
+        units = normalizeUnits(!isUndefined(units) ? units : 'millisecond');
         if (units === 'millisecond') {
-            input = isMoment(input) ? input : local__createLocal(input);
-            return +this > +input;
+            return +this > +localInput;
         } else {
-            inputMs = isMoment(input) ? +input : +local__createLocal(input);
-            return inputMs < +this.clone().startOf(units);
+            return +localInput < +this.clone().startOf(units);
         }
     }
 
     function isBefore (input, units) {
-        var inputMs;
-        units = normalizeUnits(typeof units !== 'undefined' ? units : 'millisecond');
+        var localInput = isMoment(input) ? input : local__createLocal(input);
+        if (!(this.isValid() && localInput.isValid())) {
+            return false;
+        }
+        units = normalizeUnits(!isUndefined(units) ? units : 'millisecond');
         if (units === 'millisecond') {
-            input = isMoment(input) ? input : local__createLocal(input);
-            return +this < +input;
+            return +this < +localInput;
         } else {
-            inputMs = isMoment(input) ? +input : +local__createLocal(input);
-            return +this.clone().endOf(units) < inputMs;
+            return +this.clone().endOf(units) < +localInput;
         }
     }
 
@@ -53828,21 +54267,44 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     }
 
     function isSame (input, units) {
-        var inputMs;
+        var localInput = isMoment(input) ? input : local__createLocal(input),
+            inputMs;
+        if (!(this.isValid() && localInput.isValid())) {
+            return false;
+        }
         units = normalizeUnits(units || 'millisecond');
         if (units === 'millisecond') {
-            input = isMoment(input) ? input : local__createLocal(input);
-            return +this === +input;
+            return +this === +localInput;
         } else {
-            inputMs = +local__createLocal(input);
+            inputMs = +localInput;
             return +(this.clone().startOf(units)) <= inputMs && inputMs <= +(this.clone().endOf(units));
         }
     }
 
+    function isSameOrAfter (input, units) {
+        return this.isSame(input, units) || this.isAfter(input,units);
+    }
+
+    function isSameOrBefore (input, units) {
+        return this.isSame(input, units) || this.isBefore(input,units);
+    }
+
     function diff (input, units, asFloat) {
-        var that = cloneWithOffset(input, this),
-            zoneDelta = (that.utcOffset() - this.utcOffset()) * 6e4,
+        var that,
+            zoneDelta,
             delta, output;
+
+        if (!this.isValid()) {
+            return NaN;
+        }
+
+        that = cloneWithOffset(input, this);
+
+        if (!that.isValid()) {
+            return NaN;
+        }
+
+        zoneDelta = (that.utcOffset() - this.utcOffset()) * 6e4;
 
         units = normalizeUnits(units);
 
@@ -53894,7 +54356,7 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     function moment_format__toISOString () {
         var m = this.clone().utc();
         if (0 < m.year() && m.year() <= 9999) {
-            if ('function' === typeof Date.prototype.toISOString) {
+            if (isFunction(Date.prototype.toISOString)) {
                 // native implementation is ~50x faster, use it when we can
                 return this.toDate().toISOString();
             } else {
@@ -53911,10 +54373,13 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     }
 
     function from (time, withoutSuffix) {
-        if (!this.isValid()) {
+        if (this.isValid() &&
+                ((isMoment(time) && time.isValid()) ||
+                 local__createLocal(time).isValid())) {
+            return create__createDuration({to: this, from: time}).locale(this.locale()).humanize(!withoutSuffix);
+        } else {
             return this.localeData().invalidDate();
         }
-        return create__createDuration({to: this, from: time}).locale(this.locale()).humanize(!withoutSuffix);
     }
 
     function fromNow (withoutSuffix) {
@@ -53922,16 +54387,22 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     }
 
     function to (time, withoutSuffix) {
-        if (!this.isValid()) {
+        if (this.isValid() &&
+                ((isMoment(time) && time.isValid()) ||
+                 local__createLocal(time).isValid())) {
+            return create__createDuration({from: this, to: time}).locale(this.locale()).humanize(!withoutSuffix);
+        } else {
             return this.localeData().invalidDate();
         }
-        return create__createDuration({from: this, to: time}).locale(this.locale()).humanize(!withoutSuffix);
     }
 
     function toNow (withoutSuffix) {
         return this.to(local__createLocal(), withoutSuffix);
     }
 
+    // If passed a locale key, it will set the locale for this
+    // instance.  Otherwise, it will return the locale configuration
+    // variables for this instance.
     function locale (key) {
         var newLocaleData;
 
@@ -54042,6 +54513,11 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
         };
     }
 
+    function toJSON () {
+        // JSON.stringify(new Date(NaN)) === 'null'
+        return this.isValid() ? this.toISOString() : 'null';
+    }
+
     function moment_valid__isValid () {
         return valid__isValid(this);
     }
@@ -54053,6 +54529,18 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     function invalidAt () {
         return getParsingFlags(this).overflow;
     }
+
+    function creationData() {
+        return {
+            input: this._i,
+            format: this._f,
+            locale: this._locale,
+            isUTC: this._isUTC,
+            strict: this._strict
+        };
+    }
+
+    // FORMATTING
 
     addFormatToken(0, ['gg', 2], 0, function () {
         return this.weekYear() % 100;
@@ -54095,22 +54583,20 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
         week[token] = utils_hooks__hooks.parseTwoDigitYear(input);
     });
 
-    // HELPERS
-
-    function weeksInYear(year, dow, doy) {
-        return weekOfYear(local__createLocal([year, 11, 31 + dow - doy]), dow, doy).week;
-    }
-
     // MOMENTS
 
     function getSetWeekYear (input) {
-        var year = weekOfYear(this, this.localeData()._week.dow, this.localeData()._week.doy).year;
-        return input == null ? year : this.add((input - year), 'y');
+        return getSetWeekYearHelper.call(this,
+                input,
+                this.week(),
+                this.weekday(),
+                this.localeData()._week.dow,
+                this.localeData()._week.doy);
     }
 
     function getSetISOWeekYear (input) {
-        var year = weekOfYear(this, 1, 4).year;
-        return input == null ? year : this.add((input - year), 'y');
+        return getSetWeekYearHelper.call(this,
+                input, this.isoWeek(), this.isoWeekday(), 1, 4);
     }
 
     function getISOWeeksInYear () {
@@ -54122,7 +54608,33 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
         return weeksInYear(this.year(), weekInfo.dow, weekInfo.doy);
     }
 
-    addFormatToken('Q', 0, 0, 'quarter');
+    function getSetWeekYearHelper(input, week, weekday, dow, doy) {
+        var weeksTarget;
+        if (input == null) {
+            return weekOfYear(this, dow, doy).year;
+        } else {
+            weeksTarget = weeksInYear(input, dow, doy);
+            if (week > weeksTarget) {
+                week = weeksTarget;
+            }
+            return setWeekAll.call(this, input, week, weekday, dow, doy);
+        }
+    }
+
+    function setWeekAll(weekYear, week, weekday, dow, doy) {
+        var dayOfYearData = dayOfYearFromWeeks(weekYear, week, weekday, dow, doy),
+            date = createUTCDate(dayOfYearData.year, 0, dayOfYearData.dayOfYear);
+
+        // console.log("got", weekYear, week, weekday, "set", date.toISOString());
+        this.year(date.getUTCFullYear());
+        this.month(date.getUTCMonth());
+        this.date(date.getUTCDate());
+        return this;
+    }
+
+    // FORMATTING
+
+    addFormatToken('Q', 0, 'Qo', 'quarter');
 
     // ALIASES
 
@@ -54140,6 +54652,62 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     function getSetQuarter (input) {
         return input == null ? Math.ceil((this.month() + 1) / 3) : this.month((input - 1) * 3 + this.month() % 3);
     }
+
+    // FORMATTING
+
+    addFormatToken('w', ['ww', 2], 'wo', 'week');
+    addFormatToken('W', ['WW', 2], 'Wo', 'isoWeek');
+
+    // ALIASES
+
+    addUnitAlias('week', 'w');
+    addUnitAlias('isoWeek', 'W');
+
+    // PARSING
+
+    addRegexToken('w',  match1to2);
+    addRegexToken('ww', match1to2, match2);
+    addRegexToken('W',  match1to2);
+    addRegexToken('WW', match1to2, match2);
+
+    addWeekParseToken(['w', 'ww', 'W', 'WW'], function (input, week, config, token) {
+        week[token.substr(0, 1)] = toInt(input);
+    });
+
+    // HELPERS
+
+    // LOCALES
+
+    function localeWeek (mom) {
+        return weekOfYear(mom, this._week.dow, this._week.doy).week;
+    }
+
+    var defaultLocaleWeek = {
+        dow : 0, // Sunday is the first day of the week.
+        doy : 6  // The week that contains Jan 1st is the first week of the year.
+    };
+
+    function localeFirstDayOfWeek () {
+        return this._week.dow;
+    }
+
+    function localeFirstDayOfYear () {
+        return this._week.doy;
+    }
+
+    // MOMENTS
+
+    function getSetWeek (input) {
+        var week = this.localeData().week(this);
+        return input == null ? week : this.add((input - week) * 7, 'd');
+    }
+
+    function getSetISOWeek (input) {
+        var week = weekOfYear(this, 1, 4).week;
+        return input == null ? week : this.add((input - week) * 7, 'd');
+    }
+
+    // FORMATTING
 
     addFormatToken('D', ['DD', 2], 'Do', 'date');
 
@@ -54163,6 +54731,8 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     // MOMENTS
 
     var getSetDayOfMonth = makeGetSet('Date', true);
+
+    // FORMATTING
 
     addFormatToken('d', 0, 'do', 'day');
 
@@ -54196,8 +54766,8 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     addRegexToken('ddd',  matchWord);
     addRegexToken('dddd', matchWord);
 
-    addWeekParseToken(['dd', 'ddd', 'dddd'], function (input, week, config) {
-        var weekday = config._locale.weekdaysParse(input);
+    addWeekParseToken(['dd', 'ddd', 'dddd'], function (input, week, config, token) {
+        var weekday = config._locale.weekdaysParse(input, token, config._strict);
         // if we didn't get a weekday name, mark the date as invalid
         if (weekday != null) {
             week.d = weekday;
@@ -54232,8 +54802,9 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     // LOCALES
 
     var defaultLocaleWeekdays = 'Sunday_Monday_Tuesday_Wednesday_Thursday_Friday_Saturday'.split('_');
-    function localeWeekdays (m) {
-        return this._weekdays[m.day()];
+    function localeWeekdays (m, format) {
+        return isArray(this._weekdays) ? this._weekdays[m.day()] :
+            this._weekdays[this._weekdays.isFormat.test(format) ? 'format' : 'standalone'][m.day()];
     }
 
     var defaultLocaleWeekdaysShort = 'Sun_Mon_Tue_Wed_Thu_Fri_Sat'.split('_');
@@ -54246,20 +54817,37 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
         return this._weekdaysMin[m.day()];
     }
 
-    function localeWeekdaysParse (weekdayName) {
+    function localeWeekdaysParse (weekdayName, format, strict) {
         var i, mom, regex;
 
-        this._weekdaysParse = this._weekdaysParse || [];
+        if (!this._weekdaysParse) {
+            this._weekdaysParse = [];
+            this._minWeekdaysParse = [];
+            this._shortWeekdaysParse = [];
+            this._fullWeekdaysParse = [];
+        }
 
         for (i = 0; i < 7; i++) {
             // make the regex if we don't have it already
+
+            mom = local__createLocal([2000, 1]).day(i);
+            if (strict && !this._fullWeekdaysParse[i]) {
+                this._fullWeekdaysParse[i] = new RegExp('^' + this.weekdays(mom, '').replace('.', '\.?') + '$', 'i');
+                this._shortWeekdaysParse[i] = new RegExp('^' + this.weekdaysShort(mom, '').replace('.', '\.?') + '$', 'i');
+                this._minWeekdaysParse[i] = new RegExp('^' + this.weekdaysMin(mom, '').replace('.', '\.?') + '$', 'i');
+            }
             if (!this._weekdaysParse[i]) {
-                mom = local__createLocal([2000, 1]).day(i);
                 regex = '^' + this.weekdays(mom, '') + '|^' + this.weekdaysShort(mom, '') + '|^' + this.weekdaysMin(mom, '');
                 this._weekdaysParse[i] = new RegExp(regex.replace('.', ''), 'i');
             }
             // test the regex
-            if (this._weekdaysParse[i].test(weekdayName)) {
+            if (strict && format === 'dddd' && this._fullWeekdaysParse[i].test(weekdayName)) {
+                return i;
+            } else if (strict && format === 'ddd' && this._shortWeekdaysParse[i].test(weekdayName)) {
+                return i;
+            } else if (strict && format === 'dd' && this._minWeekdaysParse[i].test(weekdayName)) {
+                return i;
+            } else if (!strict && this._weekdaysParse[i].test(weekdayName)) {
                 return i;
             }
         }
@@ -54268,6 +54856,9 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     // MOMENTS
 
     function getSetDayOfWeek (input) {
+        if (!this.isValid()) {
+            return input != null ? this : NaN;
+        }
         var day = this._isUTC ? this._d.getUTCDay() : this._d.getDay();
         if (input != null) {
             input = parseWeekday(input, this.localeData());
@@ -54278,20 +54869,73 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     }
 
     function getSetLocaleDayOfWeek (input) {
+        if (!this.isValid()) {
+            return input != null ? this : NaN;
+        }
         var weekday = (this.day() + 7 - this.localeData()._week.dow) % 7;
         return input == null ? weekday : this.add(input - weekday, 'd');
     }
 
     function getSetISODayOfWeek (input) {
+        if (!this.isValid()) {
+            return input != null ? this : NaN;
+        }
         // behaves the same as moment#day except
         // as a getter, returns 7 instead of 0 (1-7 range instead of 0-6)
         // as a setter, sunday should belong to the previous week.
         return input == null ? this.day() || 7 : this.day(this.day() % 7 ? input : input - 7);
     }
 
-    addFormatToken('H', ['HH', 2], 0, 'hour');
-    addFormatToken('h', ['hh', 2], 0, function () {
+    // FORMATTING
+
+    addFormatToken('DDD', ['DDDD', 3], 'DDDo', 'dayOfYear');
+
+    // ALIASES
+
+    addUnitAlias('dayOfYear', 'DDD');
+
+    // PARSING
+
+    addRegexToken('DDD',  match1to3);
+    addRegexToken('DDDD', match3);
+    addParseToken(['DDD', 'DDDD'], function (input, array, config) {
+        config._dayOfYear = toInt(input);
+    });
+
+    // HELPERS
+
+    // MOMENTS
+
+    function getSetDayOfYear (input) {
+        var dayOfYear = Math.round((this.clone().startOf('day') - this.clone().startOf('year')) / 864e5) + 1;
+        return input == null ? dayOfYear : this.add((input - dayOfYear), 'd');
+    }
+
+    // FORMATTING
+
+    function hFormat() {
         return this.hours() % 12 || 12;
+    }
+
+    addFormatToken('H', ['HH', 2], 0, 'hour');
+    addFormatToken('h', ['hh', 2], 0, hFormat);
+
+    addFormatToken('hmm', 0, 0, function () {
+        return '' + hFormat.apply(this) + zeroFill(this.minutes(), 2);
+    });
+
+    addFormatToken('hmmss', 0, 0, function () {
+        return '' + hFormat.apply(this) + zeroFill(this.minutes(), 2) +
+            zeroFill(this.seconds(), 2);
+    });
+
+    addFormatToken('Hmm', 0, 0, function () {
+        return '' + this.hours() + zeroFill(this.minutes(), 2);
+    });
+
+    addFormatToken('Hmmss', 0, 0, function () {
+        return '' + this.hours() + zeroFill(this.minutes(), 2) +
+            zeroFill(this.seconds(), 2);
     });
 
     function meridiem (token, lowercase) {
@@ -54320,6 +54964,11 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     addRegexToken('HH', match1to2, match2);
     addRegexToken('hh', match1to2, match2);
 
+    addRegexToken('hmm', match3to4);
+    addRegexToken('hmmss', match5to6);
+    addRegexToken('Hmm', match3to4);
+    addRegexToken('Hmmss', match5to6);
+
     addParseToken(['H', 'HH'], HOUR);
     addParseToken(['a', 'A'], function (input, array, config) {
         config._isPm = config._locale.isPM(input);
@@ -54328,6 +54977,32 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     addParseToken(['h', 'hh'], function (input, array, config) {
         array[HOUR] = toInt(input);
         getParsingFlags(config).bigHour = true;
+    });
+    addParseToken('hmm', function (input, array, config) {
+        var pos = input.length - 2;
+        array[HOUR] = toInt(input.substr(0, pos));
+        array[MINUTE] = toInt(input.substr(pos));
+        getParsingFlags(config).bigHour = true;
+    });
+    addParseToken('hmmss', function (input, array, config) {
+        var pos1 = input.length - 4;
+        var pos2 = input.length - 2;
+        array[HOUR] = toInt(input.substr(0, pos1));
+        array[MINUTE] = toInt(input.substr(pos1, 2));
+        array[SECOND] = toInt(input.substr(pos2));
+        getParsingFlags(config).bigHour = true;
+    });
+    addParseToken('Hmm', function (input, array, config) {
+        var pos = input.length - 2;
+        array[HOUR] = toInt(input.substr(0, pos));
+        array[MINUTE] = toInt(input.substr(pos));
+    });
+    addParseToken('Hmmss', function (input, array, config) {
+        var pos1 = input.length - 4;
+        var pos2 = input.length - 2;
+        array[HOUR] = toInt(input.substr(0, pos1));
+        array[MINUTE] = toInt(input.substr(pos1, 2));
+        array[SECOND] = toInt(input.substr(pos2));
     });
 
     // LOCALES
@@ -54356,6 +55031,8 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     // this rule.
     var getSetHour = makeGetSet('Hours', true);
 
+    // FORMATTING
+
     addFormatToken('m', ['mm', 2], 0, 'minute');
 
     // ALIASES
@@ -54372,6 +55049,8 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
 
     var getSetMinute = makeGetSet('Minutes', false);
 
+    // FORMATTING
+
     addFormatToken('s', ['ss', 2], 0, 'second');
 
     // ALIASES
@@ -54387,6 +55066,8 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     // MOMENTS
 
     var getSetSecond = makeGetSet('Seconds', false);
+
+    // FORMATTING
 
     addFormatToken('S', 0, 0, function () {
         return ~~(this.millisecond() / 100);
@@ -54443,6 +55124,8 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
 
     var getSetMillisecond = makeGetSet('Milliseconds', false);
 
+    // FORMATTING
+
     addFormatToken('z',  0, 0, 'zoneAbbr');
     addFormatToken('zz', 0, 0, 'zoneName');
 
@@ -54458,40 +55141,43 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
 
     var momentPrototype__proto = Moment.prototype;
 
-    momentPrototype__proto.add          = add_subtract__add;
-    momentPrototype__proto.calendar     = moment_calendar__calendar;
-    momentPrototype__proto.clone        = clone;
-    momentPrototype__proto.diff         = diff;
-    momentPrototype__proto.endOf        = endOf;
-    momentPrototype__proto.format       = format;
-    momentPrototype__proto.from         = from;
-    momentPrototype__proto.fromNow      = fromNow;
-    momentPrototype__proto.to           = to;
-    momentPrototype__proto.toNow        = toNow;
-    momentPrototype__proto.get          = getSet;
-    momentPrototype__proto.invalidAt    = invalidAt;
-    momentPrototype__proto.isAfter      = isAfter;
-    momentPrototype__proto.isBefore     = isBefore;
-    momentPrototype__proto.isBetween    = isBetween;
-    momentPrototype__proto.isSame       = isSame;
-    momentPrototype__proto.isValid      = moment_valid__isValid;
-    momentPrototype__proto.lang         = lang;
-    momentPrototype__proto.locale       = locale;
-    momentPrototype__proto.localeData   = localeData;
-    momentPrototype__proto.max          = prototypeMax;
-    momentPrototype__proto.min          = prototypeMin;
-    momentPrototype__proto.parsingFlags = parsingFlags;
-    momentPrototype__proto.set          = getSet;
-    momentPrototype__proto.startOf      = startOf;
-    momentPrototype__proto.subtract     = add_subtract__subtract;
-    momentPrototype__proto.toArray      = toArray;
-    momentPrototype__proto.toObject     = toObject;
-    momentPrototype__proto.toDate       = toDate;
-    momentPrototype__proto.toISOString  = moment_format__toISOString;
-    momentPrototype__proto.toJSON       = moment_format__toISOString;
-    momentPrototype__proto.toString     = toString;
-    momentPrototype__proto.unix         = unix;
-    momentPrototype__proto.valueOf      = to_type__valueOf;
+    momentPrototype__proto.add               = add_subtract__add;
+    momentPrototype__proto.calendar          = moment_calendar__calendar;
+    momentPrototype__proto.clone             = clone;
+    momentPrototype__proto.diff              = diff;
+    momentPrototype__proto.endOf             = endOf;
+    momentPrototype__proto.format            = format;
+    momentPrototype__proto.from              = from;
+    momentPrototype__proto.fromNow           = fromNow;
+    momentPrototype__proto.to                = to;
+    momentPrototype__proto.toNow             = toNow;
+    momentPrototype__proto.get               = getSet;
+    momentPrototype__proto.invalidAt         = invalidAt;
+    momentPrototype__proto.isAfter           = isAfter;
+    momentPrototype__proto.isBefore          = isBefore;
+    momentPrototype__proto.isBetween         = isBetween;
+    momentPrototype__proto.isSame            = isSame;
+    momentPrototype__proto.isSameOrAfter     = isSameOrAfter;
+    momentPrototype__proto.isSameOrBefore    = isSameOrBefore;
+    momentPrototype__proto.isValid           = moment_valid__isValid;
+    momentPrototype__proto.lang              = lang;
+    momentPrototype__proto.locale            = locale;
+    momentPrototype__proto.localeData        = localeData;
+    momentPrototype__proto.max               = prototypeMax;
+    momentPrototype__proto.min               = prototypeMin;
+    momentPrototype__proto.parsingFlags      = parsingFlags;
+    momentPrototype__proto.set               = getSet;
+    momentPrototype__proto.startOf           = startOf;
+    momentPrototype__proto.subtract          = add_subtract__subtract;
+    momentPrototype__proto.toArray           = toArray;
+    momentPrototype__proto.toObject          = toObject;
+    momentPrototype__proto.toDate            = toDate;
+    momentPrototype__proto.toISOString       = moment_format__toISOString;
+    momentPrototype__proto.toJSON            = toJSON;
+    momentPrototype__proto.toString          = toString;
+    momentPrototype__proto.unix              = unix;
+    momentPrototype__proto.valueOf           = to_type__valueOf;
+    momentPrototype__proto.creationData      = creationData;
 
     // Year
     momentPrototype__proto.year       = getSetYear;
@@ -54577,7 +55263,7 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
 
     function locale_calendar__calendar (key, mom, now) {
         var output = this._calendar[key];
-        return typeof output === 'function' ? output.call(mom, now) : output;
+        return isFunction(output) ? output.call(mom, now) : output;
     }
 
     var defaultLongDateFormat = {
@@ -54639,21 +55325,21 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
 
     function relative__relativeTime (number, withoutSuffix, string, isFuture) {
         var output = this._relativeTime[string];
-        return (typeof output === 'function') ?
+        return (isFunction(output)) ?
             output(number, withoutSuffix, string, isFuture) :
             output.replace(/%d/i, number);
     }
 
     function pastFuture (diff, output) {
         var format = this._relativeTime[diff > 0 ? 'future' : 'past'];
-        return typeof format === 'function' ? format(output) : format.replace(/%s/i, output);
+        return isFunction(format) ? format(output) : format.replace(/%s/i, output);
     }
 
     function locale_set__set (config) {
         var prop, i;
         for (i in config) {
             prop = config[i];
-            if (typeof prop === 'function') {
+            if (isFunction(prop)) {
                 this[i] = prop;
             } else {
                 this['_' + i] = prop;
@@ -54683,11 +55369,15 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     prototype__proto.set             = locale_set__set;
 
     // Month
-    prototype__proto.months       =        localeMonths;
-    prototype__proto._months      = defaultLocaleMonths;
-    prototype__proto.monthsShort  =        localeMonthsShort;
-    prototype__proto._monthsShort = defaultLocaleMonthsShort;
-    prototype__proto.monthsParse  =        localeMonthsParse;
+    prototype__proto.months            =        localeMonths;
+    prototype__proto._months           = defaultLocaleMonths;
+    prototype__proto.monthsShort       =        localeMonthsShort;
+    prototype__proto._monthsShort      = defaultLocaleMonthsShort;
+    prototype__proto.monthsParse       =        localeMonthsParse;
+    prototype__proto._monthsRegex      = defaultMonthsRegex;
+    prototype__proto.monthsRegex       = monthsRegex;
+    prototype__proto._monthsShortRegex = defaultMonthsShortRegex;
+    prototype__proto.monthsShortRegex  = monthsShortRegex;
 
     // Week
     prototype__proto.week = localeWeek;
@@ -54975,15 +55665,15 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
         var years    = round(duration.as('y'));
 
         var a = seconds < thresholds.s && ['s', seconds]  ||
-                minutes === 1          && ['m']           ||
+                minutes <= 1           && ['m']           ||
                 minutes < thresholds.m && ['mm', minutes] ||
-                hours   === 1          && ['h']           ||
+                hours   <= 1           && ['h']           ||
                 hours   < thresholds.h && ['hh', hours]   ||
-                days    === 1          && ['d']           ||
+                days    <= 1           && ['d']           ||
                 days    < thresholds.d && ['dd', days]    ||
-                months  === 1          && ['M']           ||
+                months  <= 1           && ['M']           ||
                 months  < thresholds.M && ['MM', months]  ||
-                years   === 1          && ['y']           || ['yy', years];
+                years   <= 1           && ['y']           || ['yy', years];
 
         a[2] = withoutSuffix;
         a[3] = +posNegDuration > 0;
@@ -55104,6 +55794,8 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
 
     // Side effect imports
 
+    // FORMATTING
+
     addFormatToken('X', 0, 0, 'unix');
     addFormatToken('x', 0, 0, 'valueOf');
 
@@ -55121,13 +55813,14 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     // Side effect imports
 
 
-    utils_hooks__hooks.version = '2.10.6';
+    utils_hooks__hooks.version = '2.11.2';
 
     setHookCallback(local__createLocal);
 
     utils_hooks__hooks.fn                    = momentPrototype;
     utils_hooks__hooks.min                   = min;
     utils_hooks__hooks.max                   = max;
+    utils_hooks__hooks.now                   = now;
     utils_hooks__hooks.utc                   = create_utc__createUTC;
     utils_hooks__hooks.unix                  = moment__createUnix;
     utils_hooks__hooks.months                = lists__listMonths;
@@ -55146,6 +55839,7 @@ angular.module("template/typeahead/typeahead-popup.html", []).run(["$templateCac
     utils_hooks__hooks.weekdaysShort         = lists__listWeekdaysShort;
     utils_hooks__hooks.normalizeUnits        = normalizeUnits;
     utils_hooks__hooks.relativeTimeThreshold = duration_humanize__getSetRelativeTimeThreshold;
+    utils_hooks__hooks.prototype             = momentPrototype;
 
     var _moment = utils_hooks__hooks;
 
@@ -55174,7 +55868,6 @@ angular.module('ui.calendar', [])
           wrapFunctionWithScopeApply = function(functionToWrap){
               return function(){
                   // This may happen outside of angular context, so create one if outside.
-
                   if ($scope.$root.$$phase) {
                       return functionToWrap.apply(this, arguments);
                   } else {
@@ -55193,14 +55886,9 @@ angular.module('ui.calendar', [])
         if (!e._id) {
           e._id = eventSerialId++;
         }
-        
-        var extraSignature = extraEventSignature({event: e}) || '';
-        var start = moment.isMoment(e.start) ? e.start.unix() : (e.start ? moment(e.start).unix() : '');
-        var end =   moment.isMoment(e.end)   ? e.end.unix()   : (e.end   ? moment(e.end).unix()   : '');
-        
         // This extracts all the information we need from the event. http://jsperf.com/angular-calendar-events-fingerprint/3
-        return "" + e._id + (e.id || '') + (e.title || '') + (e.url || '') + start + end +
-          (e.allDay || '') + (e.className || '') + extraSignature;
+        return "" + e._id + (e.id || '') + (e.title || '') + (e.url || '') + (+e.start || '') + (+e.end || '') +
+          (e.allDay || '') + (e.className || '') + extraEventSignature({event: e}) || '';
       };
 
       var sourceSerialId = 1, sourceEventsSerialId = 1;
@@ -55327,7 +56015,7 @@ angular.module('ui.calendar', [])
       };
 
       this.getFullCalendarConfig = function(calendarSettings, uiCalendarConfig){
-          var config = {};
+         var config = {};
 
           angular.extend(config, uiCalendarConfig);
           angular.extend(config, calendarSettings);
@@ -55364,15 +56052,17 @@ angular.module('ui.calendar', [])
       return {};
     };
   }])
-  .directive('uiCalendar', ['uiCalendarConfig', function(uiCalendarConfig) {
+  .directive('uiCalendar', ['uiCalendarConfig',function(uiCalendarConfig) {
     return {
       restrict: 'A',
       scope: {eventSources:'=ngModel',calendarWatchEvent: '&'},
       controller: 'uiCalendarCtrl',
       link: function(scope, elm, attrs, controller) {
-        var sourcesChanged = false,
+
+        var sources = scope.eventSources,
+            sourcesChanged = false,
             calendar,
-            eventSourcesWatcher = controller.changeWatcher(scope.eventSources, controller.sourceFingerprint),
+            eventSourcesWatcher = controller.changeWatcher(sources, controller.sourceFingerprint),
             eventsWatcher = controller.changeWatcher(controller.allEvents, controller.eventFingerprint),
             options = null;
 
@@ -55384,7 +56074,7 @@ angular.module('ui.calendar', [])
 
           var localeFullCalendarConfig = controller.getLocaleConfig(fullCalendarConfig);
           angular.extend(localeFullCalendarConfig, fullCalendarConfig);
-          options = { eventSources: scope.eventSources };
+          options = { eventSources: sources };
           angular.extend(options, localeFullCalendarConfig);
           //remove calendars from options
           options.calendars = null;
@@ -55398,7 +56088,7 @@ angular.module('ui.calendar', [])
           return JSON.stringify(options2);
         }
 
-        scope.destroyCalendar = function(){
+        scope.destroy = function(){
           if(calendar && calendar.fullCalendar){
             calendar.fullCalendar('destroy');
           }
@@ -55409,65 +56099,42 @@ angular.module('ui.calendar', [])
           }
         };
 
-        scope.initCalendar = function(){
-          if (!calendar) {
-            calendar = angular.element(elm).html('');
-          }
+        scope.init = function(){
           calendar.fullCalendar(options);
           if(attrs.calendar) {
             uiCalendarConfig.calendars[attrs.calendar] = calendar;
           }          
         };
-        scope.$on('$destroy', function() {
-          scope.destroyCalendar();
-        });
 
         eventSourcesWatcher.onAdded = function(source) {
-          if (calendar && calendar.fullCalendar) {
-            calendar.fullCalendar(options);
-            if (attrs.calendar) {
-                uiCalendarConfig.calendars[attrs.calendar] = calendar;
-            }
-            calendar.fullCalendar('addEventSource', source);
-            sourcesChanged = true;
-          }
+          calendar.fullCalendar('addEventSource', source);
+          sourcesChanged = true;
         };
 
         eventSourcesWatcher.onRemoved = function(source) {
-          if (calendar && calendar.fullCalendar) {
-            calendar.fullCalendar('removeEventSource', source);
-            sourcesChanged = true;
-          }
+          calendar.fullCalendar('removeEventSource', source);
+          sourcesChanged = true;
         };
 
-        eventSourcesWatcher.onChanged = function() {
-          if (calendar && calendar.fullCalendar) {
-            calendar.fullCalendar('refetchEvents');
-            sourcesChanged = true;
-          }
-
+        eventSourcesWatcher.onChanged = function(source) {
+          calendar.fullCalendar('refetchEvents');
+          sourcesChanged = true;
         };
 
         eventsWatcher.onAdded = function(event) {
-          if (calendar && calendar.fullCalendar) {
-            calendar.fullCalendar('renderEvent', event, (event.stick ? true : false));
-          }
+          calendar.fullCalendar('renderEvent', event, (event.stick ? true : false));
         };
 
         eventsWatcher.onRemoved = function(event) {
-          if (calendar && calendar.fullCalendar) {
-            calendar.fullCalendar('removeEvents', event._id);
-          }
+          calendar.fullCalendar('removeEvents', event._id);
         };
 
         eventsWatcher.onChanged = function(event) {
-          if (calendar && calendar.fullCalendar) {
-            var clientEvents = calendar.fullCalendar('clientEvents', event._id);
-            for (var i = 0; i < clientEvents.length; i++) {
-              var clientEvent = clientEvents[i];
-              clientEvent = angular.extend(clientEvent, event);
-              calendar.fullCalendar('updateEvent', clientEvent);
-            }
+          var clientEvents = calendar.fullCalendar('clientEvents', event._id);
+          for (var i = 0; i < clientEvents.length; i++) {
+            var clientEvent = clientEvents[i];
+            clientEvent = angular.extend(clientEvent, event);
+            calendar.fullCalendar('updateEvent', clientEvent);
           }
         };
 
@@ -55480,19 +56147,15 @@ angular.module('ui.calendar', [])
           }
         });
 
-        scope.$watch(getOptions, function(newValue, oldValue) {
-          if(newValue !== oldValue) {
-            scope.destroyCalendar();
-            scope.initCalendar();
-          } else if((newValue && angular.isUndefined(calendar))) {
-            scope.initCalendar();
-          }
+        scope.$watch(getOptions, function(newO,oldO){
+            scope.destroy();
+            scope.init();
         });
       }
     };
 }]);
 ;/*!
- * FullCalendar v2.4.0
+ * FullCalendar v2.6.0
  * Docs & License: http://fullcalendar.io/
  * (c) 2015 Adam Shaw
  */
@@ -55511,8 +56174,11 @@ angular.module('ui.calendar', [])
 
 ;;
 
-var fc = $.fullCalendar = { version: "2.4.0" };
-var fcViews = fc.views = {};
+var FC = $.fullCalendar = {
+	version: "2.6.0",
+	internalApiVersion: 2
+};
+var fcViews = FC.views = {};
 
 
 $.fn.fullCalendar = function(options) {
@@ -55614,14 +56280,14 @@ function massageOverrides(input) {
 ;;
 
 // exports
-fc.intersectionToSeg = intersectionToSeg;
-fc.applyAll = applyAll;
-fc.debounce = debounce;
-fc.isInt = isInt;
-fc.htmlEscape = htmlEscape;
-fc.cssToStr = cssToStr;
-fc.proxy = proxy;
-fc.capitaliseFirstLetter = capitaliseFirstLetter;
+FC.intersectRanges = intersectRanges;
+FC.applyAll = applyAll;
+FC.debounce = debounce;
+FC.isInt = isInt;
+FC.htmlEscape = htmlEscape;
+FC.cssToStr = cssToStr;
+FC.proxy = proxy;
+FC.capitaliseFirstLetter = capitaliseFirstLetter;
 
 
 /* FullCalendar-specific DOM Utilities
@@ -55737,7 +56403,7 @@ function undistributeHeight(els) {
 function matchCellWidths(els) {
 	var maxInnerWidth = 0;
 
-	els.find('> *').each(function(i, innerEl) {
+	els.find('> span').each(function(i, innerEl) {
 		var innerWidth = $(innerEl).outerWidth();
 		if (innerWidth > maxInnerWidth) {
 			maxInnerWidth = innerWidth;
@@ -55777,9 +56443,10 @@ function unsetScroller(containerEl) {
 /* General DOM Utilities
 ----------------------------------------------------------------------------------------------------------------------*/
 
-fc.getClientRect = getClientRect;
-fc.getContentRect = getContentRect;
-fc.getScrollbarWidths = getScrollbarWidths;
+FC.getOuterRect = getOuterRect;
+FC.getClientRect = getClientRect;
+FC.getContentRect = getContentRect;
+FC.getScrollbarWidths = getScrollbarWidths;
 
 
 // borrowed from https://github.com/jquery/jquery-ui/blob/1.11.0/ui/core.js#L51
@@ -55912,7 +56579,7 @@ function isPrimaryMouseButton(ev) {
 /* Geometry
 ----------------------------------------------------------------------------------------------------------------------*/
 
-fc.intersectRects = intersectRects;
+FC.intersectRects = intersectRects;
 
 // Returns a new rectangle that is the intersection of the two rectangles. If they don't intersect, returns false
 function intersectRects(rect1, rect2) {
@@ -55960,10 +56627,10 @@ function diffPoints(point1, point2) {
 /* Object Ordering by Field
 ----------------------------------------------------------------------------------------------------------------------*/
 
-fc.parseFieldSpecs = parseFieldSpecs;
-fc.compareByFieldSpecs = compareByFieldSpecs;
-fc.compareByFieldSpec = compareByFieldSpec;
-fc.flexibleCompare = flexibleCompare;
+FC.parseFieldSpecs = parseFieldSpecs;
+FC.compareByFieldSpecs = compareByFieldSpecs;
+FC.compareByFieldSpec = compareByFieldSpec;
+FC.flexibleCompare = flexibleCompare;
 
 
 function parseFieldSpecs(input) {
@@ -56045,10 +56712,10 @@ function flexibleCompare(a, b) {
 ----------------------------------------------------------------------------------------------------------------------*/
 
 
-// Creates a basic segment with the intersection of the two ranges. Returns undefined if no intersection.
+// Computes the intersection of the two ranges. Returns undefined if no intersection.
 // Expects all dates to be normalized to the same timezone beforehand.
 // TODO: move to date section?
-function intersectionToSeg(subjectRange, constraintRange) {
+function intersectRanges(subjectRange, constraintRange) {
 	var subjectStart = subjectRange.start;
 	var subjectEnd = subjectRange.end;
 	var constraintStart = constraintRange.start;
@@ -56089,11 +56756,11 @@ function intersectionToSeg(subjectRange, constraintRange) {
 /* Date Utilities
 ----------------------------------------------------------------------------------------------------------------------*/
 
-fc.computeIntervalUnit = computeIntervalUnit;
-fc.divideRangeByDuration = divideRangeByDuration;
-fc.divideDurationByDuration = divideDurationByDuration;
-fc.multiplyDuration = multiplyDuration;
-fc.durationHasTime = durationHasTime;
+FC.computeIntervalUnit = computeIntervalUnit;
+FC.divideRangeByDuration = divideRangeByDuration;
+FC.divideDurationByDuration = divideDurationByDuration;
+FC.multiplyDuration = multiplyDuration;
+FC.durationHasTime = durationHasTime;
 
 var dayIDs = [ 'sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat' ];
 var intervalUnits = [ 'year', 'month', 'week', 'day', 'hour', 'minute', 'second', 'millisecond' ];
@@ -56233,7 +56900,7 @@ function isTimeString(str) {
 /* Logging and Debug
 ----------------------------------------------------------------------------------------------------------------------*/
 
-fc.log = function() {
+FC.log = function() {
 	var console = window.console;
 
 	if (console && console.log) {
@@ -56241,14 +56908,14 @@ fc.log = function() {
 	}
 };
 
-fc.warn = function() {
+FC.warn = function() {
 	var console = window.console;
 
 	if (console && console.warn) {
 		return console.warn.apply(console, arguments);
 	}
 	else {
-		return fc.log.apply(fc, arguments);
+		return FC.log.apply(FC, arguments);
 	}
 };
 
@@ -56485,12 +57152,12 @@ var setLocalValues; // function defined below
 // extra features (ambiguous time, enhanced formatting). When given an existing moment,
 // it will function as a clone (and retain the zone of the moment). Anything else will
 // result in a moment in the local zone.
-fc.moment = function() {
+FC.moment = function() {
 	return makeMoment(arguments);
 };
 
-// Sames as fc.moment, but forces the resulting moment to be in the UTC timezone.
-fc.moment.utc = function() {
+// Sames as FC.moment, but forces the resulting moment to be in the UTC timezone.
+FC.moment.utc = function() {
 	var mom = makeMoment(arguments, true);
 
 	// Force it into UTC because makeMoment doesn't guarantee it
@@ -56502,9 +57169,9 @@ fc.moment.utc = function() {
 	return mom;
 };
 
-// Same as fc.moment, but when given an ISO8601 string, the timezone offset is preserved.
+// Same as FC.moment, but when given an ISO8601 string, the timezone offset is preserved.
 // ISO8601 strings with no timezone offset will become ambiguously zoned.
-fc.moment.parseZone = function() {
+FC.moment.parseZone = function() {
 	return makeMoment(arguments, true, true);
 };
 
@@ -56847,7 +57514,7 @@ newMomentProto.isSame = function(input, units) {
 		return oldMomentProto.isSame.call(a[0], a[1], units);
 	}
 	else {
-		input = fc.moment.parseZone(input); // normalize input
+		input = FC.moment.parseZone(input); // normalize input
 		return oldMomentProto.isSame.call(this, input) &&
 			Boolean(this._ambigTime) === Boolean(input._ambigTime) &&
 			Boolean(this._ambigZone) === Boolean(input._ambigZone);
@@ -56891,7 +57558,7 @@ function commonlyAmbiguate(inputs, preserveTime) {
 	for (i = 0; i < len; i++) {
 		mom = inputs[i];
 		if (!moment.isMoment(mom)) {
-			mom = fc.moment.parseZone(mom);
+			mom = FC.moment.parseZone(mom);
 		}
 		anyAmbigTime = anyAmbigTime || mom._ambigTime;
 		anyAmbigZone = anyAmbigZone || mom._ambigZone;
@@ -57048,8 +57715,8 @@ function formatDateWithChunk(date, chunk) {
 function formatRange(date1, date2, formatStr, separator, isRTL) {
 	var localeData;
 
-	date1 = fc.moment.parseZone(date1);
-	date2 = fc.moment.parseZone(date2);
+	date1 = FC.moment.parseZone(date1);
+	date2 = FC.moment.parseZone(date2);
 
 	localeData = (date1.localeData || date1.lang).call(date1); // works with moment-pre-2.8
 
@@ -57068,10 +57735,12 @@ function formatRange(date1, date2, formatStr, separator, isRTL) {
 		isRTL
 	);
 }
-fc.formatRange = formatRange; // expose
+FC.formatRange = formatRange; // expose
 
 
 function formatRangeWithChunks(date1, date2, chunks, separator, isRTL) {
+	var unzonedDate1 = date1.clone().stripZone(); // for formatSimilarChunk
+	var unzonedDate2 = date2.clone().stripZone(); // "
 	var chunkStr; // the rendering of the chunk
 	var leftI;
 	var leftStr = '';
@@ -57085,7 +57754,7 @@ function formatRangeWithChunks(date1, date2, chunks, separator, isRTL) {
 	// Start at the leftmost side of the formatting string and continue until you hit a token
 	// that is not the same between dates.
 	for (leftI=0; leftI<chunks.length; leftI++) {
-		chunkStr = formatSimilarChunk(date1, date2, chunks[leftI]);
+		chunkStr = formatSimilarChunk(date1, date2, unzonedDate1, unzonedDate2, chunks[leftI]);
 		if (chunkStr === false) {
 			break;
 		}
@@ -57094,7 +57763,7 @@ function formatRangeWithChunks(date1, date2, chunks, separator, isRTL) {
 
 	// Similarly, start at the rightmost side of the formatting string and move left
 	for (rightI=chunks.length-1; rightI>leftI; rightI--) {
-		chunkStr = formatSimilarChunk(date1, date2, chunks[rightI]);
+		chunkStr = formatSimilarChunk(date1, date2, unzonedDate1, unzonedDate2,  chunks[rightI]);
 		if (chunkStr === false) {
 			break;
 		}
@@ -57141,7 +57810,7 @@ var similarUnitMap = {
 
 // Given a formatting chunk, and given that both dates are similar in the regard the
 // formatting chunk is concerned, format date1 against `chunk`. Otherwise, return `false`.
-function formatSimilarChunk(date1, date2, chunk) {
+function formatSimilarChunk(date1, date2, unzonedDate1, unzonedDate2, chunk) {
 	var token;
 	var unit;
 
@@ -57150,8 +57819,10 @@ function formatSimilarChunk(date1, date2, chunk) {
 	}
 	else if ((token = chunk.token)) {
 		unit = similarUnitMap[token.charAt(0)];
+
 		// are the dates the same for this unit of measurement?
-		if (unit && date1.isSame(date2, unit)) {
+		// use the unzoned dates for this calculation because unreliable when near DST (bug #2396)
+		if (unit && unzonedDate1.isSame(unzonedDate2, unit)) {
 			return oldMomentFormat(date1, token); // would be the same if we used `date2`
 			// BTW, don't support custom tokens
 		}
@@ -57203,17 +57874,39 @@ function chunkFormatString(formatStr) {
 
 ;;
 
-fc.Class = Class; // export
+FC.Class = Class; // export
 
-// class that all other classes will inherit from
+// Class that all other classes will inherit from
 function Class() { }
 
-// called upon a class to create a subclass
-Class.extend = function(members) {
-	var superClass = this;
-	var subClass;
 
-	members = members || {};
+// Called on a class to create a subclass.
+// Last argument contains instance methods. Any argument before the last are considered mixins.
+Class.extend = function() {
+	var len = arguments.length;
+	var i;
+	var members;
+
+	for (i = 0; i < len; i++) {
+		members = arguments[i];
+		if (i < len - 1) { // not the last argument?
+			mixIntoClass(this, members);
+		}
+	}
+
+	return extendClass(this, members || {}); // members will be undefined if no arguments
+};
+
+
+// Adds new member variables/methods to the class's prototype.
+// Can be called with another class, or a plain object hash containing new members.
+Class.mixin = function(members) {
+	mixIntoClass(this, members);
+};
+
+
+function extendClass(superClass, members) {
+	var subClass;
 
 	// ensure a constructor for the subclass, forwarding all arguments to the super-constructor if it doesn't exist
 	if (hasOwnProp(members, 'constructor')) {
@@ -57236,16 +57929,15 @@ Class.extend = function(members) {
 	copyOwnProps(superClass, subClass);
 
 	return subClass;
-};
+}
 
-// adds new member variables/methods to the class's prototype.
-// can be called with another class, or a plain object hash containing new members.
-Class.mixin = function(members) {
-	copyOwnProps(members.prototype || members, this.prototype); // TODO: copyNativeMethods?
-};
+
+function mixIntoClass(theClass, members) {
+	copyOwnProps(members.prototype || members, theClass.prototype); // TODO: copyNativeMethods?
+}
 ;;
 
-var Emitter = fc.Emitter = Class.extend({
+var Emitter = FC.Emitter = Class.extend({
 
 	callbackHash: null,
 
@@ -57467,165 +58159,214 @@ var Popover = Class.extend({
 
 ;;
 
-/* A "coordinate map" converts pixel coordinates into an associated cell, which has an associated date
-------------------------------------------------------------------------------------------------------------------------
-Common interface:
+/*
+A cache for the left/right/top/bottom/width/height values for one or more elements.
+Works with both offset (from topleft document) and position (from offsetParent).
 
-	CoordMap.prototype = {
-		build: function() {},
-		getCell: function(x, y) {}
-	};
-
+options:
+- els
+- isHorizontal
+- isVertical
 */
+var CoordCache = FC.CoordCache = Class.extend({
 
-/* Coordinate map for a grid component
-----------------------------------------------------------------------------------------------------------------------*/
+	els: null, // jQuery set (assumed to be siblings)
+	forcedOffsetParentEl: null, // options can override the natural offsetParent
+	origin: null, // {left,top} position of offsetParent of els
+	boundingRect: null, // constrain cordinates to this rectangle. {left,right,top,bottom} or null
+	isHorizontal: false, // whether to query for left/right/width
+	isVertical: false, // whether to query for top/bottom/height
 
-var GridCoordMap = Class.extend({
-
-	grid: null, // reference to the Grid
-	rowCoords: null, // array of {top,bottom} objects
-	colCoords: null, // array of {left,right} objects
-
-	containerEl: null, // container element that all coordinates are constrained to. optionally assigned
-	bounds: null,
+	// arrays of coordinates (offsets from topleft of document)
+	lefts: null,
+	rights: null,
+	tops: null,
+	bottoms: null,
 
 
-	constructor: function(grid) {
-		this.grid = grid;
+	constructor: function(options) {
+		this.els = $(options.els);
+		this.isHorizontal = options.isHorizontal;
+		this.isVertical = options.isVertical;
+		this.forcedOffsetParentEl = options.offsetParent ? $(options.offsetParent) : null;
 	},
 
 
-	// Queries the grid for the coordinates of all the cells
+	// Queries the els for coordinates and stores them.
+	// Call this method before using and of the get* methods below.
 	build: function() {
-		this.grid.build();
-		this.rowCoords = this.grid.computeRowCoords();
-		this.colCoords = this.grid.computeColCoords();
-		this.computeBounds();
+		var offsetParentEl = this.forcedOffsetParentEl || this.els.eq(0).offsetParent();
+
+		this.origin = offsetParentEl.offset();
+		this.boundingRect = this.queryBoundingRect();
+
+		if (this.isHorizontal) {
+			this.buildElHorizontals();
+		}
+		if (this.isVertical) {
+			this.buildElVerticals();
+		}
 	},
 
 
-	// Clears the coordinates data to free up memory
+	// Destroys all internal data about coordinates, freeing memory
 	clear: function() {
-		this.grid.clear();
-		this.rowCoords = null;
-		this.colCoords = null;
+		this.origin = null;
+		this.boundingRect = null;
+		this.lefts = null;
+		this.rights = null;
+		this.tops = null;
+		this.bottoms = null;
 	},
 
 
-	// Given a coordinate of the document, gets the associated cell. If no cell is underneath, returns null
-	getCell: function(x, y) {
-		var rowCoords = this.rowCoords;
-		var rowCnt = rowCoords.length;
-		var colCoords = this.colCoords;
-		var colCnt = colCoords.length;
-		var hitRow = null;
-		var hitCol = null;
-		var i, coords;
-		var cell;
+	// Compute and return what the elements' bounding rectangle is, from the user's perspective.
+	// Right now, only returns a rectangle if constrained by an overflow:scroll element.
+	queryBoundingRect: function() {
+		var scrollParentEl = getScrollParent(this.els.eq(0));
 
-		if (this.inBounds(x, y)) {
+		if (!scrollParentEl.is(document)) {
+			return getClientRect(scrollParentEl);
+		}
+	},
 
-			for (i = 0; i < rowCnt; i++) {
-				coords = rowCoords[i];
-				if (y >= coords.top && y < coords.bottom) {
-					hitRow = i;
-					break;
+
+	// Populates the left/right internal coordinate arrays
+	buildElHorizontals: function() {
+		var lefts = [];
+		var rights = [];
+
+		this.els.each(function(i, node) {
+			var el = $(node);
+			var left = el.offset().left;
+			var width = el.outerWidth();
+
+			lefts.push(left);
+			rights.push(left + width);
+		});
+
+		this.lefts = lefts;
+		this.rights = rights;
+	},
+
+
+	// Populates the top/bottom internal coordinate arrays
+	buildElVerticals: function() {
+		var tops = [];
+		var bottoms = [];
+
+		this.els.each(function(i, node) {
+			var el = $(node);
+			var top = el.offset().top;
+			var height = el.outerHeight();
+
+			tops.push(top);
+			bottoms.push(top + height);
+		});
+
+		this.tops = tops;
+		this.bottoms = bottoms;
+	},
+
+
+	// Given a left offset (from document left), returns the index of the el that it horizontally intersects.
+	// If no intersection is made, or outside of the boundingRect, returns undefined.
+	getHorizontalIndex: function(leftOffset) {
+		var boundingRect = this.boundingRect;
+		var lefts = this.lefts;
+		var rights = this.rights;
+		var len = lefts.length;
+		var i;
+
+		if (!boundingRect || (leftOffset >= boundingRect.left && leftOffset < boundingRect.right)) {
+			for (i = 0; i < len; i++) {
+				if (leftOffset >= lefts[i] && leftOffset < rights[i]) {
+					return i;
 				}
 			}
+		}
+	},
 
-			for (i = 0; i < colCnt; i++) {
-				coords = colCoords[i];
-				if (x >= coords.left && x < coords.right) {
-					hitCol = i;
-					break;
+
+	// Given a top offset (from document top), returns the index of the el that it vertically intersects.
+	// If no intersection is made, or outside of the boundingRect, returns undefined.
+	getVerticalIndex: function(topOffset) {
+		var boundingRect = this.boundingRect;
+		var tops = this.tops;
+		var bottoms = this.bottoms;
+		var len = tops.length;
+		var i;
+
+		if (!boundingRect || (topOffset >= boundingRect.top && topOffset < boundingRect.bottom)) {
+			for (i = 0; i < len; i++) {
+				if (topOffset >= tops[i] && topOffset < bottoms[i]) {
+					return i;
 				}
 			}
-
-			if (hitRow !== null && hitCol !== null) {
-
-				cell = this.grid.getCell(hitRow, hitCol); // expected to return a fresh object we can modify
-				cell.grid = this.grid; // for CellDragListener's isCellsEqual. dragging between grids
-
-				// make the coordinates available on the cell object
-				$.extend(cell, rowCoords[hitRow], colCoords[hitCol]);
-
-				return cell;
-			}
-		}
-
-		return null;
-	},
-
-
-	// If there is a containerEl, compute the bounds into min/max values
-	computeBounds: function() {
-		this.bounds = this.containerEl ?
-			getClientRect(this.containerEl) : // area within scrollbars
-			null;
-	},
-
-
-	// Determines if the given coordinates are in bounds. If no `containerEl`, always true
-	inBounds: function(x, y) {
-		var bounds = this.bounds;
-
-		if (bounds) {
-			return x >= bounds.left && x < bounds.right && y >= bounds.top && y < bounds.bottom;
-		}
-
-		return true;
-	}
-
-});
-
-
-/* Coordinate map that is a combination of multiple other coordinate maps
-----------------------------------------------------------------------------------------------------------------------*/
-
-var ComboCoordMap = Class.extend({
-
-	coordMaps: null, // an array of CoordMaps
-
-
-	constructor: function(coordMaps) {
-		this.coordMaps = coordMaps;
-	},
-
-
-	// Builds all coordMaps
-	build: function() {
-		var coordMaps = this.coordMaps;
-		var i;
-
-		for (i = 0; i < coordMaps.length; i++) {
-			coordMaps[i].build();
 		}
 	},
 
 
-	// Queries all coordMaps for the cell underneath the given coordinates, returning the first result
-	getCell: function(x, y) {
-		var coordMaps = this.coordMaps;
-		var cell = null;
-		var i;
-
-		for (i = 0; i < coordMaps.length && !cell; i++) {
-			cell = coordMaps[i].getCell(x, y);
-		}
-
-		return cell;
+	// Gets the left offset (from document left) of the element at the given index
+	getLeftOffset: function(leftIndex) {
+		return this.lefts[leftIndex];
 	},
 
 
-	// Clears all coordMaps
-	clear: function() {
-		var coordMaps = this.coordMaps;
-		var i;
+	// Gets the left position (from offsetParent left) of the element at the given index
+	getLeftPosition: function(leftIndex) {
+		return this.lefts[leftIndex] - this.origin.left;
+	},
 
-		for (i = 0; i < coordMaps.length; i++) {
-			coordMaps[i].clear();
-		}
+
+	// Gets the right offset (from document left) of the element at the given index.
+	// This value is NOT relative to the document's right edge, like the CSS concept of "right" would be.
+	getRightOffset: function(leftIndex) {
+		return this.rights[leftIndex];
+	},
+
+
+	// Gets the right position (from offsetParent left) of the element at the given index.
+	// This value is NOT relative to the offsetParent's right edge, like the CSS concept of "right" would be.
+	getRightPosition: function(leftIndex) {
+		return this.rights[leftIndex] - this.origin.left;
+	},
+
+
+	// Gets the width of the element at the given index
+	getWidth: function(leftIndex) {
+		return this.rights[leftIndex] - this.lefts[leftIndex];
+	},
+
+
+	// Gets the top offset (from document top) of the element at the given index
+	getTopOffset: function(topIndex) {
+		return this.tops[topIndex];
+	},
+
+
+	// Gets the top position (from offsetParent top) of the element at the given position
+	getTopPosition: function(topIndex) {
+		return this.tops[topIndex] - this.origin.top;
+	},
+
+	// Gets the bottom offset (from the document top) of the element at the given index.
+	// This value is NOT relative to the offsetParent's bottom edge, like the CSS concept of "bottom" would be.
+	getBottomOffset: function(topIndex) {
+		return this.bottoms[topIndex];
+	},
+
+
+	// Gets the bottom position (from the offsetParent top) of the element at the given index.
+	// This value is NOT relative to the offsetParent's bottom edge, like the CSS concept of "bottom" would be.
+	getBottomPosition: function(topIndex) {
+		return this.bottoms[topIndex] - this.origin.top;
+	},
+
+
+	// Gets the height of the element at the given index
+	getHeight: function(topIndex) {
+		return this.bottoms[topIndex] - this.tops[topIndex];
 	}
 
 });
@@ -57634,8 +58375,9 @@ var ComboCoordMap = Class.extend({
 
 /* Tracks a drag's mouse movement, firing various handlers
 ----------------------------------------------------------------------------------------------------------------------*/
+// TODO: use Emitter
 
-var DragListener = fc.DragListener = Class.extend({
+var DragListener = FC.DragListener = Class.extend({
 
 	options: null,
 
@@ -58020,25 +58762,27 @@ var DragListener = fc.DragListener = Class.extend({
 
 ;;
 
-/* Tracks mouse movements over a CoordMap and raises events about which cell the mouse is over.
+/* Tracks mouse movements over a component and raises events about which hit the mouse is over.
 ------------------------------------------------------------------------------------------------------------------------
 options:
 - subjectEl
 - subjectCenter
 */
 
-var CellDragListener = DragListener.extend({
+var HitDragListener = DragListener.extend({
 
-	coordMap: null, // converts coordinates to date cells
-	origCell: null, // the cell the mouse was over when listening started
-	cell: null, // the cell the mouse is over
+	component: null, // converts coordinates to hits
+		// methods: prepareHits, releaseHits, queryHit
+
+	origHit: null, // the hit the mouse was over when listening started
+	hit: null, // the hit the mouse is over
 	coordAdjust: null, // delta that will be added to the mouse coordinates when computing collisions
 
 
-	constructor: function(coordMap, options) {
-		DragListener.prototype.constructor.call(this, options); // call the super-constructor
+	constructor: function(component, options) {
+		DragListener.call(this, options); // call the super-constructor
 
-		this.coordMap = coordMap;
+		this.component = component;
 	},
 
 
@@ -58064,14 +58808,15 @@ var CellDragListener = DragListener.extend({
 				point = constrainPoint(point, subjectRect);
 			}
 
-			this.origCell = this.getCell(point.left, point.top);
+			this.origHit = this.queryHit(point.left, point.top);
 
 			// treat the center of the subject as the collision point?
 			if (subjectEl && this.options.subjectCenter) {
 
-				// only consider the area the subject overlaps the cell. best for large subjects
-				if (this.origCell) {
-					subjectRect = intersectRects(this.origCell, subjectRect) ||
+				// only consider the area the subject overlaps the hit. best for large subjects.
+				// TODO: skip this if hit didn't supply left/right/top/bottom
+				if (this.origHit) {
+					subjectRect = intersectRects(this.origHit, subjectRect) ||
 						subjectRect; // in case there is no intersection
 				}
 
@@ -58081,7 +58826,7 @@ var CellDragListener = DragListener.extend({
 			this.coordAdjust = diffPoints(point, origPoint); // point - origPoint
 		}
 		else {
-			this.origCell = null;
+			this.origHit = null;
 			this.coordAdjust = null;
 		}
 	},
@@ -58089,41 +58834,42 @@ var CellDragListener = DragListener.extend({
 
 	// Recomputes the drag-critical positions of elements
 	computeCoords: function() {
-		this.coordMap.build();
-		this.computeScrollBounds();
+		this.component.prepareHits();
+		this.computeScrollBounds(); // why is this here???
 	},
 
 
 	// Called when the actual drag has started
 	dragStart: function(ev) {
-		var cell;
+		var hit;
 
 		DragListener.prototype.dragStart.apply(this, arguments); // call the super-method
 
-		cell = this.getCell(ev.pageX, ev.pageY); // might be different from this.origCell if the min-distance is large
+		// might be different from this.origHit if the min-distance is large
+		hit = this.queryHit(ev.pageX, ev.pageY);
 
-		// report the initial cell the mouse is over
+		// report the initial hit the mouse is over
 		// especially important if no min-distance and drag starts immediately
-		if (cell) {
-			this.cellOver(cell);
+		if (hit) {
+			this.hitOver(hit);
 		}
 	},
 
 
 	// Called when the drag moves
 	drag: function(dx, dy, ev) {
-		var cell;
+		var hit;
 
 		DragListener.prototype.drag.apply(this, arguments); // call the super-method
 
-		cell = this.getCell(ev.pageX, ev.pageY);
+		hit = this.queryHit(ev.pageX, ev.pageY);
 
-		if (!isCellsEqual(cell, this.cell)) { // a different cell than before?
-			if (this.cell) {
-				this.cellOut();
+		if (!isHitsEqual(hit, this.hit)) { // a different hit than before?
+			if (this.hit) {
+				this.hitOut();
 			}
-			if (cell) {
-				this.cellOver(cell);
+			if (hit) {
+				this.hitOver(hit);
 			}
 		}
 	},
@@ -58131,32 +58877,35 @@ var CellDragListener = DragListener.extend({
 
 	// Called when dragging has been stopped
 	dragStop: function() {
-		this.cellDone();
+		this.hitDone();
 		DragListener.prototype.dragStop.apply(this, arguments); // call the super-method
 	},
 
 
-	// Called when a the mouse has just moved over a new cell
-	cellOver: function(cell) {
-		this.cell = cell;
-		this.trigger('cellOver', cell, isCellsEqual(cell, this.origCell), this.origCell);
+	// Called when a the mouse has just moved over a new hit
+	hitOver: function(hit) {
+		var isOrig = isHitsEqual(hit, this.origHit);
+
+		this.hit = hit;
+
+		this.trigger('hitOver', this.hit, isOrig, this.origHit);
 	},
 
 
-	// Called when the mouse has just moved out of a cell
-	cellOut: function() {
-		if (this.cell) {
-			this.trigger('cellOut', this.cell);
-			this.cellDone();
-			this.cell = null;
+	// Called when the mouse has just moved out of a hit
+	hitOut: function() {
+		if (this.hit) {
+			this.trigger('hitOut', this.hit);
+			this.hitDone();
+			this.hit = null;
 		}
 	},
 
 
-	// Called after a cellOut. Also called before a dragStop
-	cellDone: function() {
-		if (this.cell) {
-			this.trigger('cellDone', this.cell);
+	// Called after a hitOut. Also called before a dragStop
+	hitDone: function() {
+		if (this.hit) {
+			this.trigger('hitDone', this.hit);
 		}
 	},
 
@@ -58165,8 +58914,10 @@ var CellDragListener = DragListener.extend({
 	listenStop: function() {
 		DragListener.prototype.listenStop.apply(this, arguments); // call the super-method
 
-		this.origCell = this.cell = null;
-		this.coordMap.clear();
+		this.origHit = null;
+		this.hit = null;
+
+		this.component.releaseHits();
 	},
 
 
@@ -58174,40 +58925,52 @@ var CellDragListener = DragListener.extend({
 	scrollStop: function() {
 		DragListener.prototype.scrollStop.apply(this, arguments); // call the super-method
 
-		this.computeCoords(); // cells' absolute positions will be in new places. recompute
+		this.computeCoords(); // hits' absolute positions will be in new places. recompute
 	},
 
 
-	// Gets the cell underneath the coordinates for the given mouse event
-	getCell: function(left, top) {
+	// Gets the hit underneath the coordinates for the given mouse event
+	queryHit: function(left, top) {
 
 		if (this.coordAdjust) {
 			left += this.coordAdjust.left;
 			top += this.coordAdjust.top;
 		}
 
-		return this.coordMap.getCell(left, top);
+		return this.component.queryHit(left, top);
 	}
 
 });
 
 
-// Returns `true` if the cells are identically equal. `false` otherwise.
-// They must have the same row, col, and be from the same grid.
-// Two null values will be considered equal, as two "out of the grid" states are the same.
-function isCellsEqual(cell1, cell2) {
+// Returns `true` if the hits are identically equal. `false` otherwise. Must be from the same component.
+// Two null values will be considered equal, as two "out of the component" states are the same.
+function isHitsEqual(hit0, hit1) {
 
-	if (!cell1 && !cell2) {
+	if (!hit0 && !hit1) {
 		return true;
 	}
 
-	if (cell1 && cell2) {
-		return cell1.grid === cell2.grid &&
-			cell1.row === cell2.row &&
-			cell1.col === cell2.col;
+	if (hit0 && hit1) {
+		return hit0.component === hit1.component &&
+			isHitPropsWithin(hit0, hit1) &&
+			isHitPropsWithin(hit1, hit0); // ensures all props are identical
 	}
 
 	return false;
+}
+
+
+// Returns true if all of subHit's non-standard properties are within superHit
+function isHitPropsWithin(subHit, superHit) {
+	for (var propName in subHit) {
+		if (!/^(component|left|right|top|bottom)$/.test(propName)) {
+			if (subHit[propName] !== superHit[propName]) {
+				return false;
+			}
+		}
+	}
+	return true;
 }
 
 ;;
@@ -58399,146 +59162,39 @@ var MouseFollower = Class.extend({
 
 ;;
 
-/* A utility class for rendering <tr> rows.
+/* An abstract class comprised of a "grid" of areas that each represent a specific datetime
 ----------------------------------------------------------------------------------------------------------------------*/
-// It leverages methods of the subclass and the View to determine custom rendering behavior for each row "type"
-// (such as highlight rows, day rows, helper rows, etc).
 
-var RowRenderer = Class.extend({
+var Grid = FC.Grid = Class.extend({
 
 	view: null, // a View object
 	isRTL: null, // shortcut to the view's isRTL option
-	cellHtml: '<td/>', // plain default HTML used for a cell when no other is available
 
-
-	constructor: function(view) {
-		this.view = view;
-		this.isRTL = view.opt('isRTL');
-	},
-
-
-	// Renders the HTML for a row, leveraging custom cell-HTML-renderers based on the `rowType`.
-	// Also applies the "intro" and "outro" cells, which are specified by the subclass and views.
-	// `row` is an optional row number.
-	rowHtml: function(rowType, row) {
-		var renderCell = this.getHtmlRenderer('cell', rowType);
-		var rowCellHtml = '';
-		var col;
-		var cell;
-
-		row = row || 0;
-
-		for (col = 0; col < this.colCnt; col++) {
-			cell = this.getCell(row, col);
-			rowCellHtml += renderCell(cell);
-		}
-
-		rowCellHtml = this.bookendCells(rowCellHtml, rowType, row); // apply intro and outro
-
-		return '<tr>' + rowCellHtml + '</tr>';
-	},
-
-
-	// Applies the "intro" and "outro" HTML to the given cells.
-	// Intro means the leftmost cell when the calendar is LTR and the rightmost cell when RTL. Vice-versa for outro.
-	// `cells` can be an HTML string of <td>'s or a jQuery <tr> element
-	// `row` is an optional row number.
-	bookendCells: function(cells, rowType, row) {
-		var intro = this.getHtmlRenderer('intro', rowType)(row || 0);
-		var outro = this.getHtmlRenderer('outro', rowType)(row || 0);
-		var prependHtml = this.isRTL ? outro : intro;
-		var appendHtml = this.isRTL ? intro : outro;
-
-		if (typeof cells === 'string') {
-			return prependHtml + cells + appendHtml;
-		}
-		else { // a jQuery <tr> element
-			return cells.prepend(prependHtml).append(appendHtml);
-		}
-	},
-
-
-	// Returns an HTML-rendering function given a specific `rendererName` (like cell, intro, or outro) and a specific
-	// `rowType` (like day, eventSkeleton, helperSkeleton), which is optional.
-	// If a renderer for the specific rowType doesn't exist, it will fall back to a generic renderer.
-	// We will query the View object first for any custom rendering functions, then the methods of the subclass.
-	getHtmlRenderer: function(rendererName, rowType) {
-		var view = this.view;
-		var generalName; // like "cellHtml"
-		var specificName; // like "dayCellHtml". based on rowType
-		var provider; // either the View or the RowRenderer subclass, whichever provided the method
-		var renderer;
-
-		generalName = rendererName + 'Html';
-		if (rowType) {
-			specificName = rowType + capitaliseFirstLetter(rendererName) + 'Html';
-		}
-
-		if (specificName && (renderer = view[specificName])) {
-			provider = view;
-		}
-		else if (specificName && (renderer = this[specificName])) {
-			provider = this;
-		}
-		else if ((renderer = view[generalName])) {
-			provider = view;
-		}
-		else if ((renderer = this[generalName])) {
-			provider = this;
-		}
-
-		if (typeof renderer === 'function') {
-			return function() {
-				return renderer.apply(provider, arguments) || ''; // use correct `this` and always return a string
-			};
-		}
-
-		// the rendered can be a plain string as well. if not specified, always an empty string.
-		return function() {
-			return renderer || '';
-		};
-	}
-
-});
-
-;;
-
-/* An abstract class comprised of a "grid" of cells that each represent a specific datetime
-----------------------------------------------------------------------------------------------------------------------*/
-
-var Grid = fc.Grid = RowRenderer.extend({
-
-	start: null, // the date of the first cell
-	end: null, // the date after the last cell
-
-	rowCnt: 0, // number of rows
-	colCnt: 0, // number of cols
+	start: null,
+	end: null,
 
 	el: null, // the containing element
-	coordMap: null, // a GridCoordMap that converts pixel values to datetimes
 	elsByFill: null, // a hash of jQuery element sets used for rendering each fill. Keyed by fill name.
 
 	externalDragStartProxy: null, // binds the Grid's scope to externalDragStart (in DayGrid.events)
 
 	// derived from options
-	colHeadFormat: null, // TODO: move to another class. not applicable to all Grids
 	eventTimeFormat: null,
 	displayEventTime: null,
 	displayEventEnd: null,
 
-	// if all cells are the same length of time, the duration they all share. optional.
-	// when defined, allows the computeCellRange shortcut, as well as improved resizing behavior.
-	cellDuration: null,
+	minResizeDuration: null, // TODO: hack. set by subclasses. minumum event resize duration
 
 	// if defined, holds the unit identified (ex: "year" or "month") that determines the level of granularity
-	// of the date cells. if not defined, assumes to be day and time granularity.
+	// of the date areas. if not defined, assumes to be day and time granularity.
+	// TODO: port isTimeScale into same system?
 	largeUnit: null,
 
 
-	constructor: function() {
-		RowRenderer.apply(this, arguments); // call the super-constructor
+	constructor: function(view) {
+		this.view = view;
+		this.isRTL = view.opt('isRTL');
 
-		this.coordMap = new GridCoordMap(this);
 		this.elsByFill = {};
 		this.externalDragStartProxy = proxy(this, 'externalDragStart');
 	},
@@ -58546,13 +59202,6 @@ var Grid = fc.Grid = RowRenderer.extend({
 
 	/* Options
 	------------------------------------------------------------------------------------------------------------------*/
-
-
-	// Generates the format string used for the text in column headers, if not explicitly defined by 'columnFormat'
-	// TODO: move to another class. not applicable to all Grids
-	computeColHeadFormat: function() {
-		// subclasses must implement if they want to use headHtml()
-	},
 
 
 	// Generates the format string used for event time text, if not explicitly defined by 'timeFormat'
@@ -58579,7 +59228,7 @@ var Grid = fc.Grid = RowRenderer.extend({
 
 
 	// Tells the grid about what period of time to display.
-	// Any date-related cell system internal data should be generated.
+	// Any date-related internal data should be generated.
 	setRange: function(range) {
 		this.start = range.start.clone();
 		this.end = range.end.clone();
@@ -58599,9 +59248,6 @@ var Grid = fc.Grid = RowRenderer.extend({
 		var view = this.view;
 		var displayEventTime;
 		var displayEventEnd;
-
-		// Populate option-derived settings. Look for override first, then compute if necessary.
-		this.colHeadFormat = view.opt('columnFormat') || this.computeColHeadFormat();
 
 		this.eventTimeFormat =
 			view.opt('eventTimeFormat') ||
@@ -58623,25 +59269,15 @@ var Grid = fc.Grid = RowRenderer.extend({
 	},
 
 
-	// Called before the grid's coordinates will need to be queried for cells.
-	// Any non-date-related cell system internal data should be built.
-	build: function() {
-	},
-
-
-	// Called after the grid's coordinates are done being relied upon.
-	// Any non-date-related cell system internal data should be cleared.
-	clear: function() {
-	},
-
-
-	// Converts a range with an inclusive `start` and an exclusive `end` into an array of segment objects
-	rangeToSegs: function(range) {
+	// Converts a span (has unzoned start/end and any other grid-specific location information)
+	// into an array of segments (pieces of events whose format is decided by the grid).
+	spanToSegs: function(span) {
 		// subclasses must implement
 	},
 
 
 	// Diffs the two dates, returning a duration, based on granularity of the grid
+	// TODO: port isTimeScale into this system?
 	diffDates: function(a, b) {
 		if (this.largeUnit) {
 			return diffByUnit(a, b, this.largeUnit);
@@ -58652,126 +59288,37 @@ var Grid = fc.Grid = RowRenderer.extend({
 	},
 
 
-	/* Cells
-	------------------------------------------------------------------------------------------------------------------*/
-	// NOTE: columns are ordered left-to-right
-
-
-	// Gets an object containing row/col number, misc data, and range information about the cell.
-	// Accepts row/col values, an object with row/col properties, or a single-number offset from the first cell.
-	getCell: function(row, col) {
-		var cell;
-
-		if (col == null) {
-			if (typeof row === 'number') { // a single-number offset
-				col = row % this.colCnt;
-				row = Math.floor(row / this.colCnt);
-			}
-			else { // an object with row/col properties
-				col = row.col;
-				row = row.row;
-			}
-		}
-
-		cell = { row: row, col: col };
-
-		$.extend(cell, this.getRowData(row), this.getColData(col));
-		$.extend(cell, this.computeCellRange(cell));
-
-		return cell;
-	},
-
-
-	// Given a cell object with index and misc data, generates a range object
-	// If the grid is leveraging cellDuration, this doesn't need to be defined. Only computeCellDate does.
-	// If being overridden, should return a range with reference-free date copies.
-	computeCellRange: function(cell) {
-		var date = this.computeCellDate(cell);
-
-		return {
-			start: date,
-			end: date.clone().add(this.cellDuration)
-		};
-	},
-
-
-	// Given a cell, returns its start date. Should return a reference-free date copy.
-	computeCellDate: function(cell) {
-		// subclasses can implement
-	},
-
-
-	// Retrieves misc data about the given row
-	getRowData: function(row) {
-		return {};
-	},
-
-
-	// Retrieves misc data baout the given column
-	getColData: function(col) {
-		return {};
-	},
-
-
-	// Retrieves the element representing the given row
-	getRowEl: function(row) {
-		// subclasses should implement if leveraging the default getCellDayEl() or computeRowCoords()
-	},
-
-
-	// Retrieves the element representing the given column
-	getColEl: function(col) {
-		// subclasses should implement if leveraging the default getCellDayEl() or computeColCoords()
-	},
-
-
-	// Given a cell object, returns the element that represents the cell's whole-day
-	getCellDayEl: function(cell) {
-		return this.getColEl(cell.col) || this.getRowEl(cell.row);
-	},
-
-
-	/* Cell Coordinates
+	/* Hit Area
 	------------------------------------------------------------------------------------------------------------------*/
 
 
-	// Computes the top/bottom coordinates of all rows.
-	// By default, queries the dimensions of the element provided by getRowEl().
-	computeRowCoords: function() {
-		var items = [];
-		var i, el;
-		var top;
-
-		for (i = 0; i < this.rowCnt; i++) {
-			el = this.getRowEl(i);
-			top = el.offset().top;
-			items.push({
-				top: top,
-				bottom: top + el.outerHeight()
-			});
-		}
-
-		return items;
+	// Called before one or more queryHit calls might happen. Should prepare any cached coordinates for queryHit
+	prepareHits: function() {
 	},
 
 
-	// Computes the left/right coordinates of all rows.
-	// By default, queries the dimensions of the element provided by getColEl(). Columns can be LTR or RTL.
-	computeColCoords: function() {
-		var items = [];
-		var i, el;
-		var left;
+	// Called when queryHit calls have subsided. Good place to clear any coordinate caches.
+	releaseHits: function() {
+	},
 
-		for (i = 0; i < this.colCnt; i++) {
-			el = this.getColEl(i);
-			left = el.offset().left;
-			items.push({
-				left: left,
-				right: left + el.outerWidth()
-			});
-		}
 
-		return items;
+	// Given coordinates from the topleft of the document, return data about the date-related area underneath.
+	// Can return an object with arbitrary properties (although top/right/left/bottom are encouraged).
+	// Must have a `grid` property, a reference to this current grid. TODO: avoid this
+	// The returned object will be processed by getHitSpan and getHitEl.
+	queryHit: function(leftOffset, topOffset) {
+	},
+
+
+	// Given position-level information about a date-related area within the grid,
+	// should return an object with at least a start/end date. Can provide other information as well.
+	getHitSpan: function(hit) {
+	},
+
+
+	// Given position-level information about a date-related area within the grid,
+	// should return a jQuery element that best represents it. passed to dayClick callback.
+	getHitEl: function(hit) {
 	},
 
 
@@ -58822,7 +59369,7 @@ var Grid = fc.Grid = RowRenderer.extend({
 	},
 
 
-	// Renders the grid's date-related content (like cells that represent days/times).
+	// Renders the grid's date-related content (like areas that represent days/times).
 	// Assumes setRange has already been called and the skeleton has already been rendered.
 	renderDates: function() {
 		// subclasses should implement
@@ -58856,45 +59403,52 @@ var Grid = fc.Grid = RowRenderer.extend({
 		var _this = this;
 		var view = this.view;
 		var isSelectable = view.opt('selectable');
-		var dayClickCell; // null if invalid dayClick
-		var selectionRange; // null if invalid selection
+		var dayClickHit; // null if invalid dayClick
+		var selectionSpan; // null if invalid selection
 
 		// this listener tracks a mousedown on a day element, and a subsequent drag.
 		// if the drag ends on the same day, it is a 'dayClick'.
 		// if 'selectable' is enabled, this listener also detects selections.
-		var dragListener = new CellDragListener(this.coordMap, {
+		var dragListener = new HitDragListener(this, {
 			//distance: 5, // needs more work if we want dayClick to fire correctly
 			scroll: view.opt('dragScroll'),
 			dragStart: function() {
 				view.unselect(); // since we could be rendering a new selection, we want to clear any old one
 			},
-			cellOver: function(cell, isOrig, origCell) {
-				if (origCell) { // click needs to have started on a cell
-					dayClickCell = isOrig ? cell : null; // single-cell selection is a day click
+			hitOver: function(hit, isOrig, origHit) {
+				if (origHit) { // click needs to have started on a hit
+					dayClickHit = isOrig ? hit : null; // single-hit selection is a day click
 					if (isSelectable) {
-						selectionRange = _this.computeSelection(origCell, cell);
-						if (selectionRange) {
-							_this.renderSelection(selectionRange);
+						selectionSpan = _this.computeSelection(
+							_this.getHitSpan(origHit),
+							_this.getHitSpan(hit)
+						);
+						if (selectionSpan) {
+							_this.renderSelection(selectionSpan);
 						}
-						else {
+						else if (selectionSpan === false) {
 							disableCursor();
 						}
 					}
 				}
 			},
-			cellOut: function(cell) {
-				dayClickCell = null;
-				selectionRange = null;
+			hitOut: function() {
+				dayClickHit = null;
+				selectionSpan = null;
 				_this.unrenderSelection();
 				enableCursor();
 			},
 			listenStop: function(ev) {
-				if (dayClickCell) {
-					view.triggerDayClick(dayClickCell, _this.getCellDayEl(dayClickCell), ev);
+				if (dayClickHit) {
+					view.triggerDayClick(
+						_this.getHitSpan(dayClickHit),
+						_this.getHitEl(dayClickHit),
+						ev
+					);
 				}
-				if (selectionRange) {
+				if (selectionSpan) {
 					// the selection will already have been rendered. just report it
-					view.reportSelection(selectionRange, ev);
+					view.reportSelection(selectionSpan, ev);
 				}
 				enableCursor();
 			}
@@ -58909,24 +59463,24 @@ var Grid = fc.Grid = RowRenderer.extend({
 	// TODO: should probably move this to Grid.events, like we did event dragging / resizing
 
 
-	// Renders a mock event over the given range
-	renderRangeHelper: function(range, sourceSeg) {
-		var fakeEvent = this.fabricateHelperEvent(range, sourceSeg);
+	// Renders a mock event at the given event location, which contains zoned start/end properties.
+	renderEventLocationHelper: function(eventLocation, sourceSeg) {
+		var fakeEvent = this.fabricateHelperEvent(eventLocation, sourceSeg);
 
 		this.renderHelper(fakeEvent, sourceSeg); // do the actual rendering
 	},
 
 
-	// Builds a fake event given a date range it should cover, and a segment is should be inspired from.
+	// Builds a fake event given zoned event date properties and a segment is should be inspired from.
 	// The range's end can be null, in which case the mock event that is rendered will have a null end time.
 	// `sourceSeg` is the internal segment object involved in the drag. If null, something external is dragging.
-	fabricateHelperEvent: function(range, sourceSeg) {
+	fabricateHelperEvent: function(eventLocation, sourceSeg) {
 		var fakeEvent = sourceSeg ? createObject(sourceSeg.event) : {}; // mask the original event object if possible
 
-		fakeEvent.start = range.start.clone();
-		fakeEvent.end = range.end ? range.end.clone() : null;
-		fakeEvent.allDay = null; // force it to be freshly computed by normalizeEventRange
-		this.view.calendar.normalizeEventRange(fakeEvent);
+		fakeEvent.start = eventLocation.start.clone();
+		fakeEvent.end = eventLocation.end ? eventLocation.end.clone() : null;
+		fakeEvent.allDay = null; // force it to be freshly computed by normalizeEventDates
+		this.view.calendar.normalizeEventDates(fakeEvent);
 
 		// this extra className will be useful for differentiating real events from mock events in CSS
 		fakeEvent.className = (fakeEvent.className || []).concat('fc-helper');
@@ -58940,8 +59494,8 @@ var Grid = fc.Grid = RowRenderer.extend({
 	},
 
 
-	// Renders a mock event
-	renderHelper: function(event, sourceSeg) {
+	// Renders a mock event. Given zoned event date properties.
+	renderHelper: function(eventLocation, sourceSeg) {
 		// subclasses must implement
 	},
 
@@ -58957,8 +59511,9 @@ var Grid = fc.Grid = RowRenderer.extend({
 
 
 	// Renders a visual indication of a selection. Will highlight by default but can be overridden by subclasses.
-	renderSelection: function(range) {
-		this.renderHighlight(this.selectionRangeToSegs(range));
+	// Given a span (unzoned start/end and other misc data)
+	renderSelection: function(span) {
+		this.renderHighlight(span);
 	},
 
 
@@ -58968,35 +59523,29 @@ var Grid = fc.Grid = RowRenderer.extend({
 	},
 
 
-	// Given the first and last cells of a selection, returns a range object.
-	// Will return something falsy if the selection is invalid (when outside of selectionConstraint for example).
-	// Subclasses can override and provide additional data in the range object. Will be passed to renderSelection().
-	computeSelection: function(firstCell, lastCell) {
-		var dates = [
-			firstCell.start,
-			firstCell.end,
-			lastCell.start,
-			lastCell.end
-		];
-		var range;
+	// Given the first and last date-spans of a selection, returns another date-span object.
+	// Subclasses can override and provide additional data in the span object. Will be passed to renderSelection().
+	// Will return false if the selection is invalid and this should be indicated to the user.
+	// Will return null/undefined if a selection invalid but no error should be reported.
+	computeSelection: function(span0, span1) {
+		var span = this.computeSelectionSpan(span0, span1);
 
-		dates.sort(compareNumbers); // sorts chronologically. works with Moments
-
-		range = {
-			start: dates[0].clone(),
-			end: dates[3].clone()
-		};
-
-		if (!this.view.calendar.isSelectionRangeAllowed(range)) {
-			return null;
+		if (span && !this.view.calendar.isSelectionSpanAllowed(span)) {
+			return false;
 		}
 
-		return range;
+		return span;
 	},
 
 
-	selectionRangeToSegs: function(range) {
-		return this.rangeToSegs(range);
+	// Given two spans, must return the combination of the two.
+	// TODO: do this separation of concerns (combining VS validation) for event dnd/resize too.
+	computeSelectionSpan: function(span0, span1) {
+		var dates = [ span0.start, span0.end, span1.start, span1.end ];
+
+		dates.sort(compareNumbers); // sorts chronologically. works with Moments
+
+		return { start: dates[0].clone(), end: dates[3].clone() };
 	},
 
 
@@ -59004,9 +59553,9 @@ var Grid = fc.Grid = RowRenderer.extend({
 	------------------------------------------------------------------------------------------------------------------*/
 
 
-	// Renders an emphasis on the given date range. Given an array of segments.
-	renderHighlight: function(segs) {
-		this.renderFill('highlight', segs);
+	// Renders an emphasis on the given date range. Given a span (unzoned start/end and other misc data)
+	renderHighlight: function(span) {
+		this.renderFill('highlight', this.spanToSegs(span));
 	},
 
 
@@ -59022,8 +59571,38 @@ var Grid = fc.Grid = RowRenderer.extend({
 	},
 
 
-	/* Fill System (highlight, background events, business hours)
+	/* Business Hours
 	------------------------------------------------------------------------------------------------------------------*/
+
+
+	renderBusinessHours: function() {
+	},
+
+
+	unrenderBusinessHours: function() {
+	},
+
+
+	/* Now Indicator
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	getNowIndicatorUnit: function() {
+	},
+
+
+	renderNowIndicator: function(date) {
+	},
+
+
+	unrenderNowIndicator: function() {
+	},
+
+
+	/* Fill System (highlight, background events, business hours)
+	--------------------------------------------------------------------------------------------------------------------
+	TODO: remove this system. like we did in TimeGrid
+	*/
 
 
 	// Renders a set of rectangles over the given segments of time.
@@ -59110,55 +59689,15 @@ var Grid = fc.Grid = RowRenderer.extend({
 	},
 
 
+
 	/* Generic rendering utilities for subclasses
 	------------------------------------------------------------------------------------------------------------------*/
 
 
-	// Renders a day-of-week header row.
-	// TODO: move to another class. not applicable to all Grids
-	headHtml: function() {
-		return '' +
-			'<div class="fc-row ' + this.view.widgetHeaderClass + '">' +
-				'<table>' +
-					'<thead>' +
-						this.rowHtml('head') + // leverages RowRenderer
-					'</thead>' +
-				'</table>' +
-			'</div>';
-	},
-
-
-	// Used by the `headHtml` method, via RowRenderer, for rendering the HTML of a day-of-week header cell
-	// TODO: move to another class. not applicable to all Grids
-	headCellHtml: function(cell) {
-		var view = this.view;
-		var date = cell.start;
-
-		return '' +
-			'<th class="fc-day-header ' + view.widgetHeaderClass + ' fc-' + dayIDs[date.day()] + '">' +
-				htmlEscape(date.format(this.colHeadFormat)) +
-			'</th>';
-	},
-
-
-	// Renders the HTML for a single-day background cell
-	bgCellHtml: function(cell) {
-		var view = this.view;
-		var date = cell.start;
-		var classes = this.getDayClasses(date);
-
-		classes.unshift('fc-day', view.widgetContentClass);
-
-		return '<td class="' + classes.join(' ') + '"' +
-			' data-date="' + date.format('YYYY-MM-DD') + '"' + // if date has a time, won't format it
-			'></td>';
-	},
-
-
-	// Computes HTML classNames for a single-day cell
+	// Computes HTML classNames for a single-day element
 	getDayClasses: function(date) {
 		var view = this.view;
-		var today = view.calendar.getNow().stripTime();
+		var today = view.calendar.getNow();
 		var classes = [ 'fc-' + dayIDs[date.day()] ];
 
 		if (
@@ -59197,33 +59736,39 @@ Grid.mixin({
 	isDraggingSeg: false, // is a segment being dragged? boolean
 	isResizingSeg: false, // is a segment being resized? boolean
 	isDraggingExternal: false, // jqui-dragging an external element? boolean
-	segs: null, // the event segments currently rendered in the grid
+	segs: null, // the *event* segments currently rendered in the grid. TODO: rename to `eventSegs`
 
 
 	// Renders the given events onto the grid
 	renderEvents: function(events) {
-		var segs = this.eventsToSegs(events);
-		var bgSegs = [];
-		var fgSegs = [];
-		var i, seg;
+		var bgEvents = [];
+		var fgEvents = [];
+		var i;
 
-		for (i = 0; i < segs.length; i++) {
-			seg = segs[i];
-
-			if (isBgEvent(seg.event)) {
-				bgSegs.push(seg);
-			}
-			else {
-				fgSegs.push(seg);
-			}
+		for (i = 0; i < events.length; i++) {
+			(isBgEvent(events[i]) ? bgEvents : fgEvents).push(events[i]);
 		}
 
-		// Render each different type of segment.
-		// Each function may return a subset of the segs, segs that were actually rendered.
-		bgSegs = this.renderBgSegs(bgSegs) || bgSegs;
-		fgSegs = this.renderFgSegs(fgSegs) || fgSegs;
+		this.segs = [].concat( // record all segs
+			this.renderBgEvents(bgEvents),
+			this.renderFgEvents(fgEvents)
+		);
+	},
 
-		this.segs = bgSegs.concat(fgSegs);
+
+	renderBgEvents: function(events) {
+		var segs = this.eventsToSegs(events);
+
+		// renderBgSegs might return a subset of segs, segs that were actually rendered
+		return this.renderBgSegs(segs) || segs;
+	},
+
+
+	renderFgEvents: function(events) {
+		var segs = this.eventsToSegs(events);
+
+		// renderFgSegs might return a subset of segs, segs that were actually rendered
+		return this.renderFgSegs(segs) || segs;
 	},
 
 
@@ -59440,7 +59985,7 @@ Grid.mixin({
 		var calendar = view.calendar;
 		var el = seg.el;
 		var event = seg.event;
-		var dropLocation;
+		var dropLocation; // zoned event date properties
 
 		// A clone of the original element that will move with the mouse
 		var mouseFollower = new MouseFollower(seg.el, {
@@ -59452,7 +59997,7 @@ Grid.mixin({
 
 		// Tracks mouse movement over the *view's* coordinate map. Allows dragging and dropping between subcomponents
 		// of the view.
-		var dragListener = new CellDragListener(view.coordMap, {
+		var dragListener = new HitDragListener(view, {
 			distance: 5,
 			scroll: view.opt('dragScroll'),
 			subjectEl: el,
@@ -59466,16 +60011,21 @@ Grid.mixin({
 				_this.segDragStart(seg, ev);
 				view.hideEvent(event); // hide all event segments. our mouseFollower will take over
 			},
-			cellOver: function(cell, isOrig, origCell) {
+			hitOver: function(hit, isOrig, origHit) {
 
-				// starting cell could be forced (DayGrid.limit)
-				if (seg.cell) {
-					origCell = seg.cell;
+				// starting hit could be forced (DayGrid.limit)
+				if (seg.hit) {
+					origHit = seg.hit;
 				}
 
-				dropLocation = _this.computeEventDrop(origCell, cell, event);
+				// since we are querying the parent view, might not belong to this grid
+				dropLocation = _this.computeEventDrop(
+					origHit.component.getHitSpan(origHit),
+					hit.component.getHitSpan(hit),
+					event
+				);
 
-				if (dropLocation && !calendar.isEventRangeAllowed(dropLocation, event)) {
+				if (dropLocation && !calendar.isEventSpanAllowed(_this.eventToSpan(dropLocation), event)) {
 					disableCursor();
 					dropLocation = null;
 				}
@@ -59489,15 +60039,15 @@ Grid.mixin({
 				}
 
 				if (isOrig) {
-					dropLocation = null; // needs to have moved cells to be a valid drop
+					dropLocation = null; // needs to have moved hits to be a valid drop
 				}
 			},
-			cellOut: function() { // called before mouse moves to a different cell OR moved out of all cells
+			hitOut: function() { // called before mouse moves to a different hit OR moved out of all hits
 				view.unrenderDrag(); // unrender whatever was done in renderDrag
-				mouseFollower.show(); // show in case we are moving out of all cells
+				mouseFollower.show(); // show in case we are moving out of all hits
 				dropLocation = null;
 			},
-			cellDone: function() { // Called after a cellOut OR before a dragStop
+			hitDone: function() { // Called after a hitOut OR before a dragStop
 				enableCursor();
 			},
 			dragStop: function(ev) {
@@ -59535,15 +60085,16 @@ Grid.mixin({
 	},
 
 
-	// Given the cell an event drag began, and the cell event was dropped, calculates the new start/end/allDay
+	// Given the spans an event drag began, and the span event was dropped, calculates the new zoned start/end/allDay
 	// values for the event. Subclasses may override and set additional properties to be used by renderDrag.
 	// A falsy returned value indicates an invalid drop.
-	computeEventDrop: function(startCell, endCell, event) {
+	// DOES NOT consider overlap/constraint.
+	computeEventDrop: function(startSpan, endSpan, event) {
 		var calendar = this.view.calendar;
-		var dragStart = startCell.start;
-		var dragEnd = endCell.start;
+		var dragStart = startSpan.start;
+		var dragEnd = endSpan.start;
 		var delta;
-		var dropLocation;
+		var dropLocation; // zoned event date properties
 
 		if (dragStart.hasTime() === dragEnd.hasTime()) {
 			delta = this.diffDates(dragEnd, dragStart);
@@ -59554,9 +60105,9 @@ Grid.mixin({
 				dropLocation = {
 					start: event.start.clone(),
 					end: calendar.getEventEnd(event), // will be an ambig day
-					allDay: false // for normalizeEventRangeTimes
+					allDay: false // for normalizeEventTimes
 				};
-				calendar.normalizeEventRangeTimes(dropLocation);
+				calendar.normalizeEventTimes(dropLocation);
 			}
 			// othewise, work off existing values
 			else {
@@ -59624,37 +60175,45 @@ Grid.mixin({
 	},
 
 
-	// Called when a jQuery UI drag starts and it needs to be monitored for cell dropping
+	// Called when a jQuery UI drag starts and it needs to be monitored for dropping
 	listenToExternalDrag: function(el, ev, ui) {
 		var _this = this;
+		var calendar = this.view.calendar;
 		var meta = getDraggedElMeta(el); // extra data about event drop, including possible event to create
-		var dragListener;
 		var dropLocation; // a null value signals an unsuccessful drag
 
 		// listener that tracks mouse movement over date-associated pixel regions
-		dragListener = new CellDragListener(this.coordMap, {
+		var dragListener = new HitDragListener(this, {
 			listenStart: function() {
 				_this.isDraggingExternal = true;
 			},
-			cellOver: function(cell) {
-				dropLocation = _this.computeExternalDrop(cell, meta);
+			hitOver: function(hit) {
+				dropLocation = _this.computeExternalDrop(
+					hit.component.getHitSpan(hit), // since we are querying the parent view, might not belong to this grid
+					meta
+				);
+
+				if ( // invalid hit?
+					dropLocation &&
+					!calendar.isExternalSpanAllowed(_this.eventToSpan(dropLocation), dropLocation, meta.eventProps)
+				) {
+					disableCursor();
+					dropLocation = null;
+				}
+
 				if (dropLocation) {
 					_this.renderDrag(dropLocation); // called without a seg parameter
 				}
-				else { // invalid drop cell
-					disableCursor();
-				}
 			},
-			cellOut: function() {
+			hitOut: function() {
 				dropLocation = null; // signal unsuccessful
-				_this.unrenderDrag();
+			},
+			hitDone: function() { // Called after a hitOut OR before a dragStop
 				enableCursor();
+				_this.unrenderDrag();
 			},
 			dragStop: function() {
-				_this.unrenderDrag();
-				enableCursor();
-
-				if (dropLocation) { // element was dropped on a valid date/time cell
+				if (dropLocation) { // element was dropped on a valid hit
 					_this.view.reportExternalDrop(meta, dropLocation, el, ev, ui);
 				}
 			},
@@ -59667,26 +60226,24 @@ Grid.mixin({
 	},
 
 
-	// Given a cell to be dropped upon, and misc data associated with the jqui drag (guaranteed to be a plain object),
-	// returns start/end dates for the event that would result from the hypothetical drop. end might be null.
-	// Returning a null value signals an invalid drop cell.
-	computeExternalDrop: function(cell, meta) {
+	// Given a hit to be dropped upon, and misc data associated with the jqui drag (guaranteed to be a plain object),
+	// returns the zoned start/end dates for the event that would result from the hypothetical drop. end might be null.
+	// Returning a null value signals an invalid drop hit.
+	// DOES NOT consider overlap/constraint.
+	computeExternalDrop: function(span, meta) {
+		var calendar = this.view.calendar;
 		var dropLocation = {
-			start: cell.start.clone(),
+			start: calendar.applyTimezone(span.start), // simulate a zoned event start date
 			end: null
 		};
 
-		// if dropped on an all-day cell, and element's metadata specified a time, set it
+		// if dropped on an all-day span, and element's metadata specified a time, set it
 		if (meta.startTime && !dropLocation.start.hasTime()) {
 			dropLocation.start.time(meta.startTime);
 		}
 
 		if (meta.duration) {
 			dropLocation.end = dropLocation.start.clone().add(meta.duration);
-		}
-
-		if (!this.view.calendar.isExternalDropRangeAllowed(dropLocation, meta.eventProps)) {
-			return null;
 		}
 
 		return dropLocation;
@@ -59726,11 +60283,10 @@ Grid.mixin({
 		var el = seg.el;
 		var event = seg.event;
 		var eventEnd = calendar.getEventEnd(event);
-		var dragListener;
-		var resizeLocation; // falsy if invalid resize
+		var resizeLocation; // zoned event date properties. falsy if invalid resize
 
 		// Tracks mouse movement over the *grid's* coordinate map
-		dragListener = new CellDragListener(this.coordMap, {
+		var dragListener = new HitDragListener(this, {
 			distance: 5,
 			scroll: view.opt('dragScroll'),
 			subjectEl: el,
@@ -59738,13 +60294,16 @@ Grid.mixin({
 				_this.triggerSegMouseout(seg, ev); // ensure a mouseout on the manipulated event has been reported
 				_this.segResizeStart(seg, ev);
 			},
-			cellOver: function(cell, isOrig, origCell) {
+			hitOver: function(hit, isOrig, origHit) {
+				var origHitSpan = _this.getHitSpan(origHit);
+				var hitSpan = _this.getHitSpan(hit);
+
 				resizeLocation = isStart ?
-					_this.computeEventStartResize(origCell, cell, event) :
-					_this.computeEventEndResize(origCell, cell, event);
+					_this.computeEventStartResize(origHitSpan, hitSpan, event) :
+					_this.computeEventEndResize(origHitSpan, hitSpan, event);
 
 				if (resizeLocation) {
-					if (!calendar.isEventRangeAllowed(resizeLocation, event)) {
+					if (!calendar.isEventSpanAllowed(_this.eventToSpan(resizeLocation), event)) {
 						disableCursor();
 						resizeLocation = null;
 					}
@@ -59759,10 +60318,10 @@ Grid.mixin({
 					_this.renderEventResize(resizeLocation, seg);
 				}
 			},
-			cellOut: function() { // called before mouse moves to a different cell OR moved out of all cells
+			hitOut: function() { // called before mouse moves to a different hit OR moved out of all hits
 				resizeLocation = null;
 			},
-			cellDone: function() { // resets the rendering to show the original event
+			hitDone: function() { // resets the rendering to show the original event
 				_this.unrenderEventResize();
 				view.showEvent(event);
 				enableCursor();
@@ -59795,62 +60354,59 @@ Grid.mixin({
 
 
 	// Returns new date-information for an event segment being resized from its start
-	computeEventStartResize: function(startCell, endCell, event) {
-		return this.computeEventResize('start', startCell, endCell, event);
+	computeEventStartResize: function(startSpan, endSpan, event) {
+		return this.computeEventResize('start', startSpan, endSpan, event);
 	},
 
 
 	// Returns new date-information for an event segment being resized from its end
-	computeEventEndResize: function(startCell, endCell, event) {
-		return this.computeEventResize('end', startCell, endCell, event);
+	computeEventEndResize: function(startSpan, endSpan, event) {
+		return this.computeEventResize('end', startSpan, endSpan, event);
 	},
 
 
-	// Returns new date-information for an event segment being resized from its start OR end
-	// `type` is either 'start' or 'end'
-	computeEventResize: function(type, startCell, endCell, event) {
+	// Returns new zoned date information for an event segment being resized from its start OR end
+	// `type` is either 'start' or 'end'.
+	// DOES NOT consider overlap/constraint.
+	computeEventResize: function(type, startSpan, endSpan, event) {
 		var calendar = this.view.calendar;
-		var delta = this.diffDates(endCell[type], startCell[type]);
-		var range;
+		var delta = this.diffDates(endSpan[type], startSpan[type]);
+		var resizeLocation; // zoned event date properties
 		var defaultDuration;
 
 		// build original values to work from, guaranteeing a start and end
-		range = {
+		resizeLocation = {
 			start: event.start.clone(),
 			end: calendar.getEventEnd(event),
 			allDay: event.allDay
 		};
 
 		// if an all-day event was in a timed area and was resized to a time, adjust start/end to have times
-		if (range.allDay && durationHasTime(delta)) {
-			range.allDay = false;
-			calendar.normalizeEventRangeTimes(range);
+		if (resizeLocation.allDay && durationHasTime(delta)) {
+			resizeLocation.allDay = false;
+			calendar.normalizeEventTimes(resizeLocation);
 		}
 
-		range[type].add(delta); // apply delta to start or end
+		resizeLocation[type].add(delta); // apply delta to start or end
 
 		// if the event was compressed too small, find a new reasonable duration for it
-		if (!range.start.isBefore(range.end)) {
+		if (!resizeLocation.start.isBefore(resizeLocation.end)) {
 
-			defaultDuration = event.allDay ?
-				calendar.defaultAllDayEventDuration :
-				calendar.defaultTimedEventDuration;
-
-			// between the cell's duration and the event's default duration, use the smaller of the two.
-			// example: if year-length slots, and compressed to one slot, we don't want the event to be a year long
-			if (this.cellDuration && this.cellDuration < defaultDuration) {
-				defaultDuration = this.cellDuration;
-			}
+			defaultDuration =
+				this.minResizeDuration || // TODO: hack
+				(event.allDay ?
+					calendar.defaultAllDayEventDuration :
+					calendar.defaultTimedEventDuration);
 
 			if (type == 'start') { // resizing the start?
-				range.start = range.end.clone().subtract(defaultDuration);
+				resizeLocation.start = resizeLocation.end.clone().subtract(defaultDuration);
 			}
 			else { // resizing the end?
-				range.end = range.start.clone().add(defaultDuration);
+				resizeLocation.end = resizeLocation.start.clone().add(defaultDuration);
 			}
 		}
 
-		return range;
+		return resizeLocation;
 	},
 
 
@@ -59953,116 +60509,160 @@ Grid.mixin({
 	},
 
 
-	/* Converting events -> ranges -> segs
+	/* Converting events -> eventRange -> eventSpan -> eventSegs
 	------------------------------------------------------------------------------------------------------------------*/
 
 
+	// Generates an array of segments for the given single event
+	// Can accept an event "location" as well (which only has start/end and no allDay)
+	eventToSegs: function(event) {
+		return this.eventsToSegs([ event ]);
+	},
+
+
+	eventToSpan: function(event) {
+		return this.eventToSpans(event)[0];
+	},
+
+
+	// Generates spans (always unzoned) for the given event.
+	// Does not do any inverting for inverse-background events.
+	// Can accept an event "location" as well (which only has start/end and no allDay)
+	eventToSpans: function(event) {
+		var range = this.eventToRange(event);
+		return this.eventRangeToSpans(range, event);
+	},
+
+
+
 	// Converts an array of event objects into an array of event segment objects.
-	// A custom `rangeToSegsFunc` may be given for arbitrarily slicing up events.
+	// A custom `segSliceFunc` may be given for arbitrarily slicing up events.
 	// Doesn't guarantee an order for the resulting array.
-	eventsToSegs: function(events, rangeToSegsFunc) {
-		var eventRanges = this.eventsToRanges(events);
+	eventsToSegs: function(allEvents, segSliceFunc) {
+		var _this = this;
+		var eventsById = groupEventsById(allEvents);
+		var segs = [];
+
+		$.each(eventsById, function(id, events) {
+			var ranges = [];
+			var i;
+
+			for (i = 0; i < events.length; i++) {
+				ranges.push(_this.eventToRange(events[i]));
+			}
+
+			// inverse-background events (utilize only the first event in calculations)
+			if (isInverseBgEvent(events[0])) {
+				ranges = _this.invertRanges(ranges);
+
+				for (i = 0; i < ranges.length; i++) {
+					segs.push.apply(segs, // append to
+						_this.eventRangeToSegs(ranges[i], events[0], segSliceFunc));
+				}
+			}
+			// normal event ranges
+			else {
+				for (i = 0; i < ranges.length; i++) {
+					segs.push.apply(segs, // append to
+						_this.eventRangeToSegs(ranges[i], events[i], segSliceFunc));
+				}
+			}
+		});
+
+		return segs;
+	},
+
+
+	// Generates the unzoned start/end dates an event appears to occupy
+	// Can accept an event "location" as well (which only has start/end and no allDay)
+	eventToRange: function(event) {
+		return {
+			start: event.start.clone().stripZone(),
+			end: (
+				event.end ?
+					event.end.clone() :
+					// derive the end from the start and allDay. compute allDay if necessary
+					this.view.calendar.getDefaultEventEnd(
+						event.allDay != null ?
+							event.allDay :
+							!event.start.hasTime(),
+						event.start
+					)
+			).stripZone()
+		};
+	},
+
+
+	// Given an event's range (unzoned start/end), and the event itself,
+	// slice into segments (using the segSliceFunc function if specified)
+	eventRangeToSegs: function(range, event, segSliceFunc) {
+		var spans = this.eventRangeToSpans(range, event);
 		var segs = [];
 		var i;
 
-		for (i = 0; i < eventRanges.length; i++) {
-			segs.push.apply(
-				segs,
-				this.eventRangeToSegs(eventRanges[i], rangeToSegsFunc)
-			);
+		for (i = 0; i < spans.length; i++) {
+			segs.push.apply(segs, // append to
+				this.eventSpanToSegs(spans[i], event, segSliceFunc));
 		}
 
 		return segs;
 	},
 
 
-	// Converts an array of events into an array of "range" objects.
-	// A "range" object is a plain object with start/end properties denoting the time it covers. Also an event property.
-	// For "normal" events, this will be identical to the event's start/end, but for "inverse-background" events,
-	// will create an array of ranges that span the time *not* covered by the given event.
-	// Doesn't guarantee an order for the resulting array.
-	eventsToRanges: function(events) {
-		var _this = this;
-		var eventsById = groupEventsById(events);
-		var ranges = [];
-
-		// group by ID so that related inverse-background events can be rendered together
-		$.each(eventsById, function(id, eventGroup) {
-			if (eventGroup.length) {
-				ranges.push.apply(
-					ranges,
-					isInverseBgEvent(eventGroup[0]) ?
-						_this.eventsToInverseRanges(eventGroup) :
-						_this.eventsToNormalRanges(eventGroup)
-				);
-			}
-		});
-
-		return ranges;
+	// Given an event's unzoned date range, return an array of "span" objects.
+	// Subclasses can override.
+	eventRangeToSpans: function(range, event) {
+		return [ $.extend({}, range) ]; // copy into a single-item array
 	},
 
 
-	// Converts an array of "normal" events (not inverted rendering) into a parallel array of ranges
-	eventsToNormalRanges: function(events) {
-		var calendar = this.view.calendar;
-		var ranges = [];
-		var i, event;
-		var eventStart, eventEnd;
+	// Given an event's span (unzoned start/end and other misc data), and the event itself,
+	// slices into segments and attaches event-derived properties to them.
+	eventSpanToSegs: function(span, event, segSliceFunc) {
+		var segs = segSliceFunc ? segSliceFunc(span) : this.spanToSegs(span);
+		var i, seg;
 
-		for (i = 0; i < events.length; i++) {
-			event = events[i];
-
-			// make copies and normalize by stripping timezone
-			eventStart = event.start.clone().stripZone();
-			eventEnd = calendar.getEventEnd(event).stripZone();
-
-			ranges.push({
-				event: event,
-				start: eventStart,
-				end: eventEnd,
-				eventStartMS: +eventStart,
-				eventDurationMS: eventEnd - eventStart
-			});
+		for (i = 0; i < segs.length; i++) {
+			seg = segs[i];
+			seg.event = event;
+			seg.eventStartMS = +span.start; // TODO: not the best name after making spans unzoned
+			seg.eventDurationMS = span.end - span.start;
 		}
 
-		return ranges;
+		return segs;
 	},
 
 
-	// Converts an array of events, with inverse-background rendering, into an array of range objects.
-	// The range objects will cover all the time NOT covered by the events.
-	eventsToInverseRanges: function(events) {
+	// Produces a new array of range objects that will cover all the time NOT covered by the given ranges.
+	// SIDE EFFECT: will mutate the given array and will use its date references.
+	invertRanges: function(ranges) {
 		var view = this.view;
-		var viewStart = view.start.clone().stripZone(); // normalize timezone
-		var viewEnd = view.end.clone().stripZone(); // normalize timezone
-		var normalRanges = this.eventsToNormalRanges(events); // will give us normalized dates we can use w/o copies
+		var viewStart = view.start.clone(); // need a copy
+		var viewEnd = view.end.clone(); // need a copy
 		var inverseRanges = [];
-		var event0 = events[0]; // assign this to each range's `.event`
 		var start = viewStart; // the end of the previous range. the start of the new range
-		var i, normalRange;
+		var i, range;
 
 		// ranges need to be in order. required for our date-walking algorithm
-		normalRanges.sort(compareNormalRanges);
+		ranges.sort(compareRanges);
 
-		for (i = 0; i < normalRanges.length; i++) {
-			normalRange = normalRanges[i];
+		for (i = 0; i < ranges.length; i++) {
+			range = ranges[i];
 
 			// add the span of time before the event (if there is any)
-			if (normalRange.start > start) { // compare millisecond time (skip any ambig logic)
+			if (range.start > start) { // compare millisecond time (skip any ambig logic)
 				inverseRanges.push({
-					event: event0,
 					start: start,
-					end: normalRange.start
+					end: range.start
 				});
 			}
 
-			start = normalRange.end;
+			start = range.end;
 		}
 
 		// add the span of time after the last event (if there is any)
 		if (start < viewEnd) { // compare millisecond time (skip any ambig logic)
 			inverseRanges.push({
-				event: event0,
 				start: start,
 				end: viewEnd
 			});
@@ -60072,40 +60672,13 @@ Grid.mixin({
 	},
 
 
-	// Slices the given event range into one or more segment objects.
-	// A `rangeToSegsFunc` custom slicing function can be given.
-	eventRangeToSegs: function(eventRange, rangeToSegsFunc) {
-		var segs;
-		var i, seg;
-
-		eventRange = this.view.calendar.ensureVisibleEventRange(eventRange);
-
-		if (rangeToSegsFunc) {
-			segs = rangeToSegsFunc(eventRange);
-		}
-		else {
-			segs = this.rangeToSegs(eventRange); // defined by the subclass
-		}
-
-		for (i = 0; i < segs.length; i++) {
-			seg = segs[i];
-			seg.event = eventRange.event;
-			seg.eventStartMS = eventRange.eventStartMS;
-			seg.eventDurationMS = eventRange.eventDurationMS;
-		}
-
-		return segs;
-	},
-
-
-	sortSegs: function(segs) {
-		segs.sort(proxy(this, 'compareSegs'));
+	sortEventSegs: function(segs) {
+		segs.sort(proxy(this, 'compareEventSegs'));
 	},
 
 
 	// A cmp function for determining which segments should take visual priority
-	// DOES NOT WORK ON INVERTED BACKGROUND EVENTS because they have no eventStartMS/eventDurationMS
-	compareSegs: function(seg1, seg2) {
+	compareEventSegs: function(seg1, seg2) {
 		return seg1.eventStartMS - seg2.eventStartMS || // earlier events go first
 			seg2.eventDurationMS - seg1.eventDurationMS || // tie? longer events go first
 			seg2.event.allDay - seg1.event.allDay || // tie? put all-day events first (booleans cast to 0/1)
@@ -60123,6 +60696,7 @@ function isBgEvent(event) { // returns true if background OR inverse-background
 	var rendering = getEventRendering(event);
 	return rendering === 'background' || rendering === 'inverse-background';
 }
+FC.isBgEvent = isBgEvent; // export
 
 
 function isInverseBgEvent(event) {
@@ -60149,8 +60723,8 @@ function groupEventsById(events) {
 
 
 // A cmp function for determining which non-inverted "ranges" (see above) happen earlier
-function compareNormalRanges(range1, range2) {
-	return range1.eventStartMS - range2.eventStartMS; // earlier ranges go first
+function compareRanges(range1, range2) {
+	return range1.start - range2.start; // earlier ranges go first
 }
 
 
@@ -60159,13 +60733,13 @@ function compareNormalRanges(range1, range2) {
 
 // Require all HTML5 data-* attributes used by FullCalendar to have this prefix.
 // A value of '' will query attributes like data-event. A value of 'fc' will query attributes like data-fc-event.
-fc.dataAttrPrefix = '';
+FC.dataAttrPrefix = '';
 
 // Given a jQuery element that might represent a dragged FullCalendar event, returns an intermediate data structure
 // to be used for Event Object creation.
 // A defined `.eventProps`, even when empty, indicates that an event should be created.
 function getDraggedElMeta(el) {
-	var prefix = fc.dataAttrPrefix;
+	var prefix = FC.dataAttrPrefix;
 	var eventProps; // properties for creating the event, not related to date/time
 	var startTime; // a Duration
 	var duration;
@@ -60210,28 +60784,417 @@ function getDraggedElMeta(el) {
 
 ;;
 
+/*
+A set of rendering and date-related methods for a visual component comprised of one or more rows of day columns.
+Prerequisite: the object being mixed into needs to be a *Grid*
+*/
+var DayTableMixin = FC.DayTableMixin = {
+
+	breakOnWeeks: false, // should create a new row for each week?
+	dayDates: null, // whole-day dates for each column. left to right
+	dayIndices: null, // for each day from start, the offset
+	daysPerRow: null,
+	rowCnt: null,
+	colCnt: null,
+	colHeadFormat: null,
+
+
+	// Populates internal variables used for date calculation and rendering
+	updateDayTable: function() {
+		var view = this.view;
+		var date = this.start.clone();
+		var dayIndex = -1;
+		var dayIndices = [];
+		var dayDates = [];
+		var daysPerRow;
+		var firstDay;
+		var rowCnt;
+
+		while (date.isBefore(this.end)) { // loop each day from start to end
+			if (view.isHiddenDay(date)) {
+				dayIndices.push(dayIndex + 0.5); // mark that it's between indices
+			}
+			else {
+				dayIndex++;
+				dayIndices.push(dayIndex);
+				dayDates.push(date.clone());
+			}
+			date.add(1, 'days');
+		}
+
+		if (this.breakOnWeeks) {
+			// count columns until the day-of-week repeats
+			firstDay = dayDates[0].day();
+			for (daysPerRow = 1; daysPerRow < dayDates.length; daysPerRow++) {
+				if (dayDates[daysPerRow].day() == firstDay) {
+					break;
+				}
+			}
+			rowCnt = Math.ceil(dayDates.length / daysPerRow);
+		}
+		else {
+			rowCnt = 1;
+			daysPerRow = dayDates.length;
+		}
+
+		this.dayDates = dayDates;
+		this.dayIndices = dayIndices;
+		this.daysPerRow = daysPerRow;
+		this.rowCnt = rowCnt;
+		
+		this.updateDayTableCols();
+	},
+
+
+	// Computes and assigned the colCnt property and updates any options that may be computed from it
+	updateDayTableCols: function() {
+		this.colCnt = this.computeColCnt();
+		this.colHeadFormat = this.view.opt('columnFormat') || this.computeColHeadFormat();
+	},
+
+
+	// Determines how many columns there should be in the table
+	computeColCnt: function() {
+		return this.daysPerRow;
+	},
+
+
+	// Computes the ambiguously-timed moment for the given cell
+	getCellDate: function(row, col) {
+		return this.dayDates[
+				this.getCellDayIndex(row, col)
+			].clone();
+	},
+
+
+	// Computes the ambiguously-timed date range for the given cell
+	getCellRange: function(row, col) {
+		var start = this.getCellDate(row, col);
+		var end = start.clone().add(1, 'days');
+
+		return { start: start, end: end };
+	},
+
+
+	// Returns the number of day cells, chronologically, from the first of the grid (0-based)
+	getCellDayIndex: function(row, col) {
+		return row * this.daysPerRow + this.getColDayIndex(col);
+	},
+
+
+	// Returns the numner of day cells, chronologically, from the first cell in *any given row*
+	getColDayIndex: function(col) {
+		if (this.isRTL) {
+			return this.colCnt - 1 - col;
+		}
+		else {
+			return col;
+		}
+	},
+
+
+	// Given a date, returns its chronolocial cell-index from the first cell of the grid.
+	// If the date lies between cells (because of hiddenDays), returns a floating-point value between offsets.
+	// If before the first offset, returns a negative number.
+	// If after the last offset, returns an offset past the last cell offset.
+	// Only works for *start* dates of cells. Will not work for exclusive end dates for cells.
+	getDateDayIndex: function(date) {
+		var dayIndices = this.dayIndices;
+		var dayOffset = date.diff(this.start, 'days');
+
+		if (dayOffset < 0) {
+			return dayIndices[0] - 1;
+		}
+		else if (dayOffset >= dayIndices.length) {
+			return dayIndices[dayIndices.length - 1] + 1;
+		}
+		else {
+			return dayIndices[dayOffset];
+		}
+	},
+
+
+	/* Options
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	// Computes a default column header formatting string if `colFormat` is not explicitly defined
+	computeColHeadFormat: function() {
+		// if more than one week row, or if there are a lot of columns with not much space,
+		// put just the day numbers will be in each cell
+		if (this.rowCnt > 1 || this.colCnt > 10) {
+			return 'ddd'; // "Sat"
+		}
+		// multiple days, so full single date string WON'T be in title text
+		else if (this.colCnt > 1) {
+			return this.view.opt('dayOfMonthFormat'); // "Sat 12/10"
+		}
+		// single day, so full single date string will probably be in title text
+		else {
+			return 'dddd'; // "Saturday"
+		}
+	},
+
+
+	/* Slicing
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	// Slices up a date range into a segment for every week-row it intersects with
+	sliceRangeByRow: function(range) {
+		var daysPerRow = this.daysPerRow;
+		var normalRange = this.view.computeDayRange(range); // make whole-day range, considering nextDayThreshold
+		var rangeFirst = this.getDateDayIndex(normalRange.start); // inclusive first index
+		var rangeLast = this.getDateDayIndex(normalRange.end.clone().subtract(1, 'days')); // inclusive last index
+		var segs = [];
+		var row;
+		var rowFirst, rowLast; // inclusive day-index range for current row
+		var segFirst, segLast; // inclusive day-index range for segment
+
+		for (row = 0; row < this.rowCnt; row++) {
+			rowFirst = row * daysPerRow;
+			rowLast = rowFirst + daysPerRow - 1;
+
+			// intersect segment's offset range with the row's
+			segFirst = Math.max(rangeFirst, rowFirst);
+			segLast = Math.min(rangeLast, rowLast);
+
+			// deal with in-between indices
+			segFirst = Math.ceil(segFirst); // in-between starts round to next cell
+			segLast = Math.floor(segLast); // in-between ends round to prev cell
+
+			if (segFirst <= segLast) { // was there any intersection with the current row?
+				segs.push({
+					row: row,
+
+					// normalize to start of row
+					firstRowDayIndex: segFirst - rowFirst,
+					lastRowDayIndex: segLast - rowFirst,
+
+					// must be matching integers to be the segment's start/end
+					isStart: segFirst === rangeFirst,
+					isEnd: segLast === rangeLast
+				});
+			}
+		}
+
+		return segs;
+	},
+
+
+	// Slices up a date range into a segment for every day-cell it intersects with.
+	// TODO: make more DRY with sliceRangeByRow somehow.
+	sliceRangeByDay: function(range) {
+		var daysPerRow = this.daysPerRow;
+		var normalRange = this.view.computeDayRange(range); // make whole-day range, considering nextDayThreshold
+		var rangeFirst = this.getDateDayIndex(normalRange.start); // inclusive first index
+		var rangeLast = this.getDateDayIndex(normalRange.end.clone().subtract(1, 'days')); // inclusive last index
+		var segs = [];
+		var row;
+		var rowFirst, rowLast; // inclusive day-index range for current row
+		var i;
+		var segFirst, segLast; // inclusive day-index range for segment
+
+		for (row = 0; row < this.rowCnt; row++) {
+			rowFirst = row * daysPerRow;
+			rowLast = rowFirst + daysPerRow - 1;
+
+			for (i = rowFirst; i <= rowLast; i++) {
+
+				// intersect segment's offset range with the row's
+				segFirst = Math.max(rangeFirst, i);
+				segLast = Math.min(rangeLast, i);
+
+				// deal with in-between indices
+				segFirst = Math.ceil(segFirst); // in-between starts round to next cell
+				segLast = Math.floor(segLast); // in-between ends round to prev cell
+
+				if (segFirst <= segLast) { // was there any intersection with the current row?
+					segs.push({
+						row: row,
+
+						// normalize to start of row
+						firstRowDayIndex: segFirst - rowFirst,
+						lastRowDayIndex: segLast - rowFirst,
+
+						// must be matching integers to be the segment's start/end
+						isStart: segFirst === rangeFirst,
+						isEnd: segLast === rangeLast
+					});
+				}
+			}
+		}
+
+		return segs;
+	},
+
+
+	/* Header Rendering
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	renderHeadHtml: function() {
+		var view = this.view;
+
+		return '' +
+			'<div class="fc-row ' + view.widgetHeaderClass + '">' +
+				'<table>' +
+					'<thead>' +
+						this.renderHeadTrHtml() +
+					'</thead>' +
+				'</table>' +
+			'</div>';
+	},
+
+
+	renderHeadIntroHtml: function() {
+		return this.renderIntroHtml(); // fall back to generic
+	},
+
+
+	renderHeadTrHtml: function() {
+		return '' +
+			'<tr>' +
+				(this.isRTL ? '' : this.renderHeadIntroHtml()) +
+				this.renderHeadDateCellsHtml() +
+				(this.isRTL ? this.renderHeadIntroHtml() : '') +
+			'</tr>';
+	},
+
+
+	renderHeadDateCellsHtml: function() {
+		var htmls = [];
+		var col, date;
+
+		for (col = 0; col < this.colCnt; col++) {
+			date = this.getCellDate(0, col);
+			htmls.push(this.renderHeadDateCellHtml(date));
+		}
+
+		return htmls.join('');
+	},
+
+
+	// TODO: when internalApiVersion, accept an object for HTML attributes
+	// (colspan should be no different)
+	renderHeadDateCellHtml: function(date, colspan, otherAttrs) {
+		var view = this.view;
+
+		return '' +
+			'<th class="fc-day-header ' + view.widgetHeaderClass + ' fc-' + dayIDs[date.day()] + '"' +
+				(this.rowCnt == 1 ?
+					' data-date="' + date.format('YYYY-MM-DD') + '"' :
+					'') +
+				(colspan > 1 ?
+					' colspan="' + colspan + '"' :
+					'') +
+				(otherAttrs ?
+					' ' + otherAttrs :
+					'') +
+			'>' +
+				htmlEscape(date.format(this.colHeadFormat)) +
+			'</th>';
+	},
+
+
+	/* Background Rendering
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	renderBgTrHtml: function(row) {
+		return '' +
+			'<tr>' +
+				(this.isRTL ? '' : this.renderBgIntroHtml(row)) +
+				this.renderBgCellsHtml(row) +
+				(this.isRTL ? this.renderBgIntroHtml(row) : '') +
+			'</tr>';
+	},
+
+
+	renderBgIntroHtml: function(row) {
+		return this.renderIntroHtml(); // fall back to generic
+	},
+
+
+	renderBgCellsHtml: function(row) {
+		var htmls = [];
+		var col, date;
+
+		for (col = 0; col < this.colCnt; col++) {
+			date = this.getCellDate(row, col);
+			htmls.push(this.renderBgCellHtml(date));
+		}
+
+		return htmls.join('');
+	},
+
+
+	renderBgCellHtml: function(date, otherAttrs) {
+		var view = this.view;
+		var classes = this.getDayClasses(date);
+
+		classes.unshift('fc-day', view.widgetContentClass);
+
+		return '<td class="' + classes.join(' ') + '"' +
+			' data-date="' + date.format('YYYY-MM-DD') + '"' + // if date has a time, won't format it
+			(otherAttrs ?
+				' ' + otherAttrs :
+				'') +
+			'></td>';
+	},
+
+
+	/* Generic
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	// Generates the default HTML intro for any row. User classes should override
+	renderIntroHtml: function() {
+	},
+
+
+	// TODO: a generic method for dealing with <tr>, RTL, intro
+	// when increment internalApiVersion
+	// wrapTr (scheduler)
+
+
+	/* Utils
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	// Applies the generic "intro" and "outro" HTML to the given cells.
+	// Intro means the leftmost cell when the calendar is LTR and the rightmost cell when RTL. Vice-versa for outro.
+	bookendCells: function(trEl) {
+		var introHtml = this.renderIntroHtml();
+
+		if (introHtml) {
+			if (this.isRTL) {
+				trEl.append(introHtml);
+			}
+			else {
+				trEl.prepend(introHtml);
+			}
+		}
+	}
+
+};
+
+;;
+
 /* A component that renders a grid of whole-days that runs horizontally. There can be multiple rows, one per week.
 ----------------------------------------------------------------------------------------------------------------------*/
 
-var DayGrid = Grid.extend({
+var DayGrid = FC.DayGrid = Grid.extend(DayTableMixin, {
 
 	numbersVisible: false, // should render a row for day/week numbers? set by outside view. TODO: make internal
 	bottomCoordPadding: 0, // hack for extending the hit area for the last row of the coordinate grid
-	breakOnWeeks: null, // should create a new row for each week? set by outside view
-
-	cellDates: null, // flat chronological array of each cell's dates
-	dayToCellOffsets: null, // maps days offsets from grid's start date, to cell offsets
 
 	rowEls: null, // set of fake row elements
-	dayEls: null, // set of whole-day elements comprising the row's background
+	cellEls: null, // set of whole-day elements comprising the row's background
 	helperEls: null, // set of cell skeleton elements for rendering the mock event "helper"
 
-
-	constructor: function() {
-		Grid.apply(this, arguments);
-
-		this.cellDuration = moment.duration(1, 'day'); // for Grid system
-	},
+	rowCoordCache: null,
+	colCoordCache: null,
 
 
 	// Renders the rows and columns into the component's `this.el`, which should already be assigned.
@@ -60241,23 +61204,37 @@ var DayGrid = Grid.extend({
 		var view = this.view;
 		var rowCnt = this.rowCnt;
 		var colCnt = this.colCnt;
-		var cellCnt = rowCnt * colCnt;
 		var html = '';
 		var row;
-		var i, cell;
+		var col;
 
 		for (row = 0; row < rowCnt; row++) {
-			html += this.dayRowHtml(row, isRigid);
+			html += this.renderDayRowHtml(row, isRigid);
 		}
 		this.el.html(html);
 
 		this.rowEls = this.el.find('.fc-row');
-		this.dayEls = this.el.find('.fc-day');
+		this.cellEls = this.el.find('.fc-day');
+
+		this.rowCoordCache = new CoordCache({
+			els: this.rowEls,
+			isVertical: true
+		});
+		this.colCoordCache = new CoordCache({
+			els: this.cellEls.slice(0, this.colCnt), // only the first row
+			isHorizontal: true
+		});
 
 		// trigger dayRender with each cell's element
-		for (i = 0; i < cellCnt; i++) {
-			cell = this.getCell(i);
-			view.trigger('dayRender', null, cell.start, this.dayEls.eq(i));
+		for (row = 0; row < rowCnt; row++) {
+			for (col = 0; col < colCnt; col++) {
+				view.trigger(
+					'dayRender',
+					null,
+					this.getCellDate(row, col),
+					this.getCellEl(row, col)
+				);
+			}
 		}
 	},
 
@@ -60275,8 +61252,9 @@ var DayGrid = Grid.extend({
 	},
 
 
-	// Generates the HTML for a single row. `row` is the row number.
-	dayRowHtml: function(row, isRigid) {
+	// Generates the HTML for a single row, which is a div that wraps a table.
+	// `row` is the row number.
+	renderDayRowHtml: function(row, isRigid) {
 		var view = this.view;
 		var classes = [ 'fc-row', 'fc-week', view.widgetContentClass ];
 
@@ -60288,14 +61266,14 @@ var DayGrid = Grid.extend({
 			'<div class="' + classes.join(' ') + '">' +
 				'<div class="fc-bg">' +
 					'<table>' +
-						this.rowHtml('day', row) + // leverages RowRenderer. calls dayCellHtml()
+						this.renderBgTrHtml(row) +
 					'</table>' +
 				'</div>' +
 				'<div class="fc-content-skeleton">' +
 					'<table>' +
 						(this.numbersVisible ?
 							'<thead>' +
-								this.rowHtml('number', row) + // leverages RowRenderer. View will define render method
+								this.renderNumberTrHtml(row) +
 							'</thead>' :
 							''
 							) +
@@ -60305,30 +61283,59 @@ var DayGrid = Grid.extend({
 	},
 
 
-	// Renders the HTML for a whole-day cell. Will eventually end up in the day-row's background.
-	// We go through a 'day' row type instead of just doing a 'bg' row type so that the View can do custom rendering
-	// specifically for whole-day rows, whereas a 'bg' might also be used for other purposes (TimeGrid bg for example).
-	dayCellHtml: function(cell) {
-		return this.bgCellHtml(cell);
+	/* Grid Number Rendering
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	renderNumberTrHtml: function(row) {
+		return '' +
+			'<tr>' +
+				(this.isRTL ? '' : this.renderNumberIntroHtml(row)) +
+				this.renderNumberCellsHtml(row) +
+				(this.isRTL ? this.renderNumberIntroHtml(row) : '') +
+			'</tr>';
+	},
+
+
+	renderNumberIntroHtml: function(row) {
+		return this.renderIntroHtml();
+	},
+
+
+	renderNumberCellsHtml: function(row) {
+		var htmls = [];
+		var col, date;
+
+		for (col = 0; col < this.colCnt; col++) {
+			date = this.getCellDate(row, col);
+			htmls.push(this.renderNumberCellHtml(date));
+		}
+
+		return htmls.join('');
+	},
+
+
+	// Generates the HTML for the <td>s of the "number" row in the DayGrid's content skeleton.
+	// The number row will only exist if either day numbers or week numbers are turned on.
+	renderNumberCellHtml: function(date) {
+		var classes;
+
+		if (!this.view.dayNumbersVisible) { // if there are week numbers but not day numbers
+			return '<td/>'; //  will create an empty space above events :(
+		}
+
+		classes = this.getDayClasses(date);
+		classes.unshift('fc-day-number');
+
+		return '' +
+			'<td class="' + classes.join(' ') + '" data-date="' + date.format() + '">' +
+				date.date() +
+			'</td>';
 	},
 
 
 	/* Options
 	------------------------------------------------------------------------------------------------------------------*/
-
-
-	// Computes a default column header formatting string if `colFormat` is not explicitly defined
-	computeColHeadFormat: function() {
-		if (this.rowCnt > 1) { // more than one week row. day numbers will be in each cell
-			return 'ddd'; // "Sat"
-		}
-		else if (this.colCnt > 1) { // multiple days, so full single date string WON'T be in title text
-			return this.view.opt('dayOfMonthFormat'); // "Sat 12/10"
-		}
-		else { // single day, so full single date string will probably be in title text
-			return 'dddd'; // "Saturday"
-		}
-	},
 
 
 	// Computes a default event time formatting string if `timeFormat` is not explicitly defined
@@ -60343,155 +61350,29 @@ var DayGrid = Grid.extend({
 	},
 
 
-	/* Cell System
-	------------------------------------------------------------------------------------------------------------------*/
-
-
-	rangeUpdated: function() {
-		var cellDates;
-		var firstDay;
-		var rowCnt;
-		var colCnt;
-
-		this.updateCellDates(); // populates cellDates and dayToCellOffsets
-		cellDates = this.cellDates;
-
-		if (this.breakOnWeeks) {
-			// count columns until the day-of-week repeats
-			firstDay = cellDates[0].day();
-			for (colCnt = 1; colCnt < cellDates.length; colCnt++) {
-				if (cellDates[colCnt].day() == firstDay) {
-					break;
-				}
-			}
-			rowCnt = Math.ceil(cellDates.length / colCnt);
-		}
-		else {
-			rowCnt = 1;
-			colCnt = cellDates.length;
-		}
-
-		this.rowCnt = rowCnt;
-		this.colCnt = colCnt;
-	},
-
-
-	// Populates cellDates and dayToCellOffsets
-	updateCellDates: function() {
-		var view = this.view;
-		var date = this.start.clone();
-		var dates = [];
-		var offset = -1;
-		var offsets = [];
-
-		while (date.isBefore(this.end)) { // loop each day from start to end
-			if (view.isHiddenDay(date)) {
-				offsets.push(offset + 0.5); // mark that it's between offsets
-			}
-			else {
-				offset++;
-				offsets.push(offset);
-				dates.push(date.clone());
-			}
-			date.add(1, 'days');
-		}
-
-		this.cellDates = dates;
-		this.dayToCellOffsets = offsets;
-	},
-
-
-	// Given a cell object, generates its start date. Returns a reference-free copy.
-	computeCellDate: function(cell) {
-		var colCnt = this.colCnt;
-		var index = cell.row * colCnt + (this.isRTL ? colCnt - cell.col - 1 : cell.col);
-
-		return this.cellDates[index].clone();
-	},
-
-
-	// Retrieves the element representing the given row
-	getRowEl: function(row) {
-		return this.rowEls.eq(row);
-	},
-
-
-	// Retrieves the element representing the given column
-	getColEl: function(col) {
-		return this.dayEls.eq(col);
-	},
-
-
-	// Gets the whole-day element associated with the cell
-	getCellDayEl: function(cell) {
-		return this.dayEls.eq(cell.row * this.colCnt + cell.col);
-	},
-
-
-	// Overrides Grid's method for when row coordinates are computed
-	computeRowCoords: function() {
-		var rowCoords = Grid.prototype.computeRowCoords.call(this); // call the super-method
-
-		// hack for extending last row (used by AgendaView)
-		rowCoords[rowCoords.length - 1].bottom += this.bottomCoordPadding;
-
-		return rowCoords;
-	},
-
-
 	/* Dates
 	------------------------------------------------------------------------------------------------------------------*/
 
 
-	// Slices up a date range by row into an array of segments
-	rangeToSegs: function(range) {
-		var isRTL = this.isRTL;
-		var rowCnt = this.rowCnt;
-		var colCnt = this.colCnt;
-		var segs = [];
-		var first, last; // inclusive cell-offset range for given range
-		var row;
-		var rowFirst, rowLast; // inclusive cell-offset range for current row
-		var isStart, isEnd;
-		var segFirst, segLast; // inclusive cell-offset range for segment
-		var seg;
+	rangeUpdated: function() {
+		this.updateDayTable();
+	},
 
-		range = this.view.computeDayRange(range); // make whole-day range, considering nextDayThreshold
-		first = this.dateToCellOffset(range.start);
-		last = this.dateToCellOffset(range.end.subtract(1, 'days')); // offset of inclusive end date
 
-		for (row = 0; row < rowCnt; row++) {
-			rowFirst = row * colCnt;
-			rowLast = rowFirst + colCnt - 1;
+	// Slices up the given span (unzoned start/end with other misc data) into an array of segments
+	spanToSegs: function(span) {
+		var segs = this.sliceRangeByRow(span);
+		var i, seg;
 
-			// intersect segment's offset range with the row's
-			segFirst = Math.max(rowFirst, first);
-			segLast = Math.min(rowLast, last);
-
-			// deal with in-between indices
-			segFirst = Math.ceil(segFirst); // in-between starts round to next cell
-			segLast = Math.floor(segLast); // in-between ends round to prev cell
-
-			if (segFirst <= segLast) { // was there any intersection with the current row?
-
-				// must be matching integers to be the segment's start/end
-				isStart = segFirst === first;
-				isEnd = segLast === last;
-
-				// translate offsets to be relative to start-of-row
-				segFirst -= rowFirst;
-				segLast -= rowFirst;
-
-				seg = { row: row, isStart: isStart, isEnd: isEnd };
-				if (isRTL) {
-					seg.leftCol = colCnt - segLast - 1;
-					seg.rightCol = colCnt - segFirst - 1;
-				}
-				else {
-					seg.leftCol = segFirst;
-					seg.rightCol = segLast;
-				}
-				segs.push(seg);
+		for (i = 0; i < segs.length; i++) {
+			seg = segs[i];
+			if (this.isRTL) {
+				seg.leftCol = this.daysPerRow - 1 - seg.lastRowDayIndex;
+				seg.rightCol = this.daysPerRow - 1 - seg.firstRowDayIndex;
+			}
+			else {
+				seg.leftCol = seg.firstRowDayIndex;
+				seg.rightCol = seg.lastRowDayIndex;
 			}
 		}
 
@@ -60499,24 +61380,63 @@ var DayGrid = Grid.extend({
 	},
 
 
-	// Given a date, returns its chronolocial cell-offset from the first cell of the grid.
-	// If the date lies between cells (because of hiddenDays), returns a floating-point value between offsets.
-	// If before the first offset, returns a negative number.
-	// If after the last offset, returns an offset past the last cell offset.
-	// Only works for *start* dates of cells. Will not work for exclusive end dates for cells.
-	dateToCellOffset: function(date) {
-		var offsets = this.dayToCellOffsets;
-		var day = date.diff(this.start, 'days');
+	/* Hit System
+	------------------------------------------------------------------------------------------------------------------*/
 
-		if (day < 0) {
-			return offsets[0] - 1;
+
+	prepareHits: function() {
+		this.colCoordCache.build();
+		this.rowCoordCache.build();
+		this.rowCoordCache.bottoms[this.rowCnt - 1] += this.bottomCoordPadding; // hack
+	},
+
+
+	releaseHits: function() {
+		this.colCoordCache.clear();
+		this.rowCoordCache.clear();
+	},
+
+
+	queryHit: function(leftOffset, topOffset) {
+		var col = this.colCoordCache.getHorizontalIndex(leftOffset);
+		var row = this.rowCoordCache.getVerticalIndex(topOffset);
+
+		if (row != null && col != null) {
+			return this.getCellHit(row, col);
 		}
-		else if (day >= offsets.length) {
-			return offsets[offsets.length - 1] + 1;
-		}
-		else {
-			return offsets[day];
-		}
+	},
+
+
+	getHitSpan: function(hit) {
+		return this.getCellRange(hit.row, hit.col);
+	},
+
+
+	getHitEl: function(hit) {
+		return this.getCellEl(hit.row, hit.col);
+	},
+
+
+	/* Cell System
+	------------------------------------------------------------------------------------------------------------------*/
+	// FYI: the first column is the leftmost column, regardless of date
+
+
+	getCellHit: function(row, col) {
+		return {
+			row: row,
+			col: col,
+			component: this, // needed unfortunately :(
+			left: this.colCoordCache.getLeftOffset(col),
+			right: this.colCoordCache.getRightOffset(col),
+			top: this.rowCoordCache.getTopOffset(row),
+			bottom: this.rowCoordCache.getBottomOffset(row)
+		};
+	},
+
+
+	getCellEl: function(row, col) {
+		return this.cellEls.eq(row * this.colCnt + col);
 	},
 
 
@@ -60526,16 +61446,16 @@ var DayGrid = Grid.extend({
 
 
 	// Renders a visual indication of an event or external element being dragged.
-	// The dropLocation's end can be null. seg can be null. See Grid::renderDrag for more info.
-	renderDrag: function(dropLocation, seg) {
+	// `eventLocation` has zoned start and end (optional)
+	renderDrag: function(eventLocation, seg) {
 
 		// always render a highlight underneath
-		this.renderHighlight(this.eventRangeToSegs(dropLocation));
+		this.renderHighlight(this.eventToSpan(eventLocation));
 
 		// if a segment from the same calendar but another component is being dragged, render a helper event
 		if (seg && !seg.el.closest(this.el).length) {
 
-			this.renderRangeHelper(dropLocation, seg);
+			this.renderEventLocationHelper(eventLocation, seg);
 			this.applyDragOpacity(this.helperEls);
 
 			return true; // a helper has been rendered
@@ -60555,9 +61475,9 @@ var DayGrid = Grid.extend({
 
 
 	// Renders a visual indication of an event being resized
-	renderEventResize: function(range, seg) {
-		this.renderHighlight(this.eventRangeToSegs(range));
-		this.renderRangeHelper(range, seg);
+	renderEventResize: function(eventLocation, seg) {
+		this.renderHighlight(this.eventToSpan(eventLocation));
+		this.renderEventLocationHelper(eventLocation, seg);
 	},
 
 
@@ -60575,7 +61495,7 @@ var DayGrid = Grid.extend({
 	// Renders a mock "helper" event. `sourceSeg` is the associated internal segment object. It can be null.
 	renderHelper: function(event, sourceSeg) {
 		var helperNodes = [];
-		var segs = this.eventsToSegs([ event ]);
+		var segs = this.eventToSegs(event);
 		var rowStructs;
 
 		segs = this.renderFgSegEls(segs); // assigns each seg's el and returns a subset of segs that were rendered
@@ -60674,7 +61594,7 @@ var DayGrid = Grid.extend({
 			trEl.append('<td colspan="' + (colCnt - endCol) + '"/>');
 		}
 
-		this.bookendCells(trEl, type);
+		this.bookendCells(trEl);
 
 		return skeletonEl;
 	}
@@ -60905,7 +61825,7 @@ DayGrid.mixin({
 			}
 
 			emptyCellsUntil(colCnt); // finish off the row
-			this.bookendCells(tr, 'eventSkeleton');
+			this.bookendCells(tr);
 			tbody.append(tr);
 		}
 
@@ -60929,7 +61849,7 @@ DayGrid.mixin({
 
 		// Give preference to elements with certain criteria, so they have
 		// a chance to be closer to the top.
-		this.sortSegs(segs);
+		this.sortEventSegs(segs);
 		
 		for (i = 0; i < segs.length; i++) {
 			seg = segs[i];
@@ -61085,7 +62005,6 @@ DayGrid.mixin({
 		var rowStruct = this.rowStructs[row];
 		var moreNodes = []; // array of "more" <a> links and <td> DOM nodes
 		var col = 0; // col #, left-to-right (not chronologically)
-		var cell;
 		var levelSegs; // array of segment objects in the last allowable level, ordered left-to-right
 		var cellMatrix; // a matrix (by level, then column) of all <td> jQuery elements in the row
 		var limitedNodes; // array of temporarily hidden level <tr> and segment <td> DOM nodes
@@ -61101,11 +62020,10 @@ DayGrid.mixin({
 		// Iterates through empty level cells and places "more" links inside if need be
 		function emptyCellsUntil(endCol) { // goes from current `col` to `endCol`
 			while (col < endCol) {
-				cell = _this.getCell(row, col);
-				segsBelow = _this.getCellSegs(cell, levelLimit);
+				segsBelow = _this.getCellSegs(row, col, levelLimit);
 				if (segsBelow.length) {
 					td = cellMatrix[levelLimit - 1][col];
-					moreLink = _this.renderMoreLink(cell, segsBelow);
+					moreLink = _this.renderMoreLink(row, col, segsBelow);
 					moreWrap = $('<div/>').append(moreLink);
 					td.append(moreWrap);
 					moreNodes.push(moreWrap[0]);
@@ -61130,8 +62048,7 @@ DayGrid.mixin({
 				colSegsBelow = [];
 				totalSegsBelow = 0;
 				while (col <= seg.rightCol) {
-					cell = this.getCell(row, col);
-					segsBelow = this.getCellSegs(cell, levelLimit);
+					segsBelow = this.getCellSegs(row, col, levelLimit);
 					colSegsBelow.push(segsBelow);
 					totalSegsBelow += segsBelow.length;
 					col++;
@@ -61146,8 +62063,11 @@ DayGrid.mixin({
 					for (j = 0; j < colSegsBelow.length; j++) {
 						moreTd = $('<td class="fc-more-cell"/>').attr('rowspan', rowspan);
 						segsBelow = colSegsBelow[j];
-						cell = this.getCell(row, seg.leftCol + j);
-						moreLink = this.renderMoreLink(cell, [ seg ].concat(segsBelow)); // count seg as hidden too
+						moreLink = this.renderMoreLink(
+							row,
+							seg.leftCol + j,
+							[ seg ].concat(segsBelow) // count seg as hidden too
+						);
 						moreWrap = $('<div/>').append(moreLink);
 						moreTd.append(moreWrap);
 						segMoreNodes.push(moreTd[0]);
@@ -61185,7 +62105,7 @@ DayGrid.mixin({
 
 	// Renders an <a> element that represents hidden event element for a cell.
 	// Responsible for attaching click handler as well.
-	renderMoreLink: function(cell, hiddenSegs) {
+	renderMoreLink: function(row, col, hiddenSegs) {
 		var _this = this;
 		var view = this.view;
 
@@ -61195,10 +62115,10 @@ DayGrid.mixin({
 			)
 			.on('click', function(ev) {
 				var clickOption = view.opt('eventLimitClick');
-				var date = cell.start;
+				var date = _this.getCellDate(row, col);
 				var moreEl = $(this);
-				var dayEl = _this.getCellDayEl(cell);
-				var allSegs = _this.getCellSegs(cell);
+				var dayEl = _this.getCellEl(row, col);
+				var allSegs = _this.getCellSegs(row, col);
 
 				// rescope the segments to be within the cell's date
 				var reslicedAllSegs = _this.resliceDaySegs(allSegs, date);
@@ -61216,7 +62136,7 @@ DayGrid.mixin({
 				}
 
 				if (clickOption === 'popover') {
-					_this.showSegPopover(cell, moreEl, reslicedAllSegs);
+					_this.showSegPopover(row, col, moreEl, reslicedAllSegs);
 				}
 				else if (typeof clickOption === 'string') { // a view name
 					view.calendar.zoomTo(date, clickOption);
@@ -61226,7 +62146,7 @@ DayGrid.mixin({
 
 
 	// Reveals the popover that displays all events within a cell
-	showSegPopover: function(cell, moreLink, segs) {
+	showSegPopover: function(row, col, moreLink, segs) {
 		var _this = this;
 		var view = this.view;
 		var moreWrap = moreLink.parent(); // the <div> wrapper around the <a>
@@ -61237,12 +62157,12 @@ DayGrid.mixin({
 			topEl = view.el; // will cause the popover to cover any sort of header
 		}
 		else {
-			topEl = this.rowEls.eq(cell.row); // will align with top of row
+			topEl = this.rowEls.eq(row); // will align with top of row
 		}
 
 		options = {
 			className: 'fc-more-popover',
-			content: this.renderSegPopoverContent(cell, segs),
+			content: this.renderSegPopoverContent(row, col, segs),
 			parentEl: this.el,
 			top: topEl.offset().top,
 			autoHide: true, // when the user clicks elsewhere, hide the popover
@@ -61270,10 +62190,10 @@ DayGrid.mixin({
 
 
 	// Builds the inner DOM contents of the segment popover
-	renderSegPopoverContent: function(cell, segs) {
+	renderSegPopoverContent: function(row, col, segs) {
 		var view = this.view;
 		var isTheme = view.opt('theme');
-		var title = cell.start.format(view.opt('dayPopoverFormat'));
+		var title = this.getCellDate(row, col).format(view.opt('dayPopoverFormat'));
 		var content = $(
 			'<div class="fc-header ' + view.widgetHeaderClass + '">' +
 				'<span class="fc-close ' +
@@ -61299,7 +62219,9 @@ DayGrid.mixin({
 
 			// because segments in the popover are not part of a grid coordinate system, provide a hint to any
 			// grids that want to do drag-n-drop about which cell it came from
-			segs[i].cell = cell;
+			this.prepareHits();
+			segs[i].hit = this.getCellHit(row, col);
+			this.releaseHits();
 
 			segContainer.append(segs[i].el);
 		}
@@ -61316,7 +62238,7 @@ DayGrid.mixin({
 			return seg.event;
 		});
 
-		var dayStart = dayDate.clone().stripTime();
+		var dayStart = dayDate.clone();
 		var dayEnd = dayStart.clone().add(1, 'days');
 		var dayRange = { start: dayStart, end: dayEnd };
 
@@ -61324,13 +62246,13 @@ DayGrid.mixin({
 		segs = this.eventsToSegs(
 			events,
 			function(range) {
-				var seg = intersectionToSeg(range, dayRange); // undefind if no intersection
+				var seg = intersectRanges(range, dayRange); // undefind if no intersection
 				return seg ? [ seg ] : []; // must return an array of segments
 			}
 		);
 
 		// force an order because eventsToSegs doesn't guarantee one
-		this.sortSegs(segs);
+		this.sortEventSegs(segs);
 
 		return segs;
 	},
@@ -61351,14 +62273,14 @@ DayGrid.mixin({
 
 	// Returns segments within a given cell.
 	// If `startLevel` is specified, returns only events including and below that level. Otherwise returns all segs.
-	getCellSegs: function(cell, startLevel) {
-		var segMatrix = this.rowStructs[cell.row].segMatrix;
+	getCellSegs: function(row, col, startLevel) {
+		var segMatrix = this.rowStructs[row].segMatrix;
 		var level = startLevel || 0;
 		var segs = [];
 		var seg;
 
 		while (level < segMatrix.length) {
-			seg = segMatrix[level][cell.col];
+			seg = segMatrix[level][col];
 			if (seg) {
 				segs.push(seg);
 			}
@@ -61374,29 +62296,29 @@ DayGrid.mixin({
 
 /* A component that renders one or more columns of vertical time slots
 ----------------------------------------------------------------------------------------------------------------------*/
+// We mixin DayTable, even though there is only a single row of days
 
-var TimeGrid = Grid.extend({
+var TimeGrid = FC.TimeGrid = Grid.extend(DayTableMixin, {
 
 	slotDuration: null, // duration of a "slot", a distinct time segment on given day, visualized by lines
 	snapDuration: null, // granularity of time for dragging and selecting
+	snapsPerSlot: null,
 	minTime: null, // Duration object that denotes the first visible time of any given day
 	maxTime: null, // Duration object that denotes the exclusive visible end time of any given day
-	colDates: null, // whole-day dates for each column. left to right
 	labelFormat: null, // formatting string for times running along vertical axis
 	labelInterval: null, // duration of how often a label should be displayed for a slot
 
-	dayEls: null, // cells elements in the day-row background
+	colEls: null, // cells elements in the day-row background
 	slatEls: null, // elements running horizontally across all columns
+	nowIndicatorEls: null,
 
-	slatTops: null, // an array of top positions, relative to the container. last item holds bottom of last slot
-
-	helperEl: null, // cell skeleton element for rendering the mock event "helper"
-
-	businessHourSegs: null,
+	colCoordCache: null,
+	slatCoordCache: null,
 
 
 	constructor: function() {
 		Grid.apply(this, arguments); // call the super-constructor
+
 		this.processOptions();
 	},
 
@@ -61405,14 +62327,19 @@ var TimeGrid = Grid.extend({
 	// Relies on the view's colCnt. In the future, this component should probably be self-sufficient.
 	renderDates: function() {
 		this.el.html(this.renderHtml());
-		this.dayEls = this.el.find('.fc-day');
+		this.colEls = this.el.find('.fc-day');
 		this.slatEls = this.el.find('.fc-slats tr');
-	},
 
+		this.colCoordCache = new CoordCache({
+			els: this.colEls,
+			isHorizontal: true
+		});
+		this.slatCoordCache = new CoordCache({
+			els: this.slatEls,
+			isVertical: true
+		});
 
-	renderBusinessHours: function() {
-		var events = this.view.calendar.getBusinessHoursEvents();
-		this.businessHourSegs = this.renderFill('businessHours', this.eventsToSegs(events), 'bgevent');
+		this.renderContentSkeleton();
 	},
 
 
@@ -61421,26 +62348,19 @@ var TimeGrid = Grid.extend({
 		return '' +
 			'<div class="fc-bg">' +
 				'<table>' +
-					this.rowHtml('slotBg') + // leverages RowRenderer, which will call slotBgCellHtml
+					this.renderBgTrHtml(0) + // row=0
 				'</table>' +
 			'</div>' +
 			'<div class="fc-slats">' +
 				'<table>' +
-					this.slatRowHtml() +
+					this.renderSlatRowHtml() +
 				'</table>' +
 			'</div>';
 	},
 
 
-	// Renders the HTML for a vertical background cell behind the slots.
-	// This method is distinct from 'bg' because we wanted a new `rowType` so the View could customize the rendering.
-	slotBgCellHtml: function(cell) {
-		return this.bgCellHtml(cell);
-	},
-
-
 	// Generates the HTML for the horizontal "slats" that run width-wise. Has a time axis on a side. Depends on RTL.
-	slatRowHtml: function() {
+	renderSlatRowHtml: function() {
 		var view = this.view;
 		var isRTL = this.isRTL;
 		var html = '';
@@ -61451,7 +62371,7 @@ var TimeGrid = Grid.extend({
 
 		// Calculate the time for each slot
 		while (slotTime < this.maxTime) {
-			slotDate = this.start.clone().time(slotTime); // after .time() will be in UTC. but that's good, avoids DST issues
+			slotDate = this.start.clone().time(slotTime);
 			isLabeled = isInt(divideDurationByDuration(slotTime, this.labelInterval));
 
 			axisHtml =
@@ -61465,7 +62385,9 @@ var TimeGrid = Grid.extend({
 				'</td>';
 
 			html +=
-				'<tr ' + (isLabeled ? '' : 'class="fc-minor"') + '>' +
+				'<tr data-time="' + slotDate.format('HH:mm:ss') + '"' +
+					(isLabeled ? '' : ' class="fc-minor"') +
+					'>' +
 					(!isRTL ? axisHtml : '') +
 					'<td class="' + view.widgetContentClass + '"/>' +
 					(isRTL ? axisHtml : '') +
@@ -61494,7 +62416,9 @@ var TimeGrid = Grid.extend({
 
 		this.slotDuration = slotDuration;
 		this.snapDuration = snapDuration;
-		this.cellDuration = snapDuration; // for Grid system
+		this.snapsPerSlot = slotDuration / snapDuration; // TODO: ensure an integer multiple?
+
+		this.minResizeDuration = snapDuration; // hack
 
 		this.minTime = moment.duration(view.opt('minTime'));
 		this.maxTime = moment.duration(view.opt('maxTime'));
@@ -61537,17 +62461,6 @@ var TimeGrid = Grid.extend({
 	},
 
 
-	// Computes a default column header formatting string if `colFormat` is not explicitly defined
-	computeColHeadFormat: function() {
-		if (this.colCnt > 1) { // multiple days, so full single date string WON'T be in title text
-			return this.view.opt('dayOfMonthFormat'); // "Sat 12/10"
-		}
-		else { // single day, so full single date string will probably be in title text
-			return 'dddd'; // "Saturday"
-		}
-	},
-
-
 	// Computes a default event time formatting string if `timeFormat` is not explicitly defined
 	computeEventTimeFormat: function() {
 		return this.view.opt('noMeridiemTimeFormat'); // like "6:30" (no AM/PM)
@@ -61560,47 +62473,65 @@ var TimeGrid = Grid.extend({
 	},
 
 
-	/* Cell System
+	/* Hit System
 	------------------------------------------------------------------------------------------------------------------*/
 
 
-	rangeUpdated: function() {
-		var view = this.view;
-		var colDates = [];
-		var date;
-
-		date = this.start.clone();
-		while (date.isBefore(this.end)) {
-			colDates.push(date.clone());
-			date.add(1, 'day');
-			date = view.skipHiddenDays(date);
-		}
-
-		if (this.isRTL) {
-			colDates.reverse();
-		}
-
-		this.colDates = colDates;
-		this.colCnt = colDates.length;
-		this.rowCnt = Math.ceil((this.maxTime - this.minTime) / this.snapDuration); // # of vertical snaps
+	prepareHits: function() {
+		this.colCoordCache.build();
+		this.slatCoordCache.build();
 	},
 
 
-	// Given a cell object, generates its start date. Returns a reference-free copy.
-	computeCellDate: function(cell) {
-		var date = this.colDates[cell.col];
-		var time = this.computeSnapTime(cell.row);
-
-		date = this.view.calendar.rezoneDate(date); // give it a 00:00 time
-		date.time(time);
-
-		return date;
+	releaseHits: function() {
+		this.colCoordCache.clear();
+		// NOTE: don't clear slatCoordCache because we rely on it for computeTimeTop
 	},
 
 
-	// Retrieves the element representing the given column
-	getColEl: function(col) {
-		return this.dayEls.eq(col);
+	queryHit: function(leftOffset, topOffset) {
+		var snapsPerSlot = this.snapsPerSlot;
+		var colCoordCache = this.colCoordCache;
+		var slatCoordCache = this.slatCoordCache;
+		var colIndex = colCoordCache.getHorizontalIndex(leftOffset);
+		var slatIndex = slatCoordCache.getVerticalIndex(topOffset);
+
+		if (colIndex != null && slatIndex != null) {
+			var slatTop = slatCoordCache.getTopOffset(slatIndex);
+			var slatHeight = slatCoordCache.getHeight(slatIndex);
+			var partial = (topOffset - slatTop) / slatHeight; // floating point number between 0 and 1
+			var localSnapIndex = Math.floor(partial * snapsPerSlot); // the snap # relative to start of slat
+			var snapIndex = slatIndex * snapsPerSlot + localSnapIndex;
+			var snapTop = slatTop + (localSnapIndex / snapsPerSlot) * slatHeight;
+			var snapBottom = slatTop + ((localSnapIndex + 1) / snapsPerSlot) * slatHeight;
+
+			return {
+				col: colIndex,
+				snap: snapIndex,
+				component: this, // needed unfortunately :(
+				left: colCoordCache.getLeftOffset(colIndex),
+				right: colCoordCache.getRightOffset(colIndex),
+				top: snapTop,
+				bottom: snapBottom
+			};
+		}
+	},
+
+
+	getHitSpan: function(hit) {
+		var start = this.getCellDate(0, hit.col); // row=0
+		var time = this.computeSnapTime(hit.snap); // pass in the snap-index
+		var end;
+
+		start.time(time);
+		end = start.clone().add(this.snapDuration);
+
+		return { start: start, end: end };
+	},
+
+
+	getHitEl: function(hit) {
+		return this.colEls.eq(hit.col);
 	},
 
 
@@ -61608,36 +62539,51 @@ var TimeGrid = Grid.extend({
 	------------------------------------------------------------------------------------------------------------------*/
 
 
-	// Given a row number of the grid, representing a "snap", returns a time (Duration) from its start-of-day
-	computeSnapTime: function(row) {
-		return moment.duration(this.minTime + this.snapDuration * row);
+	rangeUpdated: function() {
+		this.updateDayTable();
 	},
 
 
-	// Slices up a date range by column into an array of segments
-	rangeToSegs: function(range) {
-		var colCnt = this.colCnt;
+	// Given a row number of the grid, representing a "snap", returns a time (Duration) from its start-of-day
+	computeSnapTime: function(snapIndex) {
+		return moment.duration(this.minTime + this.snapDuration * snapIndex);
+	},
+
+
+	// Slices up the given span (unzoned start/end with other misc data) into an array of segments
+	spanToSegs: function(span) {
+		var segs = this.sliceRangeByTimes(span);
+		var i;
+
+		for (i = 0; i < segs.length; i++) {
+			if (this.isRTL) {
+				segs[i].col = this.daysPerRow - 1 - segs[i].dayIndex;
+			}
+			else {
+				segs[i].col = segs[i].dayIndex;
+			}
+		}
+
+		return segs;
+	},
+
+
+	sliceRangeByTimes: function(range) {
 		var segs = [];
 		var seg;
-		var col;
-		var colDate;
-		var colRange;
+		var dayIndex;
+		var dayDate;
+		var dayRange;
 
-		// normalize :(
-		range = {
-			start: range.start.clone().stripZone(),
-			end: range.end.clone().stripZone()
-		};
-
-		for (col = 0; col < colCnt; col++) {
-			colDate = this.colDates[col]; // will be ambig time/timezone
-			colRange = {
-				start: colDate.clone().time(this.minTime),
-				end: colDate.clone().time(this.maxTime)
+		for (dayIndex = 0; dayIndex < this.daysPerRow; dayIndex++) {
+			dayDate = this.dayDates[dayIndex].clone(); // TODO: better API for this?
+			dayRange = {
+				start: dayDate.clone().time(this.minTime),
+				end: dayDate.clone().time(this.maxTime)
 			};
-			seg = intersectionToSeg(range, colRange); // both will be ambig timezone
+			seg = intersectRanges(range, dayRange); // both will be ambig timezone
 			if (seg) {
-				seg.col = col;
+				seg.dayIndex = dayIndex;
 				segs.push(seg);
 			}
 		}
@@ -61651,33 +62597,13 @@ var TimeGrid = Grid.extend({
 
 
 	updateSize: function(isResize) { // NOT a standard Grid method
-		this.computeSlatTops();
+		this.slatCoordCache.build();
 
 		if (isResize) {
-			this.updateSegVerticals();
+			this.updateSegVerticals(
+				[].concat(this.fgSegs || [], this.bgSegs || [], this.businessSegs || [])
+			);
 		}
-	},
-
-
-	// Computes the top/bottom coordinates of each "snap" rows
-	computeRowCoords: function() {
-		var originTop = this.el.offset().top;
-		var items = [];
-		var i;
-		var item;
-
-		for (i = 0; i < this.rowCnt; i++) {
-			item = {
-				top: originTop + this.computeTimeTop(this.computeSnapTime(i))
-			};
-			if (i > 0) {
-				items[i - 1].bottom = item.top;
-			}
-			items.push(item);
-		}
-		item.bottom = item.top + this.computeTimeTop(this.computeSnapTime(i));
-
-		return items;
 	},
 
 
@@ -61686,7 +62612,7 @@ var TimeGrid = Grid.extend({
 	computeDateTop: function(date, startOfDayDate) {
 		return this.computeTimeTop(
 			moment.duration(
-				date.clone().stripZone() - startOfDayDate.clone().stripTime()
+				date - startOfDayDate.clone().stripTime()
 			)
 		);
 	},
@@ -61694,45 +62620,30 @@ var TimeGrid = Grid.extend({
 
 	// Computes the top coordinate, relative to the bounds of the grid, of the given time (a Duration).
 	computeTimeTop: function(time) {
+		var len = this.slatEls.length;
 		var slatCoverage = (time - this.minTime) / this.slotDuration; // floating-point value of # of slots covered
 		var slatIndex;
 		var slatRemainder;
-		var slatTop;
-		var slatBottom;
 
-		// constrain. because minTime/maxTime might be customized
+		// compute a floating-point number for how many slats should be progressed through.
+		// from 0 to number of slats (inclusive)
+		// constrained because minTime/maxTime might be customized.
 		slatCoverage = Math.max(0, slatCoverage);
-		slatCoverage = Math.min(this.slatEls.length, slatCoverage);
+		slatCoverage = Math.min(len, slatCoverage);
 
-		slatIndex = Math.floor(slatCoverage); // an integer index of the furthest whole slot
+		// an integer index of the furthest whole slat
+		// from 0 to number slats (*exclusive*, so len-1)
+		slatIndex = Math.floor(slatCoverage);
+		slatIndex = Math.min(slatIndex, len - 1);
+
+		// how much further through the slatIndex slat (from 0.0-1.0) must be covered in addition.
+		// could be 1.0 if slatCoverage is covering *all* the slots
 		slatRemainder = slatCoverage - slatIndex;
-		slatTop = this.slatTops[slatIndex]; // the top position of the furthest whole slot
 
-		if (slatRemainder) { // time spans part-way into the slot
-			slatBottom = this.slatTops[slatIndex + 1];
-			return slatTop + (slatBottom - slatTop) * slatRemainder; // part-way between slots
-		}
-		else {
-			return slatTop;
-		}
+		return this.slatCoordCache.getTopPosition(slatIndex) +
+			this.slatCoordCache.getHeight(slatIndex) * slatRemainder;
 	},
 
-
-	// Queries each `slatEl` for its position relative to the grid's container and stores it in `slatTops`.
-	// Includes the the bottom of the last slat as the last item in the array.
-	computeSlatTops: function() {
-		var tops = [];
-		var top;
-
-		this.slatEls.each(function(i, node) {
-			top = $(node).position().top;
-			tops.push(top);
-		});
-
-		tops.push(top + this.slatEls.last().outerHeight()); // bottom of the last slat
-
-		this.slatTops = tops;
-	},
 
 
 	/* Event Drag Visualization
@@ -61740,19 +62651,21 @@ var TimeGrid = Grid.extend({
 
 
 	// Renders a visual indication of an event being dragged over the specified date(s).
-	// dropLocation's end might be null, as well as `seg`. See Grid::renderDrag for more info.
 	// A returned value of `true` signals that a mock "helper" event has been rendered.
-	renderDrag: function(dropLocation, seg) {
+	renderDrag: function(eventLocation, seg) {
 
 		if (seg) { // if there is event information for this drag, render a helper event
-			this.renderRangeHelper(dropLocation, seg);
-			this.applyDragOpacity(this.helperEl);
+			this.renderEventLocationHelper(eventLocation, seg);
+
+			for (var i = 0; i < this.helperSegs.length; i++) {
+				this.applyDragOpacity(this.helperSegs[i].el);
+			}
 
 			return true; // signal that a helper has been rendered
 		}
 		else {
 			// otherwise, just render a highlight
-			this.renderHighlight(this.eventRangeToSegs(dropLocation));
+			this.renderHighlight(this.eventToSpan(eventLocation));
 		}
 	},
 
@@ -61769,8 +62682,8 @@ var TimeGrid = Grid.extend({
 
 
 	// Renders a visual indication of an event being resized
-	renderEventResize: function(range, seg) {
-		this.renderRangeHelper(range, seg);
+	renderEventResize: function(eventLocation, seg) {
+		this.renderEventLocationHelper(eventLocation, seg);
 	},
 
 
@@ -61786,13 +62699,204 @@ var TimeGrid = Grid.extend({
 
 	// Renders a mock "helper" event. `sourceSeg` is the original segment object and might be null (an external drag)
 	renderHelper: function(event, sourceSeg) {
-		var segs = this.eventsToSegs([ event ]);
-		var tableEl;
+		this.renderHelperSegs(this.eventToSegs(event), sourceSeg);
+	},
+
+
+	// Unrenders any mock helper event
+	unrenderHelper: function() {
+		this.unrenderHelperSegs();
+	},
+
+
+	/* Business Hours
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	renderBusinessHours: function() {
+		var events = this.view.calendar.getBusinessHoursEvents();
+		var segs = this.eventsToSegs(events);
+
+		this.renderBusinessSegs(segs);
+	},
+
+
+	unrenderBusinessHours: function() {
+		this.unrenderBusinessSegs();
+	},
+
+
+	/* Now Indicator
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	getNowIndicatorUnit: function() {
+		return 'minute'; // will refresh on the minute
+	},
+
+
+	renderNowIndicator: function(date) {
+		// seg system might be overkill, but it handles scenario where line needs to be rendered
+		//  more than once because of columns with the same date (resources columns for example)
+		var segs = this.spanToSegs({ start: date, end: date });
+		var top = this.computeDateTop(date, date);
+		var nodes = [];
+		var i;
+
+		// render lines within the columns
+		for (i = 0; i < segs.length; i++) {
+			nodes.push($('<div class="fc-now-indicator fc-now-indicator-line"></div>')
+				.css('top', top)
+				.appendTo(this.colContainerEls.eq(segs[i].col))[0]);
+		}
+
+		// render an arrow over the axis
+		if (segs.length > 0) { // is the current time in view?
+			nodes.push($('<div class="fc-now-indicator fc-now-indicator-arrow"></div>')
+				.css('top', top)
+				.appendTo(this.el.find('.fc-content-skeleton'))[0]);
+		}
+
+		this.nowIndicatorEls = $(nodes);
+	},
+
+
+	unrenderNowIndicator: function() {
+		if (this.nowIndicatorEls) {
+			this.nowIndicatorEls.remove();
+			this.nowIndicatorEls = null;
+		}
+	},
+
+
+	/* Selection
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	// Renders a visual indication of a selection. Overrides the default, which was to simply render a highlight.
+	renderSelection: function(span) {
+		if (this.view.opt('selectHelper')) { // this setting signals that a mock helper event should be rendered
+
+			// normally acceps an eventLocation, span has a start/end, which is good enough
+			this.renderEventLocationHelper(span);
+		}
+		else {
+			this.renderHighlight(span);
+		}
+	},
+
+
+	// Unrenders any visual indication of a selection
+	unrenderSelection: function() {
+		this.unrenderHelper();
+		this.unrenderHighlight();
+	},
+
+
+	/* Highlight
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	renderHighlight: function(span) {
+		this.renderHighlightSegs(this.spanToSegs(span));
+	},
+
+
+	unrenderHighlight: function() {
+		this.unrenderHighlightSegs();
+	}
+
+});
+
+;;
+
+/* Methods for rendering SEGMENTS, pieces of content that live on the view
+ ( this file is no longer just for events )
+----------------------------------------------------------------------------------------------------------------------*/
+
+TimeGrid.mixin({
+
+	colContainerEls: null, // containers for each column
+
+	// inner-containers for each column where different types of segs live
+	fgContainerEls: null,
+	bgContainerEls: null,
+	helperContainerEls: null,
+	highlightContainerEls: null,
+	businessContainerEls: null,
+
+	// arrays of different types of displayed segments
+	fgSegs: null,
+	bgSegs: null,
+	helperSegs: null,
+	highlightSegs: null,
+	businessSegs: null,
+
+
+	// Renders the DOM that the view's content will live in
+	renderContentSkeleton: function() {
+		var cellHtml = '';
+		var i;
+		var skeletonEl;
+
+		for (i = 0; i < this.colCnt; i++) {
+			cellHtml +=
+				'<td>' +
+					'<div class="fc-content-col">' +
+						'<div class="fc-event-container fc-helper-container"></div>' +
+						'<div class="fc-event-container"></div>' +
+						'<div class="fc-highlight-container"></div>' +
+						'<div class="fc-bgevent-container"></div>' +
+						'<div class="fc-business-container"></div>' +
+					'</div>' +
+				'</td>';
+		}
+
+		skeletonEl = $(
+			'<div class="fc-content-skeleton">' +
+				'<table>' +
+					'<tr>' + cellHtml + '</tr>' +
+				'</table>' +
+			'</div>'
+		);
+
+		this.colContainerEls = skeletonEl.find('.fc-content-col');
+		this.helperContainerEls = skeletonEl.find('.fc-helper-container');
+		this.fgContainerEls = skeletonEl.find('.fc-event-container:not(.fc-helper-container)');
+		this.bgContainerEls = skeletonEl.find('.fc-bgevent-container');
+		this.highlightContainerEls = skeletonEl.find('.fc-highlight-container');
+		this.businessContainerEls = skeletonEl.find('.fc-business-container');
+
+		this.bookendCells(skeletonEl.find('tr')); // TODO: do this on string level
+		this.el.append(skeletonEl);
+	},
+
+
+	/* Foreground Events
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	renderFgSegs: function(segs) {
+		segs = this.renderFgSegsIntoContainers(segs, this.fgContainerEls);
+		this.fgSegs = segs;
+		return segs; // needed for Grid::renderEvents
+	},
+
+
+	unrenderFgSegs: function() {
+		this.unrenderNamedSegs('fgSegs');
+	},
+
+
+	/* Foreground Helper Events
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	renderHelperSegs: function(segs, sourceSeg) {
 		var i, seg;
 		var sourceEl;
 
-		segs = this.renderFgSegEls(segs); // assigns each seg's el and returns a subset of segs that were rendered
-		tableEl = this.renderSegTable(segs);
+		segs = this.renderFgSegsIntoContainers(segs, this.helperContainerEls);
 
 		// Try to make the segment that is in the same row as sourceSeg look the same
 		for (i = 0; i < segs.length; i++) {
@@ -61808,270 +62912,141 @@ var TimeGrid = Grid.extend({
 			}
 		}
 
-		this.helperEl = $('<div class="fc-helper-skeleton"/>')
-			.append(tableEl)
-				.appendTo(this.el);
+		this.helperSegs = segs;
 	},
 
 
-	// Unrenders any mock helper event
-	unrenderHelper: function() {
-		if (this.helperEl) {
-			this.helperEl.remove();
-			this.helperEl = null;
-		}
+	unrenderHelperSegs: function() {
+		this.unrenderNamedSegs('helperSegs');
 	},
 
 
-	/* Selection
+	/* Background Events
 	------------------------------------------------------------------------------------------------------------------*/
 
 
-	// Renders a visual indication of a selection. Overrides the default, which was to simply render a highlight.
-	renderSelection: function(range) {
-		if (this.view.opt('selectHelper')) { // this setting signals that a mock helper event should be rendered
-			this.renderRangeHelper(range);
-		}
-		else {
-			this.renderHighlight(this.selectionRangeToSegs(range));
-		}
+	renderBgSegs: function(segs) {
+		segs = this.renderFillSegEls('bgEvent', segs); // TODO: old fill system
+		this.updateSegVerticals(segs);
+		this.attachSegsByCol(this.groupSegsByCol(segs), this.bgContainerEls);
+		this.bgSegs = segs;
+		return segs; // needed for Grid::renderEvents
 	},
 
 
-	// Unrenders any visual indication of a selection
-	unrenderSelection: function() {
-		this.unrenderHelper();
-		this.unrenderHighlight();
+	unrenderBgSegs: function() {
+		this.unrenderNamedSegs('bgSegs');
 	},
 
 
-	/* Fill System (highlight, background events, business hours)
+	/* Highlight
 	------------------------------------------------------------------------------------------------------------------*/
 
 
-	// Renders a set of rectangles over the given time segments.
-	// Only returns segments that successfully rendered.
-	renderFill: function(type, segs, className) {
-		var segCols;
-		var skeletonEl;
-		var trEl;
-		var col, colSegs;
-		var tdEl;
-		var containerEl;
-		var dayDate;
-		var i, seg;
-
-		if (segs.length) {
-
-			segs = this.renderFillSegEls(type, segs); // assignes `.el` to each seg. returns successfully rendered segs
-			segCols = this.groupSegCols(segs); // group into sub-arrays, and assigns 'col' to each seg
-
-			className = className || type.toLowerCase();
-			skeletonEl = $(
-				'<div class="fc-' + className + '-skeleton">' +
-					'<table><tr/></table>' +
-				'</div>'
-			);
-			trEl = skeletonEl.find('tr');
-
-			for (col = 0; col < segCols.length; col++) {
-				colSegs = segCols[col];
-				tdEl = $('<td/>').appendTo(trEl);
-
-				if (colSegs.length) {
-					containerEl = $('<div class="fc-' + className + '-container"/>').appendTo(tdEl);
-					dayDate = this.colDates[col];
-
-					for (i = 0; i < colSegs.length; i++) {
-						seg = colSegs[i];
-						containerEl.append(
-							seg.el.css({
-								top: this.computeDateTop(seg.start, dayDate),
-								bottom: -this.computeDateTop(seg.end, dayDate) // the y position of the bottom edge
-							})
-						);
-					}
-				}
-			}
-
-			this.bookendCells(trEl, type);
-
-			this.el.append(skeletonEl);
-			this.elsByFill[type] = skeletonEl;
-		}
-
-		return segs;
-	}
-
-});
-
-;;
-
-/* Event-rendering methods for the TimeGrid class
-----------------------------------------------------------------------------------------------------------------------*/
-
-TimeGrid.mixin({
-
-	eventSkeletonEl: null, // has cells with event-containers, which contain absolutely positioned event elements
-
-
-	// Renders the given foreground event segments onto the grid
-	renderFgSegs: function(segs) {
-		segs = this.renderFgSegEls(segs); // returns a subset of the segs. segs that were actually rendered
-
-		this.el.append(
-			this.eventSkeletonEl = $('<div class="fc-content-skeleton"/>')
-				.append(this.renderSegTable(segs))
-		);
-
-		return segs; // return only the segs that were actually rendered
+	renderHighlightSegs: function(segs) {
+		segs = this.renderFillSegEls('highlight', segs); // TODO: old fill system
+		this.updateSegVerticals(segs);
+		this.attachSegsByCol(this.groupSegsByCol(segs), this.highlightContainerEls);
+		this.highlightSegs = segs;
 	},
 
 
-	// Unrenders all currently rendered foreground event segments
-	unrenderFgSegs: function(segs) {
-		if (this.eventSkeletonEl) {
-			this.eventSkeletonEl.remove();
-			this.eventSkeletonEl = null;
-		}
+	unrenderHighlightSegs: function() {
+		this.unrenderNamedSegs('highlightSegs');
 	},
 
 
-	// Renders and returns the <table> portion of the event-skeleton.
-	// Returns an object with properties 'tbodyEl' and 'segs'.
-	renderSegTable: function(segs) {
-		var tableEl = $('<table><tr/></table>');
-		var trEl = tableEl.find('tr');
-		var segCols;
-		var i, seg;
-		var col, colSegs;
-		var containerEl;
+	/* Business Hours
+	------------------------------------------------------------------------------------------------------------------*/
 
-		segCols = this.groupSegCols(segs); // group into sub-arrays, and assigns 'col' to each seg
 
-		this.computeSegVerticals(segs); // compute and assign top/bottom
-
-		for (col = 0; col < segCols.length; col++) { // iterate each column grouping
-			colSegs = segCols[col];
-			this.placeSlotSegs(colSegs); // compute horizontal coordinates, z-index's, and reorder the array
-
-			containerEl = $('<div class="fc-event-container"/>');
-
-			// assign positioning CSS and insert into container
-			for (i = 0; i < colSegs.length; i++) {
-				seg = colSegs[i];
-				seg.el.css(this.generateSegPositionCss(seg));
-
-				// if the height is short, add a className for alternate styling
-				if (seg.bottom - seg.top < 30) {
-					seg.el.addClass('fc-short');
-				}
-
-				containerEl.append(seg.el);
-			}
-
-			trEl.append($('<td/>').append(containerEl));
-		}
-
-		this.bookendCells(trEl, 'eventSkeleton');
-
-		return tableEl;
+	renderBusinessSegs: function(segs) {
+		segs = this.renderFillSegEls('businessHours', segs); // TODO: old fill system
+		this.updateSegVerticals(segs);
+		this.attachSegsByCol(this.groupSegsByCol(segs), this.businessContainerEls);
+		this.businessSegs = segs;
 	},
 
 
-	// Given an array of segments that are all in the same column, sets the backwardCoord and forwardCoord on each.
-	// NOTE: Also reorders the given array by date!
-	placeSlotSegs: function(segs) {
-		var levels;
-		var level0;
+	unrenderBusinessSegs: function() {
+		this.unrenderNamedSegs('businessSegs');
+	},
+
+
+	/* Seg Rendering Utils
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	// Given a flat array of segments, return an array of sub-arrays, grouped by each segment's col
+	groupSegsByCol: function(segs) {
+		var segsByCol = [];
 		var i;
 
-		this.sortSegs(segs); // order by date
-		levels = buildSlotSegLevels(segs);
-		computeForwardSlotSegs(levels);
-
-		if ((level0 = levels[0])) {
-
-			for (i = 0; i < level0.length; i++) {
-				computeSlotSegPressures(level0[i]);
-			}
-
-			for (i = 0; i < level0.length; i++) {
-				this.computeSlotSegCoords(level0[i], 0, 0);
-			}
+		for (i = 0; i < this.colCnt; i++) {
+			segsByCol.push([]);
 		}
-	},
-
-
-	// Calculate seg.forwardCoord and seg.backwardCoord for the segment, where both values range
-	// from 0 to 1. If the calendar is left-to-right, the seg.backwardCoord maps to "left" and
-	// seg.forwardCoord maps to "right" (via percentage). Vice-versa if the calendar is right-to-left.
-	//
-	// The segment might be part of a "series", which means consecutive segments with the same pressure
-	// who's width is unknown until an edge has been hit. `seriesBackwardPressure` is the number of
-	// segments behind this one in the current series, and `seriesBackwardCoord` is the starting
-	// coordinate of the first segment in the series.
-	computeSlotSegCoords: function(seg, seriesBackwardPressure, seriesBackwardCoord) {
-		var forwardSegs = seg.forwardSegs;
-		var i;
-
-		if (seg.forwardCoord === undefined) { // not already computed
-
-			if (!forwardSegs.length) {
-
-				// if there are no forward segments, this segment should butt up against the edge
-				seg.forwardCoord = 1;
-			}
-			else {
-
-				// sort highest pressure first
-				this.sortForwardSlotSegs(forwardSegs);
-
-				// this segment's forwardCoord will be calculated from the backwardCoord of the
-				// highest-pressure forward segment.
-				this.computeSlotSegCoords(forwardSegs[0], seriesBackwardPressure + 1, seriesBackwardCoord);
-				seg.forwardCoord = forwardSegs[0].backwardCoord;
-			}
-
-			// calculate the backwardCoord from the forwardCoord. consider the series
-			seg.backwardCoord = seg.forwardCoord -
-				(seg.forwardCoord - seriesBackwardCoord) / // available width for series
-				(seriesBackwardPressure + 1); // # of segments in the series
-
-			// use this segment's coordinates to computed the coordinates of the less-pressurized
-			// forward segments
-			for (i=0; i<forwardSegs.length; i++) {
-				this.computeSlotSegCoords(forwardSegs[i], 0, seg.forwardCoord);
-			}
-		}
-	},
-
-
-	// Refreshes the CSS top/bottom coordinates for each segment element. Probably after a window resize/zoom.
-	// Repositions business hours segs too, so not just for events. Maybe shouldn't be here.
-	updateSegVerticals: function() {
-		var allSegs = (this.segs || []).concat(this.businessHourSegs || []);
-		var i;
-
-		this.computeSegVerticals(allSegs);
-
-		for (i = 0; i < allSegs.length; i++) {
-			allSegs[i].el.css(
-				this.generateSegVerticalCss(allSegs[i])
-			);
-		}
-	},
-
-
-	// For each segment in an array, computes and assigns its top and bottom properties
-	computeSegVerticals: function(segs) {
-		var i, seg;
 
 		for (i = 0; i < segs.length; i++) {
-			seg = segs[i];
-			seg.top = this.computeDateTop(seg.start, seg.start);
-			seg.bottom = this.computeDateTop(seg.end, seg.start);
+			segsByCol[segs[i].col].push(segs[i]);
 		}
+
+		return segsByCol;
+	},
+
+
+	// Given segments grouped by column, insert the segments' elements into a parallel array of container
+	// elements, each living within a column.
+	attachSegsByCol: function(segsByCol, containerEls) {
+		var col;
+		var segs;
+		var i;
+
+		for (col = 0; col < this.colCnt; col++) { // iterate each column grouping
+			segs = segsByCol[col];
+
+			for (i = 0; i < segs.length; i++) {
+				containerEls.eq(col).append(segs[i].el);
+			}
+		}
+	},
+
+
+	// Given the name of a property of `this` object, assumed to be an array of segments,
+	// loops through each segment and removes from DOM. Will null-out the property afterwards.
+	unrenderNamedSegs: function(propName) {
+		var segs = this[propName];
+		var i;
+
+		if (segs) {
+			for (i = 0; i < segs.length; i++) {
+				segs[i].el.remove();
+			}
+			this[propName] = null;
+		}
+	},
+
+
+
+	/* Foreground Event Rendering Utils
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	// Given an array of foreground segments, render a DOM element for each, computes position,
+	// and attaches to the column inner-container elements.
+	renderFgSegsIntoContainers: function(segs, containerEls) {
+		var segsByCol;
+		var col;
+
+		segs = this.renderFgSegEls(segs); // will call fgSegHtml
+		segsByCol = this.groupSegsByCol(segs);
+
+		for (col = 0; col < this.colCnt; col++) {
+			this.updateFgSegCoords(segsByCol[col]);
+		}
+
+		this.attachSegsByCol(segsByCol, containerEls);
+
+		return segs;
 	},
 
 
@@ -62148,9 +63123,169 @@ TimeGrid.mixin({
 	},
 
 
+	/* Seg Position Utils
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	// Refreshes the CSS top/bottom coordinates for each segment element.
+	// Works when called after initial render, after a window resize/zoom for example.
+	updateSegVerticals: function(segs) {
+		this.computeSegVerticals(segs);
+		this.assignSegVerticals(segs);
+	},
+
+
+	// For each segment in an array, computes and assigns its top and bottom properties
+	computeSegVerticals: function(segs) {
+		var i, seg;
+
+		for (i = 0; i < segs.length; i++) {
+			seg = segs[i];
+			seg.top = this.computeDateTop(seg.start, seg.start);
+			seg.bottom = this.computeDateTop(seg.end, seg.start);
+		}
+	},
+
+
+	// Given segments that already have their top/bottom properties computed, applies those values to
+	// the segments' elements.
+	assignSegVerticals: function(segs) {
+		var i, seg;
+
+		for (i = 0; i < segs.length; i++) {
+			seg = segs[i];
+			seg.el.css(this.generateSegVerticalCss(seg));
+		}
+	},
+
+
+	// Generates an object with CSS properties for the top/bottom coordinates of a segment element
+	generateSegVerticalCss: function(seg) {
+		return {
+			top: seg.top,
+			bottom: -seg.bottom // flipped because needs to be space beyond bottom edge of event container
+		};
+	},
+
+
+	/* Foreground Event Positioning Utils
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	// Given segments that are assumed to all live in the *same column*,
+	// compute their verical/horizontal coordinates and assign to their elements.
+	updateFgSegCoords: function(segs) {
+		this.computeSegVerticals(segs); // horizontals relies on this
+		this.computeFgSegHorizontals(segs); // compute horizontal coordinates, z-index's, and reorder the array
+		this.assignSegVerticals(segs);
+		this.assignFgSegHorizontals(segs);
+	},
+
+
+	// Given an array of segments that are all in the same column, sets the backwardCoord and forwardCoord on each.
+	// NOTE: Also reorders the given array by date!
+	computeFgSegHorizontals: function(segs) {
+		var levels;
+		var level0;
+		var i;
+
+		this.sortEventSegs(segs); // order by certain criteria
+		levels = buildSlotSegLevels(segs);
+		computeForwardSlotSegs(levels);
+
+		if ((level0 = levels[0])) {
+
+			for (i = 0; i < level0.length; i++) {
+				computeSlotSegPressures(level0[i]);
+			}
+
+			for (i = 0; i < level0.length; i++) {
+				this.computeFgSegForwardBack(level0[i], 0, 0);
+			}
+		}
+	},
+
+
+	// Calculate seg.forwardCoord and seg.backwardCoord for the segment, where both values range
+	// from 0 to 1. If the calendar is left-to-right, the seg.backwardCoord maps to "left" and
+	// seg.forwardCoord maps to "right" (via percentage). Vice-versa if the calendar is right-to-left.
+	//
+	// The segment might be part of a "series", which means consecutive segments with the same pressure
+	// who's width is unknown until an edge has been hit. `seriesBackwardPressure` is the number of
+	// segments behind this one in the current series, and `seriesBackwardCoord` is the starting
+	// coordinate of the first segment in the series.
+	computeFgSegForwardBack: function(seg, seriesBackwardPressure, seriesBackwardCoord) {
+		var forwardSegs = seg.forwardSegs;
+		var i;
+
+		if (seg.forwardCoord === undefined) { // not already computed
+
+			if (!forwardSegs.length) {
+
+				// if there are no forward segments, this segment should butt up against the edge
+				seg.forwardCoord = 1;
+			}
+			else {
+
+				// sort highest pressure first
+				this.sortForwardSegs(forwardSegs);
+
+				// this segment's forwardCoord will be calculated from the backwardCoord of the
+				// highest-pressure forward segment.
+				this.computeFgSegForwardBack(forwardSegs[0], seriesBackwardPressure + 1, seriesBackwardCoord);
+				seg.forwardCoord = forwardSegs[0].backwardCoord;
+			}
+
+			// calculate the backwardCoord from the forwardCoord. consider the series
+			seg.backwardCoord = seg.forwardCoord -
+				(seg.forwardCoord - seriesBackwardCoord) / // available width for series
+				(seriesBackwardPressure + 1); // # of segments in the series
+
+			// use this segment's coordinates to computed the coordinates of the less-pressurized
+			// forward segments
+			for (i=0; i<forwardSegs.length; i++) {
+				this.computeFgSegForwardBack(forwardSegs[i], 0, seg.forwardCoord);
+			}
+		}
+	},
+
+
+	sortForwardSegs: function(forwardSegs) {
+		forwardSegs.sort(proxy(this, 'compareForwardSegs'));
+	},
+
+
+	// A cmp function for determining which forward segment to rely on more when computing coordinates.
+	compareForwardSegs: function(seg1, seg2) {
+		// put higher-pressure first
+		return seg2.forwardPressure - seg1.forwardPressure ||
+			// put segments that are closer to initial edge first (and favor ones with no coords yet)
+			(seg1.backwardCoord || 0) - (seg2.backwardCoord || 0) ||
+			// do normal sorting...
+			this.compareEventSegs(seg1, seg2);
+	},
+
+
+	// Given foreground event segments that have already had their position coordinates computed,
+	// assigns position-related CSS values to their elements.
+	assignFgSegHorizontals: function(segs) {
+		var i, seg;
+
+		for (i = 0; i < segs.length; i++) {
+			seg = segs[i];
+			seg.el.css(this.generateFgSegHorizontalCss(seg));
+
+			// if the height is short, add a className for alternate styling
+			if (seg.bottom - seg.top < 30) {
+				seg.el.addClass('fc-short');
+			}
+		}
+	},
+
+
 	// Generates an object with CSS properties/values that should be applied to an event segment element.
 	// Contains important positioning-related properties that should be applied to any event element, customized or not.
-	generateSegPositionCss: function(seg) {
+	generateFgSegHorizontalCss: function(seg) {
 		var shouldOverlap = this.view.opt('slotEventOverlap');
 		var backwardCoord = seg.backwardCoord; // the left side if LTR. the right side if RTL. floating-point
 		var forwardCoord = seg.forwardCoord; // the right side if LTR. the left side if RTL. floating-point
@@ -62182,48 +63317,6 @@ TimeGrid.mixin({
 		}
 
 		return props;
-	},
-
-
-	// Generates an object with CSS properties for the top/bottom coordinates of a segment element
-	generateSegVerticalCss: function(seg) {
-		return {
-			top: seg.top,
-			bottom: -seg.bottom // flipped because needs to be space beyond bottom edge of event container
-		};
-	},
-
-
-	// Given a flat array of segments, return an array of sub-arrays, grouped by each segment's col
-	groupSegCols: function(segs) {
-		var segCols = [];
-		var i;
-
-		for (i = 0; i < this.colCnt; i++) {
-			segCols.push([]);
-		}
-
-		for (i = 0; i < segs.length; i++) {
-			segCols[segs[i].col].push(segs[i]);
-		}
-
-		return segCols;
-	},
-
-
-	sortForwardSlotSegs: function(forwardSegs) {
-		forwardSegs.sort(proxy(this, 'compareForwardSlotSegs'));
-	},
-
-
-	// A cmp function for determining which forward segment to rely on more when computing coordinates.
-	compareForwardSlotSegs: function(seg1, seg2) {
-		// put higher-pressure first
-		return seg2.forwardPressure - seg1.forwardPressure ||
-			// put segments that are closer to initial edge first (and favor ones with no coords yet)
-			(seg1.backwardCoord || 0) - (seg2.backwardCoord || 0) ||
-			// do normal sorting...
-			this.compareSegs(seg1, seg2);
 	}
 
 });
@@ -62330,7 +63423,7 @@ function isSlotSegCollision(seg1, seg2) {
 /* An abstract class from which other views inherit from
 ----------------------------------------------------------------------------------------------------------------------*/
 
-var View = fc.View = Class.extend({
+var View = FC.View = Class.extend({
 
 	type: null, // subclass' view name (string)
 	name: null, // deprecated. use `type` instead
@@ -62338,7 +63431,6 @@ var View = fc.View = Class.extend({
 
 	calendar: null, // owner Calendar object
 	options: null, // hash containing all options. already merged with view-specific-options
-	coordMap: null, // a CoordMap object for converting pixel regions to dates
 	el: null, // the view's containing element. set by Calendar
 
 	displaying: null, // a promise representing the state of rendering. null if no render requested
@@ -62376,6 +63468,10 @@ var View = fc.View = Class.extend({
 
 	// document handlers, bound to `this` object
 	documentMousedownProxy: null, // TODO: doesn't work with touch
+
+	// for refresh timing of now indicator
+	nowIndicatorTimeoutID: null,
+	nowIndicatorIntervalID: null,
 
 
 	constructor: function(calendar, type, options, intervalDuration) {
@@ -62428,21 +63524,20 @@ var View = fc.View = Class.extend({
 	------------------------------------------------------------------------------------------------------------------*/
 
 
-	// Updates all internal dates to center around the given current date
+	// Updates all internal dates to center around the given current unzoned date.
 	setDate: function(date) {
 		this.setRange(this.computeRange(date));
 	},
 
 
-	// Updates all internal dates for displaying the given range.
-	// Expects all values to be normalized (like what computeRange does).
+	// Updates all internal dates for displaying the given unzoned range.
 	setRange: function(range) {
-		$.extend(this, range);
+		$.extend(this, range); // assigns every property to this object's member variables
 		this.updateTitle();
 	},
 
 
-	// Given a single current date, produce information about what range to display.
+	// Given a single current unzoned date, produce information about what range to display.
 	// Subclasses can override. Must return all properties.
 	computeRange: function(date) {
 		var intervalUnit = computeIntervalUnit(this.intervalDuration);
@@ -62457,10 +63552,10 @@ var View = fc.View = Class.extend({
 		}
 		else { // needs to have a time?
 			if (!intervalStart.hasTime()) {
-				intervalStart = this.calendar.rezoneDate(intervalStart); // convert to current timezone, with 00:00
+				intervalStart = this.calendar.time(0); // give 00:00 time
 			}
 			if (!intervalEnd.hasTime()) {
-				intervalEnd = this.calendar.rezoneDate(intervalEnd); // convert to current timezone, with 00:00
+				intervalEnd = this.calendar.time(0); // give 00:00 time
 			}
 		}
 
@@ -62523,7 +63618,11 @@ var View = fc.View = Class.extend({
 	// Computes what the title at the top of the calendar should be for this view
 	computeTitle: function() {
 		return this.formatRange(
-			{ start: this.intervalStart, end: this.intervalEnd },
+			{
+				// in case intervalStart/End has a time, make sure timezone is correct
+				start: this.calendar.applyTimezone(this.intervalStart),
+				end: this.calendar.applyTimezone(this.intervalEnd)
+			},
 			this.opt('titleFormat') || this.computeTitleFormat(),
 			this.opt('titleRangeSeparator')
 		);
@@ -62550,6 +63649,7 @@ var View = fc.View = Class.extend({
 
 	// Utility for formatting a range. Accepts a range object, formatting string, and optional separator.
 	// Displays all-day ranges naturally, with an inclusive end. Takes the current isRTL into account.
+	// The timezones of the dates within `range` will be respected.
 	formatRange: function(range, formatStr, separator) {
 		var end = range.end;
 
@@ -62594,7 +63694,7 @@ var View = fc.View = Class.extend({
 	},
 
 
-	// Does everything necessary to display the view centered around the given date.
+	// Does everything necessary to display the view centered around the given unzoned date.
 	// Does every type of rendering EXCEPT rendering events.
 	// Is asychronous and returns a promise.
 	display: function(date) {
@@ -62605,12 +63705,15 @@ var View = fc.View = Class.extend({
 			scrollState = this.queryScroll();
 		}
 
+		this.calendar.freezeContentHeight();
+
 		return this.clear().then(function() { // clear the content first (async)
 			return (
 				_this.displaying =
 					$.when(_this.displayView(date)) // displayView might return a promise
 						.then(function() {
 							_this.forceScroll(_this.computeInitialScroll(scrollState));
+							_this.calendar.unfreezeContentHeight();
 							_this.triggerRender();
 						})
 			);
@@ -62638,6 +63741,22 @@ var View = fc.View = Class.extend({
 	},
 
 
+	// If the view has already been displayed, tears it down and displays it again.
+	// Will re-render the events if necessary, which display/clear DO NOT do.
+	// TODO: make behavior more consistent.
+	redisplay: function() {
+		if (this.isSkeletonRendered) {
+			var wasEventsRendered = this.isEventsRendered;
+			this.clearEvents(); // won't trigger handlers if events never rendered
+			this.clearView();
+			this.displayView();
+			if (wasEventsRendered) { // only render and trigger handlers if events previously rendered
+				this.displayEvents(this.calendar.getEventCache());
+			}
+		}
+	},
+
+
 	// Displays the view's non-event content, such as date-related content or anything required by events.
 	// Renders the view's non-content skeleton if necessary.
 	// Can be asynchronous and return a promise.
@@ -62646,13 +63765,19 @@ var View = fc.View = Class.extend({
 			this.renderSkeleton();
 			this.isSkeletonRendered = true;
 		}
-		this.setDate(date);
+		if (date) {
+			this.setDate(date);
+		}
 		if (this.render) {
 			this.render(); // TODO: deprecate
 		}
 		this.renderDates();
 		this.updateSize();
 		this.renderBusinessHours(); // might need coordinates, so should go after updateSize()
+
+		if (this.opt('nowIndicator')) {
+			this.startNowIndicator();
+		}
 	},
 
 
@@ -62660,6 +63785,7 @@ var View = fc.View = Class.extend({
 	// Can be asynchronous and return a promise.
 	clearView: function() {
 		this.unselect();
+		this.stopNowIndicator();
 		this.triggerUnrender();
 		this.unrenderBusinessHours();
 		this.unrenderDates();
@@ -62681,7 +63807,7 @@ var View = fc.View = Class.extend({
 	},
 
 
-	// Renders the view's date-related content (like cells that represent days/times).
+	// Renders the view's date-related content.
 	// Assumes setRange has already been called and the skeleton has already been rendered.
 	renderDates: function() {
 		// subclasses should implement
@@ -62691,18 +63817,6 @@ var View = fc.View = Class.extend({
 	// Unrenders the view's date-related content
 	unrenderDates: function() {
 		// subclasses should override
-	},
-
-
-	// Renders business-hours onto the view. Assumes updateSize has already been called.
-	renderBusinessHours: function() {
-		// subclasses should implement
-	},
-
-
-	// Unrenders previously-rendered business-hours
-	unrenderBusinessHours: function() {
-		// subclasses should implement
 	},
 
 
@@ -62737,6 +63851,102 @@ var View = fc.View = Class.extend({
 		this.widgetHeaderClass = tm + '-widget-header';
 		this.widgetContentClass = tm + '-widget-content';
 		this.highlightStateClass = tm + '-state-highlight';
+	},
+
+
+	/* Business Hours
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	// Renders business-hours onto the view. Assumes updateSize has already been called.
+	renderBusinessHours: function() {
+		// subclasses should implement
+	},
+
+
+	// Unrenders previously-rendered business-hours
+	unrenderBusinessHours: function() {
+		// subclasses should implement
+	},
+
+
+	/* Now Indicator
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	// Immediately render the current time indicator and begins re-rendering it at an interval,
+	// which is defined by this.getNowIndicatorUnit().
+	// TODO: somehow do this for the current whole day's background too
+	startNowIndicator: function() {
+		var _this = this;
+		var unit = this.getNowIndicatorUnit();
+		var initialNow; // result first getNow call
+		var initialNowQueried; // ms time of then getNow was called
+		var delay; // ms wait value
+
+		// rerenders the now indicator, computing the new current time from the amount of time that has passed
+		// since the initial getNow call.
+		function update() {
+			_this.unrenderNowIndicator();
+			_this.renderNowIndicator(
+				initialNow.clone().add(new Date() - initialNowQueried) // add ms
+			);
+		}
+
+		if (unit) {
+			initialNow = this.calendar.getNow();
+			initialNowQueried = +new Date();
+			this.renderNowIndicator(initialNow);
+
+			// wait until the beginning of the next interval
+			delay = initialNow.clone().startOf(unit).add(1, unit) - initialNow;
+			this.nowIndicatorTimeoutID = setTimeout(function() {
+				this.nowIndicatorTimeoutID = null;
+				update();
+				delay = +moment.duration(1, unit);
+				delay = Math.max(100, delay); // prevent too frequent
+				this.nowIndicatorIntervalID = setInterval(update, delay); // update every interval
+			}, delay);
+		}
+	},
+
+
+	// Immediately unrenders the view's current time indicator and stops any re-rendering timers.
+	// Won't cause side effects if indicator isn't rendered.
+	stopNowIndicator: function() {
+		var cleared = false;
+
+		if (this.nowIndicatorTimeoutID) {
+			clearTimeout(this.nowIndicatorTimeoutID);
+			cleared = true;
+		}
+		if (this.nowIndicatorIntervalID) {
+			clearTimeout(this.nowIndicatorIntervalID);
+			cleared = true;
+		}
+
+		if (cleared) { // is the indicator currently display?
+			this.unrenderNowIndicator();
+		}
+	},
+
+
+	// Returns a string unit, like 'second' or 'minute' that defined how often the current time indicator
+	// should be refreshed. If something falsy is returned, no time indicator is rendered at all.
+	getNowIndicatorUnit: function() {
+		// subclasses should implement
+	},
+
+
+	// Renders a current time indicator at the given datetime
+	renderNowIndicator: function(date) {
+		// subclasses should implement
+	},
+
+
+	// Undoes the rendering actions from renderNowIndicator
+	unrenderNowIndicator: function() {
+		// subclasses should implement
 	},
 
 
@@ -62862,12 +64072,19 @@ var View = fc.View = Class.extend({
 
 	// Does everything necessary to clear the view's currently-rendered events
 	clearEvents: function() {
+		var scrollState;
+
 		if (this.isEventsRendered) {
+
+			// TODO: optimize: if we know this is part of a displayEvents call, don't queryScroll/setScroll
+			scrollState = this.queryScroll();
+
 			this.triggerEventUnrender();
 			if (this.destroyEvents) {
 				this.destroyEvents(); // TODO: deprecate
 			}
 			this.unrenderEvents();
+			this.setScroll(scrollState);
 			this.isEventsRendered = false;
 		}
 	},
@@ -62978,7 +64195,7 @@ var View = fc.View = Class.extend({
 
 
 	// Must be called when an event in the view is dropped onto new location.
-	// `dropLocation` is an object that contains the new start/end/allDay values for the event.
+	// `dropLocation` is an object that contains the new zoned start/end/allDay values for the event.
 	reportEventDrop: function(event, dropLocation, largeUnit, el, ev) {
 		var calendar = this.calendar;
 		var mutateResult = calendar.mutateEvent(event, dropLocation, largeUnit);
@@ -63004,7 +64221,7 @@ var View = fc.View = Class.extend({
 
 	// Must be called when an external element, via jQuery UI, has been dropped onto the calendar.
 	// `meta` is the parsed data that has been embedded into the dragging event.
-	// `dropLocation` is an object that contains the new start/end/allDay values for the event.
+	// `dropLocation` is an object that contains the new zoned start/end/allDay values for the event.
 	reportExternalDrop: function(meta, dropLocation, el, ev, ui) {
 		var eventProps = meta.eventProps;
 		var eventInput;
@@ -63104,31 +64321,37 @@ var View = fc.View = Class.extend({
 	------------------------------------------------------------------------------------------------------------------*/
 
 
-	// Selects a date range on the view. `start` and `end` are both Moments.
+	// Selects a date span on the view. `start` and `end` are both Moments.
 	// `ev` is the native mouse event that begin the interaction.
-	select: function(range, ev) {
+	select: function(span, ev) {
 		this.unselect(ev);
-		this.renderSelection(range);
-		this.reportSelection(range, ev);
+		this.renderSelection(span);
+		this.reportSelection(span, ev);
 	},
 
 
 	// Renders a visual indication of the selection
-	renderSelection: function(range) {
+	renderSelection: function(span) {
 		// subclasses should implement
 	},
 
 
 	// Called when a new selection is made. Updates internal state and triggers handlers.
-	reportSelection: function(range, ev) {
+	reportSelection: function(span, ev) {
 		this.isSelected = true;
-		this.triggerSelect(range, ev);
+		this.triggerSelect(span, ev);
 	},
 
 
 	// Triggers handlers to 'select'
-	triggerSelect: function(range, ev) {
-		this.trigger('select', null, range.start, range.end, ev);
+	triggerSelect: function(span, ev) {
+		this.trigger(
+			'select',
+			null,
+			this.calendar.applyTimezone(span.start), // convert to calendar's tz for external API
+			this.calendar.applyTimezone(span.end), // "
+			ev
+		);
 	},
 
 
@@ -63173,8 +64396,14 @@ var View = fc.View = Class.extend({
 
 
 	// Triggers handlers to 'dayClick'
-	triggerDayClick: function(cell, dayEl, ev) {
-		this.trigger('dayClick', dayEl, cell.start, ev);
+	// Span has start/end of the clicked area. Only the start is useful.
+	triggerDayClick: function(span, dayEl, ev) {
+		this.trigger(
+			'dayClick',
+			dayEl,
+			this.calendar.applyTimezone(span.start), // convert to calendar's timezone for external API
+			ev
+		);
 	},
 
 
@@ -63276,7 +64505,7 @@ var View = fc.View = Class.extend({
 
 ;;
 
-var Calendar = fc.Calendar = Class.extend({
+var Calendar = FC.Calendar = Class.extend({
 
 	dirDefaults: null, // option defaults related to LTR or RTL
 	langDefaults: null, // option defaults related to current locale
@@ -63355,7 +64584,7 @@ var Calendar = fc.Calendar = Class.extend({
 
 			// put views that have buttons first. there will be duplicates, but oh well
 			viewTypes = this.header.getViewsWithButtons();
-			$.each(fc.views, function(viewType) { // all views
+			$.each(FC.views, function(viewType) { // all views
 				viewTypes.push(viewType);
 			});
 
@@ -63509,12 +64738,13 @@ var Calendar = fc.Calendar = Class.extend({
 	},
 
 
-	// Given arguments to the select method in the API, returns a range
-	buildSelectRange: function(start, end) {
+	// Given arguments to the select method in the API, returns a span (unzoned start/end and other info)
+	buildSelectSpan: function(zonedStartInput, zonedEndInput) {
+		var start = this.moment(zonedStartInput).stripZone();
+		var end;
 
-		start = this.moment(start);
-		if (end) {
-			end = this.moment(end);
+		if (zonedEndInput) {
+			end = this.moment(zonedEndInput).stripZone();
 		}
 		else if (start.hasTime()) {
 			end = start.clone().add(this.defaultTimedEventDuration);
@@ -63624,18 +64854,18 @@ function Calendar_constructor(element, overrides) {
 		var mom;
 
 		if (options.timezone === 'local') {
-			mom = fc.moment.apply(null, arguments);
+			mom = FC.moment.apply(null, arguments);
 
-			// Force the moment to be local, because fc.moment doesn't guarantee it.
+			// Force the moment to be local, because FC.moment doesn't guarantee it.
 			if (mom.hasTime()) { // don't give ambiguously-timed moments a local zone
 				mom.local();
 			}
 		}
 		else if (options.timezone === 'UTC') {
-			mom = fc.moment.utc.apply(null, arguments); // process as UTC
+			mom = FC.moment.utc.apply(null, arguments); // process as UTC
 		}
 		else {
-			mom = fc.moment.parseZone.apply(null, arguments); // let the input decide the zone
+			mom = FC.moment.parseZone.apply(null, arguments); // let the input decide the zone
 		}
 
 		if ('_locale' in mom) { // moment 2.8 and above
@@ -63656,21 +64886,36 @@ function Calendar_constructor(element, overrides) {
 	};
 
 
-	// Returns a copy of the given date in the current timezone of it is ambiguously zoned.
-	// This will also give the date an unambiguous time.
-	t.rezoneDate = function(date) {
-		return t.moment(date.toArray());
+	// Returns a copy of the given date in the current timezone. Has no effect on dates without times.
+	t.applyTimezone = function(date) {
+		if (!date.hasTime()) {
+			return date.clone();
+		}
+
+		var zonedDate = t.moment(date.toArray());
+		var timeAdjust = date.time() - zonedDate.time();
+		var adjustedZonedDate;
+
+		// Safari sometimes has problems with this coersion when near DST. Adjust if necessary. (bug #2396)
+		if (timeAdjust) { // is the time result different than expected?
+			adjustedZonedDate = zonedDate.clone().add(timeAdjust); // add milliseconds
+			if (date.time() - adjustedZonedDate.time() === 0) { // does it match perfectly now?
+				zonedDate = adjustedZonedDate;
+			}
+		}
+
+		return zonedDate;
 	};
 
 
-	// Returns a moment for the current date, as defined by the client's computer,
-	// or overridden by the `now` option.
+	// Returns a moment for the current date, as defined by the client's computer or from the `now` option.
+	// Will return an moment with an ambiguous timezone.
 	t.getNow = function() {
 		var now = options.now;
 		if (typeof now === 'function') {
 			now = now();
 		}
-		return t.moment(now);
+		return t.moment(now).stripZone();
 	};
 
 
@@ -63685,9 +64930,10 @@ function Calendar_constructor(element, overrides) {
 	};
 
 
-	// Given an event's allDay status and start date, return swhat its fallback end date should be.
-	t.getDefaultEventEnd = function(allDay, start) { // TODO: rename to computeDefaultEventEnd
-		var end = start.clone();
+	// Given an event's allDay status and start date, return what its fallback end date should be.
+	// TODO: rename to computeDefaultEventEnd
+	t.getDefaultEventEnd = function(allDay, zonedStart) {
+		var end = zonedStart.clone();
 
 		if (allDay) {
 			end.stripTime().add(t.defaultAllDayEventDuration);
@@ -63737,8 +64983,8 @@ function Calendar_constructor(element, overrides) {
 	var suggestedViewHeight;
 	var windowResizeProxy; // wraps the windowResize function
 	var ignoreWindowResize = 0;
-	var date;
 	var events = [];
+	var date; // unzoned
 	
 	
 	
@@ -63746,11 +64992,12 @@ function Calendar_constructor(element, overrides) {
 	// -----------------------------------------------------------------------------------
 
 
+	// compute the initial ambig-timezone date
 	if (options.defaultDate != null) {
-		date = t.moment(options.defaultDate);
+		date = t.moment(options.defaultDate).stripZone();
 	}
 	else {
-		date = t.getNow();
+		date = t.getNow(); // getNow already returns unzoned
 	}
 	
 	
@@ -63867,8 +65114,7 @@ function Calendar_constructor(element, overrides) {
 			) {
 				if (elementVisible()) {
 
-					freezeContentHeight();
-					currentView.display(date);
+					currentView.display(date); // will call freezeContentHeight
 					unfreezeContentHeight(); // immediately unfreeze regardless of whether display is async
 
 					// need to do this after View::render, so dates are calculated
@@ -64036,9 +65282,10 @@ function Calendar_constructor(element, overrides) {
 	-----------------------------------------------------------------------------*/
 	
 
-	function select(start, end) {
+	// this public method receives start/end dates in any format, with any timezone
+	function select(zonedStartInput, zonedEndInput) {
 		currentView.select(
-			t.buildSelectRange.apply(t, arguments)
+			t.buildSelectSpan.apply(t, arguments)
 		);
 	}
 	
@@ -64085,8 +65332,8 @@ function Calendar_constructor(element, overrides) {
 	}
 	
 	
-	function gotoDate(dateInput) {
-		date = t.moment(dateInput);
+	function gotoDate(zonedDateInput) {
+		date = t.moment(zonedDateInput).stripZone();
 		renderView();
 	}
 	
@@ -64105,13 +65352,14 @@ function Calendar_constructor(element, overrides) {
 		viewType = viewType || 'day'; // day is default zoom
 		spec = t.getViewSpec(viewType) || t.getUnitViewSpec(viewType);
 
-		date = newDate;
+		date = newDate.clone();
 		renderView(spec ? spec.type : null);
 	}
 	
 	
+	// for external API
 	function getDate() {
-		return date.clone();
+		return t.applyTimezone(date); // infuse the calendar's timezone
 	}
 
 
@@ -64119,6 +65367,9 @@ function Calendar_constructor(element, overrides) {
 	/* Height "Freezing"
 	-----------------------------------------------------------------------------*/
 	// TODO: move this into the view
+
+	t.freezeContentHeight = freezeContentHeight;
+	t.unfreezeContentHeight = unfreezeContentHeight;
 
 
 	function freezeContentHeight() {
@@ -64206,6 +65457,8 @@ Calendar.defaults = {
 	weekNumberCalculation: 'local',
 	
 	//editable: false,
+
+	//nowIndicator: false,
 
 	scrollTime: '06:00:00',
 	
@@ -64299,7 +65552,7 @@ Calendar.rtlDefaults = { // right-to-left defaults
 
 ;;
 
-var langOptionHash = fc.langs = {}; // initialize and expose
+var langOptionHash = FC.langs = {}; // initialize and expose
 
 
 // TODO: document the structure and ordering of a FullCalendar lang file
@@ -64308,7 +65561,7 @@ var langOptionHash = fc.langs = {}; // initialize and expose
 
 // Initialize jQuery UI datepicker translations while using some of the translations
 // Will set this as the default language for datepicker.
-fc.datepickerLang = function(langCode, dpLangCode, dpOptions) {
+FC.datepickerLang = function(langCode, dpLangCode, dpOptions) {
 
 	// get the FullCalendar internal option hash for this language. create if necessary
 	var fcOptions = langOptionHash[langCode] || (langOptionHash[langCode] = {});
@@ -64343,7 +65596,7 @@ fc.datepickerLang = function(langCode, dpLangCode, dpOptions) {
 
 
 // Sets FullCalendar-specific translations. Will set the language as the global default.
-fc.lang = function(langCode, newFcOptions) {
+FC.lang = function(langCode, newFcOptions) {
 	var fcOptions;
 	var momOptions;
 
@@ -64450,7 +65703,9 @@ var momComputableOptions = {
 
 
 // options that should be computed off live calendar options (considers override options)
-var instanceComputableOptions = { // TODO: best place for this? related to lang?
+// TODO: best place for this? related to lang?
+// TODO: flipping text based on isRTL is a bad idea because the CSS `direction` might want to handle it
+var instanceComputableOptions = {
 
 	// Produces format strings for results like "Mo 16"
 	smallDayDateFormat: function(options) {
@@ -64495,7 +65750,7 @@ function getMomentLocaleData(langCode) {
 
 // Initialize English by forcing computation of moment-derived options.
 // Also, sets it as the default.
-fc.lang('en', Calendar.englishDefaults);
+FC.lang('en', Calendar.englishDefaults);
 
 ;;
 
@@ -64746,8 +66001,8 @@ function Header(calendar, options) {
 
 ;;
 
-fc.sourceNormalizers = [];
-fc.sourceFetchers = [];
+FC.sourceNormalizers = [];
+FC.sourceFetchers = [];
 
 var ajaxDefaults = {
 	dataType: 'json',
@@ -64771,9 +66026,8 @@ function EventManager(options) { // assumed to be a calendar
 	t.removeEvents = removeEvents;
 	t.clientEvents = clientEvents;
 	t.mutateEvent = mutateEvent;
-	t.normalizeEventRange = normalizeEventRange;
-	t.normalizeEventRangeTimes = normalizeEventRangeTimes;
-	t.ensureVisibleEventRange = ensureVisibleEventRange;
+	t.normalizeEventDates = normalizeEventDates;
+	t.normalizeEventTimes = normalizeEventTimes;
 	
 	
 	// imports
@@ -64803,13 +66057,12 @@ function EventManager(options) { // assumed to be a calendar
 	
 	/* Fetching
 	-----------------------------------------------------------------------------*/
-	
-	
+
+
+	// start and end are assumed to be unzoned
 	function isFetchNeeded(start, end) {
 		return !rangeStart || // nothing has been fetched yet?
-			// or, a part of the new range is outside of the old range? (after normalizing)
-			start.clone().stripZone() < rangeStart.clone().stripZone() ||
-			end.clone().stripZone() > rangeEnd.clone().stripZone();
+			start < rangeStart || end > rangeEnd; // is part of the new range outside of the old range?
 	}
 	
 	
@@ -64865,7 +66118,7 @@ function EventManager(options) { // assumed to be a calendar
 	
 	function _fetchEventSource(source, callback) {
 		var i;
-		var fetchers = fc.sourceFetchers;
+		var fetchers = FC.sourceFetchers;
 		var res;
 
 		for (i=0; i<fetchers.length; i++) {
@@ -64989,7 +66242,7 @@ function EventManager(options) { // assumed to be a calendar
 
 
 	function buildEventSource(sourceInput) { // will return undefined if invalid source
-		var normalizers = fc.sourceNormalizers;
+		var normalizers = FC.sourceNormalizers;
 		var source;
 		var i;
 
@@ -65260,7 +66513,7 @@ function EventManager(options) { // assumed to be a calendar
 					source ? source.allDayDefault : undefined,
 					options.allDayDefault
 				);
-				// still undefined? normalizeEventRange will calculate it
+				// still undefined? normalizeEventDates will calculate it
 			}
 
 			assignDatesToEvent(start, end, allDay, out);
@@ -65276,73 +66529,53 @@ function EventManager(options) { // assumed to be a calendar
 		event.start = start;
 		event.end = end;
 		event.allDay = allDay;
-		normalizeEventRange(event);
+		normalizeEventDates(event);
 		backupEventDates(event);
 	}
 
 
 	// Ensures proper values for allDay/start/end. Accepts an Event object, or a plain object with event-ish properties.
 	// NOTE: Will modify the given object.
-	function normalizeEventRange(props) {
+	function normalizeEventDates(eventProps) {
 
-		normalizeEventRangeTimes(props);
+		normalizeEventTimes(eventProps);
 
-		if (props.end && !props.end.isAfter(props.start)) {
-			props.end = null;
+		if (eventProps.end && !eventProps.end.isAfter(eventProps.start)) {
+			eventProps.end = null;
 		}
 
-		if (!props.end) {
+		if (!eventProps.end) {
 			if (options.forceEventDuration) {
-				props.end = t.getDefaultEventEnd(props.allDay, props.start);
+				eventProps.end = t.getDefaultEventEnd(eventProps.allDay, eventProps.start);
 			}
 			else {
-				props.end = null;
+				eventProps.end = null;
 			}
 		}
 	}
 
 
 	// Ensures the allDay property exists and the timeliness of the start/end dates are consistent
-	function normalizeEventRangeTimes(range) {
-		if (range.allDay == null) {
-			range.allDay = !(range.start.hasTime() || (range.end && range.end.hasTime()));
+	function normalizeEventTimes(eventProps) {
+		if (eventProps.allDay == null) {
+			eventProps.allDay = !(eventProps.start.hasTime() || (eventProps.end && eventProps.end.hasTime()));
 		}
 
-		if (range.allDay) {
-			range.start.stripTime();
-			if (range.end) {
+		if (eventProps.allDay) {
+			eventProps.start.stripTime();
+			if (eventProps.end) {
 				// TODO: consider nextDayThreshold here? If so, will require a lot of testing and adjustment
-				range.end.stripTime();
+				eventProps.end.stripTime();
 			}
 		}
 		else {
-			if (!range.start.hasTime()) {
-				range.start = t.rezoneDate(range.start); // will assign a 00:00 time
+			if (!eventProps.start.hasTime()) {
+				eventProps.start = t.applyTimezone(eventProps.start.time(0)); // will assign a 00:00 time
 			}
-			if (range.end && !range.end.hasTime()) {
-				range.end = t.rezoneDate(range.end); // will assign a 00:00 time
+			if (eventProps.end && !eventProps.end.hasTime()) {
+				eventProps.end = t.applyTimezone(eventProps.end.time(0)); // will assign a 00:00 time
 			}
 		}
-	}
-
-
-	// If `range` is a proper range with a start and end, returns the original object.
-	// If missing an end, computes a new range with an end, computing it as if it were an event.
-	// TODO: make this a part of the event -> eventRange system
-	function ensureVisibleEventRange(range) {
-		var allDay;
-
-		if (!range.end) {
-
-			allDay = range.allDay; // range might be more event-ish than we think
-			if (allDay == null) {
-				allDay = !range.start.hasTime();
-			}
-
-			range = $.extend({}, range); // make a copy, copying over other misc properties
-			range.end = t.getDefaultEventEnd(allDay, range.start);
-		}
-		return range;
 	}
 
 
@@ -65459,7 +66692,7 @@ function EventManager(options) { // assumed to be a calendar
 		if (newProps.allDay == null) { // is null or undefined?
 			newProps.allDay = event.allDay;
 		}
-		normalizeEventRange(newProps);
+		normalizeEventDates(newProps);
 
 		// create normalized versions of the original props to compare against
 		// need a real end value, for diffing
@@ -65468,7 +66701,7 @@ function EventManager(options) { // assumed to be a calendar
 			end: event._end ? event._end.clone() : t.getDefaultEventEnd(event._allDay, event._start),
 			allDay: newProps.allDay // normalize the dates in the same regard as the new properties
 		};
-		normalizeEventRange(oldProps);
+		normalizeEventDates(oldProps);
 
 		// need to clear the end date if explicitly changed to null
 		clearEnd = event._end !== null && newProps.end === null;
@@ -65553,7 +66786,7 @@ function EventManager(options) { // assumed to be a calendar
 				end: event._end,
 				allDay: allDay // normalize the dates in the same regard as the new properties
 			};
-			normalizeEventRange(newProps); // massages start/end/allDay
+			normalizeEventDates(newProps); // massages start/end/allDay
 
 			// strip or ensure the end date
 			if (clearEnd) {
@@ -65654,12 +66887,13 @@ function EventManager(options) { // assumed to be a calendar
 	/* Overlapping / Constraining
 	-----------------------------------------------------------------------------------------*/
 
-	t.isEventRangeAllowed = isEventRangeAllowed;
-	t.isSelectionRangeAllowed = isSelectionRangeAllowed;
-	t.isExternalDropRangeAllowed = isExternalDropRangeAllowed;
+	t.isEventSpanAllowed = isEventSpanAllowed;
+	t.isExternalSpanAllowed = isExternalSpanAllowed;
+	t.isSelectionSpanAllowed = isSelectionSpanAllowed;
 
 
-	function isEventRangeAllowed(range, event) {
+	// Determines if the given event can be relocated to the given span (unzoned start/end with other misc data)
+	function isEventSpanAllowed(span, event) {
 		var source = event.source || {};
 		var constraint = firstDefined(
 			event.constraint,
@@ -65671,56 +66905,46 @@ function EventManager(options) { // assumed to be a calendar
 			source.overlap,
 			options.eventOverlap
 		);
-
-		range = ensureVisibleEventRange(range); // ensure a proper range with an end for isRangeAllowed
-
-		return isRangeAllowed(range, constraint, overlap, event);
+		return isSpanAllowed(span, constraint, overlap, event);
 	}
 
 
-	function isSelectionRangeAllowed(range) {
-		return isRangeAllowed(range, options.selectConstraint, options.selectOverlap);
-	}
-
-
-	// when `eventProps` is defined, consider this an event.
-	// `eventProps` can contain misc non-date-related info about the event.
-	function isExternalDropRangeAllowed(range, eventProps) {
+	// Determines if an external event can be relocated to the given span (unzoned start/end with other misc data)
+	function isExternalSpanAllowed(eventSpan, eventLocation, eventProps) {
 		var eventInput;
 		var event;
 
 		// note: very similar logic is in View's reportExternalDrop
 		if (eventProps) {
-			eventInput = $.extend({}, eventProps, range);
+			eventInput = $.extend({}, eventProps, eventLocation);
 			event = expandEvent(buildEventFromInput(eventInput))[0];
 		}
 
 		if (event) {
-			return isEventRangeAllowed(range, event);
+			return isEventSpanAllowed(eventSpan, event);
 		}
 		else { // treat it as a selection
 
-			range = ensureVisibleEventRange(range); // ensure a proper range with an end for isSelectionRangeAllowed
-
-			return isSelectionRangeAllowed(range);
+			return isSelectionSpanAllowed(eventSpan);
 		}
 	}
 
 
-	// Returns true if the given range (caused by an event drop/resize or a selection) is allowed to exist
+	// Determines the given span (unzoned start/end with other misc data) can be selected.
+	function isSelectionSpanAllowed(span) {
+		return isSpanAllowed(span, options.selectConstraint, options.selectOverlap);
+	}
+
+
+	// Returns true if the given span (caused by an event drop/resize or a selection) is allowed to exist
 	// according to the constraint/overlap settings.
 	// `event` is not required if checking a selection.
-	function isRangeAllowed(range, constraint, overlap, event) {
+	function isSpanAllowed(span, constraint, overlap, event) {
 		var constraintEvents;
 		var anyContainment;
 		var peerEvents;
 		var i, peerEvent;
 		var peerOverlap;
-
-		// normalize. fyi, we're normalizing in too many places :(
-		range = $.extend({}, range); // copy all properties in case there are misc non-date properties
-		range.start = range.start.clone().stripZone();
-		range.end = range.end.clone().stripZone();
 
 		// the range must be fully contained by at least one of produced constraint events
 		if (constraint != null) {
@@ -65731,7 +66955,7 @@ function EventManager(options) { // assumed to be a calendar
 
 			anyContainment = false;
 			for (i = 0; i < constraintEvents.length; i++) {
-				if (eventContainsRange(constraintEvents[i], range)) {
+				if (eventContainsRange(constraintEvents[i], span)) {
 					anyContainment = true;
 					break;
 				}
@@ -65742,13 +66966,13 @@ function EventManager(options) { // assumed to be a calendar
 			}
 		}
 
-		peerEvents = t.getPeerEvents(event, range);
+		peerEvents = t.getPeerEvents(span, event);
 
 		for (i = 0; i < peerEvents.length; i++)  {
 			peerEvent = peerEvents[i];
 
 			// there needs to be an actual intersection before disallowing anything
-			if (eventIntersectsRange(peerEvent, range)) {
+			if (eventIntersectsRange(peerEvent, span)) {
 
 				// evaluate overlap for the given range and short-circuit if necessary
 				if (overlap === false) {
@@ -65828,8 +67052,8 @@ function EventManager(options) { // assumed to be a calendar
 
 
 // Returns a list of events that the given event should be compared against when being considered for a move to
-// the specified range. Attached to the Calendar's prototype because EventManager is a mixin for a Calendar.
-Calendar.prototype.getPeerEvents = function(event, range) {
+// the specified span. Attached to the Calendar's prototype because EventManager is a mixin for a Calendar.
+Calendar.prototype.getPeerEvents = function(span, event) {
 	var cache = this.getEventCache();
 	var peerEvents = [];
 	var i, otherEvent;
@@ -65862,8 +67086,9 @@ function backupEventDates(event) {
 // It is a manager for a DayGrid subcomponent, which does most of the heavy lifting.
 // It is responsible for managing width/height.
 
-var BasicView = View.extend({
+var BasicView = FC.BasicView = View.extend({
 
+	dayGridClass: DayGrid, // class the dayGrid will be instantiated from (overridable by subclasses)
 	dayGrid: null, // the main subcomponent that does most of the heavy lifting
 
 	dayNumbersVisible: false, // display day numbers on each day cell?
@@ -65871,12 +67096,22 @@ var BasicView = View.extend({
 
 	weekNumberWidth: null, // width of all the week-number cells running down the side
 
+	headContainerEl: null, // div that hold's the dayGrid's rendered date header
 	headRowEl: null, // the fake row element of the day-of-week header
 
 
 	initialize: function() {
-		this.dayGrid = new DayGrid(this);
-		this.coordMap = this.dayGrid.coordMap; // the view's date-to-cell mapping is identical to the subcomponent's
+		this.dayGrid = this.instantiateDayGrid();
+	},
+
+
+	// Generates the DayGrid object this view needs. Draws from this.dayGridClass
+	instantiateDayGrid: function() {
+		// generate a subclass on the fly with BasicView-specific behavior
+		// TODO: cache this subclass
+		var subclass = this.dayGridClass.extend(basicDayGridMethods);
+
+		return new subclass(this);
 	},
 
 
@@ -65916,15 +67151,22 @@ var BasicView = View.extend({
 		this.weekNumbersVisible = this.opt('weekNumbers');
 		this.dayGrid.numbersVisible = this.dayNumbersVisible || this.weekNumbersVisible;
 
-		this.el.addClass('fc-basic-view').html(this.renderHtml());
-
-		this.headRowEl = this.el.find('thead .fc-row');
+		this.el.addClass('fc-basic-view').html(this.renderSkeletonHtml());
+		this.renderHead();
 
 		this.scrollerEl = this.el.find('.fc-day-grid-container');
-		this.dayGrid.coordMap.containerEl = this.scrollerEl; // constrain clicks/etc to the dimensions of the scroller
 
 		this.dayGrid.setElement(this.el.find('.fc-day-grid'));
 		this.dayGrid.renderDates(this.hasRigidRows());
+	},
+
+
+	// render the day-of-week headers
+	renderHead: function() {
+		this.headContainerEl =
+			this.el.find('.fc-head-container')
+				.html(this.dayGrid.renderHeadHtml());
+		this.headRowEl = this.headContainerEl.find('.fc-row');
 	},
 
 
@@ -65943,14 +67185,12 @@ var BasicView = View.extend({
 
 	// Builds the HTML skeleton for the view.
 	// The day-grid component will render inside of a container defined by this HTML.
-	renderHtml: function() {
+	renderSkeletonHtml: function() {
 		return '' +
 			'<table>' +
 				'<thead class="fc-head">' +
 					'<tr>' +
-						'<td class="' + this.widgetHeaderClass + '">' +
-							this.dayGrid.headHtml() + // render the day-of-week headers
-						'</td>' +
+						'<td class="fc-head-container ' + this.widgetHeaderClass + '"></td>' +
 					'</tr>' +
 				'</thead>' +
 				'<tbody class="fc-body">' +
@@ -65963,73 +67203,6 @@ var BasicView = View.extend({
 					'</tr>' +
 				'</tbody>' +
 			'</table>';
-	},
-
-
-	// Generates the HTML that will go before the day-of week header cells.
-	// Queried by the DayGrid subcomponent when generating rows. Ordering depends on isRTL.
-	headIntroHtml: function() {
-		if (this.weekNumbersVisible) {
-			return '' +
-				'<th class="fc-week-number ' + this.widgetHeaderClass + '" ' + this.weekNumberStyleAttr() + '>' +
-					'<span>' + // needed for matchCellWidths
-						htmlEscape(this.opt('weekNumberTitle')) +
-					'</span>' +
-				'</th>';
-		}
-	},
-
-
-	// Generates the HTML that will go before content-skeleton cells that display the day/week numbers.
-	// Queried by the DayGrid subcomponent. Ordering depends on isRTL.
-	numberIntroHtml: function(row) {
-		if (this.weekNumbersVisible) {
-			return '' +
-				'<td class="fc-week-number" ' + this.weekNumberStyleAttr() + '>' +
-					'<span>' + // needed for matchCellWidths
-						this.dayGrid.getCell(row, 0).start.format('w') +
-					'</span>' +
-				'</td>';
-		}
-	},
-
-
-	// Generates the HTML that goes before the day bg cells for each day-row.
-	// Queried by the DayGrid subcomponent. Ordering depends on isRTL.
-	dayIntroHtml: function() {
-		if (this.weekNumbersVisible) {
-			return '<td class="fc-week-number ' + this.widgetContentClass + '" ' +
-				this.weekNumberStyleAttr() + '></td>';
-		}
-	},
-
-
-	// Generates the HTML that goes before every other type of row generated by DayGrid. Ordering depends on isRTL.
-	// Affects helper-skeleton and highlight-skeleton rows.
-	introHtml: function() {
-		if (this.weekNumbersVisible) {
-			return '<td class="fc-week-number" ' + this.weekNumberStyleAttr() + '></td>';
-		}
-	},
-
-
-	// Generates the HTML for the <td>s of the "number" row in the DayGrid's content skeleton.
-	// The number row will only exist if either day numbers or week numbers are turned on.
-	numberCellHtml: function(cell) {
-		var date = cell.start;
-		var classes;
-
-		if (!this.dayNumbersVisible) { // if there are week numbers but not day numbers
-			return '<td/>'; //  will create an empty space above events :(
-		}
-
-		classes = this.dayGrid.getDayClasses(date);
-		classes.unshift('fc-day-number');
-
-		return '' +
-			'<td class="' + classes.join(' ') + '" data-date="' + date.format() + '">' +
-				date.date() +
-			'</td>';
 	},
 
 
@@ -66111,6 +67284,36 @@ var BasicView = View.extend({
 	},
 
 
+	/* Hit Areas
+	------------------------------------------------------------------------------------------------------------------*/
+	// forward all hit-related method calls to dayGrid
+
+
+	prepareHits: function() {
+		this.dayGrid.prepareHits();
+	},
+
+
+	releaseHits: function() {
+		this.dayGrid.releaseHits();
+	},
+
+
+	queryHit: function(left, top) {
+		return this.dayGrid.queryHit(left, top);
+	},
+
+
+	getHitSpan: function(hit) {
+		return this.dayGrid.getHitSpan(hit);
+	},
+
+
+	getHitEl: function(hit) {
+		return this.dayGrid.getHitEl(hit);
+	},
+
+
 	/* Events
 	------------------------------------------------------------------------------------------------------------------*/
 
@@ -66159,8 +67362,8 @@ var BasicView = View.extend({
 
 
 	// Renders a visual indication of a selection
-	renderSelection: function(range) {
-		this.dayGrid.renderSelection(range);
+	renderSelection: function(span) {
+		this.dayGrid.renderSelection(span);
 	},
 
 
@@ -66171,12 +67374,78 @@ var BasicView = View.extend({
 
 });
 
+
+// Methods that will customize the rendering behavior of the BasicView's dayGrid
+var basicDayGridMethods = {
+
+
+	// Generates the HTML that will go before the day-of week header cells
+	renderHeadIntroHtml: function() {
+		var view = this.view;
+
+		if (view.weekNumbersVisible) {
+			return '' +
+				'<th class="fc-week-number ' + view.widgetHeaderClass + '" ' + view.weekNumberStyleAttr() + '>' +
+					'<span>' + // needed for matchCellWidths
+						htmlEscape(view.opt('weekNumberTitle')) +
+					'</span>' +
+				'</th>';
+		}
+
+		return '';
+	},
+
+
+	// Generates the HTML that will go before content-skeleton cells that display the day/week numbers
+	renderNumberIntroHtml: function(row) {
+		var view = this.view;
+
+		if (view.weekNumbersVisible) {
+			return '' +
+				'<td class="fc-week-number" ' + view.weekNumberStyleAttr() + '>' +
+					'<span>' + // needed for matchCellWidths
+						this.getCellDate(row, 0).format('w') +
+					'</span>' +
+				'</td>';
+		}
+
+		return '';
+	},
+
+
+	// Generates the HTML that goes before the day bg cells for each day-row
+	renderBgIntroHtml: function() {
+		var view = this.view;
+
+		if (view.weekNumbersVisible) {
+			return '<td class="fc-week-number ' + view.widgetContentClass + '" ' +
+				view.weekNumberStyleAttr() + '></td>';
+		}
+
+		return '';
+	},
+
+
+	// Generates the HTML that goes before every other type of row generated by DayGrid.
+	// Affects helper-skeleton and highlight-skeleton rows.
+	renderIntroHtml: function() {
+		var view = this.view;
+
+		if (view.weekNumbersVisible) {
+			return '<td class="fc-week-number" ' + view.weekNumberStyleAttr() + '></td>';
+		}
+
+		return '';
+	}
+
+};
+
 ;;
 
 /* A month view with day cells running in rows (one-per-week) and columns
 ----------------------------------------------------------------------------------------------------------------------*/
 
-var MonthView = BasicView.extend({
+var MonthView = FC.MonthView = BasicView.extend({
 
 	// Produces information about what range to display
 	computeRange: function(date) {
@@ -66248,13 +67517,17 @@ fcViews.month = {
 // Is a manager for the TimeGrid subcomponent and possibly the DayGrid subcomponent (if allDaySlot is on).
 // Responsible for managing width/height.
 
-var AgendaView = View.extend({
+var AgendaView = FC.AgendaView = View.extend({
 
+	timeGridClass: TimeGrid, // class used to instantiate the timeGrid. subclasses can override
 	timeGrid: null, // the main time-grid subcomponent of this view
+
+	dayGridClass: DayGrid, // class used to instantiate the dayGrid. subclasses can override
 	dayGrid: null, // the "all-day" subcomponent. if all-day is turned off, this will be null
 
 	axisWidth: null, // the width of the time axis running down the side
 
+	headContainerEl: null, // div that hold's the timeGrid's rendered date header
 	noScrollRowEls: null, // set of fake row elements that must compensate when scrollerEl has scrollbars
 
 	// when the time-grid isn't tall enough to occupy the given height, we render an <hr> underneath
@@ -66263,20 +67536,27 @@ var AgendaView = View.extend({
 
 
 	initialize: function() {
-		this.timeGrid = new TimeGrid(this);
+		this.timeGrid = this.instantiateTimeGrid();
 
 		if (this.opt('allDaySlot')) { // should we display the "all-day" area?
-			this.dayGrid = new DayGrid(this); // the all-day subcomponent of this view
+			this.dayGrid = this.instantiateDayGrid(); // the all-day subcomponent of this view
+		}
+	},
 
-			// the coordinate grid will be a combination of both subcomponents' grids
-			this.coordMap = new ComboCoordMap([
-				this.dayGrid.coordMap,
-				this.timeGrid.coordMap
-			]);
-		}
-		else {
-			this.coordMap = this.timeGrid.coordMap;
-		}
+
+	// Instantiates the TimeGrid object this view needs. Draws from this.timeGridClass
+	instantiateTimeGrid: function() {
+		var subclass = this.timeGridClass.extend(agendaTimeGridMethods);
+
+		return new subclass(this);
+	},
+
+
+	// Instantiates the DayGrid object this view might need. Draws from this.dayGridClass
+	instantiateDayGrid: function() {
+		var subclass = this.dayGridClass.extend(agendaDayGridMethods);
+
+		return new subclass(this);
 	},
 
 
@@ -66298,11 +67578,11 @@ var AgendaView = View.extend({
 	// Renders the view into `this.el`, which has already been assigned
 	renderDates: function() {
 
-		this.el.addClass('fc-agenda-view').html(this.renderHtml());
+		this.el.addClass('fc-agenda-view').html(this.renderSkeletonHtml());
+		this.renderHead();
 
 		// the element that wraps the time-grid that will probably scroll
 		this.scrollerEl = this.el.find('.fc-time-grid-container');
-		this.timeGrid.coordMap.containerEl = this.scrollerEl; // don't accept clicks/etc outside of this
 
 		this.timeGrid.setElement(this.el.find('.fc-time-grid'));
 		this.timeGrid.renderDates();
@@ -66323,6 +67603,14 @@ var AgendaView = View.extend({
 	},
 
 
+	// render the day-of-week headers
+	renderHead: function() {
+		this.headContainerEl =
+			this.el.find('.fc-head-container')
+				.html(this.timeGrid.renderHeadHtml());
+	},
+
+
 	// Unrenders the content of the view. Since we haven't separated skeleton rendering from date rendering,
 	// always completely kill each grid's rendering.
 	unrenderDates: function() {
@@ -66336,25 +67624,14 @@ var AgendaView = View.extend({
 	},
 
 
-	renderBusinessHours: function() {
-		this.timeGrid.renderBusinessHours();
-
-		if (this.dayGrid) {
-			this.dayGrid.renderBusinessHours();
-		}
-	},
-
-
 	// Builds the HTML skeleton for the view.
 	// The day-grid and time-grid components will render inside containers defined by this HTML.
-	renderHtml: function() {
+	renderSkeletonHtml: function() {
 		return '' +
 			'<table>' +
 				'<thead class="fc-head">' +
 					'<tr>' +
-						'<td class="' + this.widgetHeaderClass + '">' +
-							this.timeGrid.headHtml() + // render the day-of-week headers
-						'</td>' +
+						'<td class="fc-head-container ' + this.widgetHeaderClass + '"></td>' +
 					'</tr>' +
 				'</thead>' +
 				'<tbody class="fc-body">' +
@@ -66375,61 +67652,53 @@ var AgendaView = View.extend({
 	},
 
 
-	// Generates the HTML that will go before the day-of week header cells.
-	// Queried by the TimeGrid subcomponent when generating rows. Ordering depends on isRTL.
-	headIntroHtml: function() {
-		var date;
-		var weekText;
-
-		if (this.opt('weekNumbers')) {
-			date = this.timeGrid.getCell(0).start;
-			weekText = date.format(this.opt('smallWeekFormat'));
-
-			return '' +
-				'<th class="fc-axis fc-week-number ' + this.widgetHeaderClass + '" ' + this.axisStyleAttr() + '>' +
-					'<span>' + // needed for matchCellWidths
-						htmlEscape(weekText) +
-					'</span>' +
-				'</th>';
-		}
-		else {
-			return '<th class="fc-axis ' + this.widgetHeaderClass + '" ' + this.axisStyleAttr() + '></th>';
-		}
-	},
-
-
-	// Generates the HTML that goes before the all-day cells.
-	// Queried by the DayGrid subcomponent when generating rows. Ordering depends on isRTL.
-	dayIntroHtml: function() {
-		return '' +
-			'<td class="fc-axis ' + this.widgetContentClass + '" ' + this.axisStyleAttr() + '>' +
-				'<span>' + // needed for matchCellWidths
-					(this.opt('allDayHtml') || htmlEscape(this.opt('allDayText'))) +
-				'</span>' +
-			'</td>';
-	},
-
-
-	// Generates the HTML that goes before the bg of the TimeGrid slot area. Long vertical column.
-	slotBgIntroHtml: function() {
-		return '<td class="fc-axis ' + this.widgetContentClass + '" ' + this.axisStyleAttr() + '></td>';
-	},
-
-
-	// Generates the HTML that goes before all other types of cells.
-	// Affects content-skeleton, helper-skeleton, highlight-skeleton for both the time-grid and day-grid.
-	// Queried by the TimeGrid and DayGrid subcomponents when generating rows. Ordering depends on isRTL.
-	introHtml: function() {
-		return '<td class="fc-axis" ' + this.axisStyleAttr() + '></td>';
-	},
-
-
 	// Generates an HTML attribute string for setting the width of the axis, if it is known
 	axisStyleAttr: function() {
 		if (this.axisWidth !== null) {
 			 return 'style="width:' + this.axisWidth + 'px"';
 		}
 		return '';
+	},
+
+
+	/* Business Hours
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	renderBusinessHours: function() {
+		this.timeGrid.renderBusinessHours();
+
+		if (this.dayGrid) {
+			this.dayGrid.renderBusinessHours();
+		}
+	},
+
+
+	unrenderBusinessHours: function() {
+		this.timeGrid.unrenderBusinessHours();
+
+		if (this.dayGrid) {
+			this.dayGrid.unrenderBusinessHours();
+		}
+	},
+
+
+	/* Now Indicator
+	------------------------------------------------------------------------------------------------------------------*/
+
+
+	getNowIndicatorUnit: function() {
+		return this.timeGrid.getNowIndicatorUnit();
+	},
+
+
+	renderNowIndicator: function(date) {
+		this.timeGrid.renderNowIndicator(date);
+	},
+
+
+	unrenderNowIndicator: function() {
+		this.timeGrid.unrenderNowIndicator();
 	},
 
 
@@ -66518,6 +67787,50 @@ var AgendaView = View.extend({
 	},
 
 
+	/* Hit Areas
+	------------------------------------------------------------------------------------------------------------------*/
+	// forward all hit-related method calls to the grids (dayGrid might not be defined)
+
+
+	prepareHits: function() {
+		this.timeGrid.prepareHits();
+		if (this.dayGrid) {
+			this.dayGrid.prepareHits();
+		}
+	},
+
+
+	releaseHits: function() {
+		this.timeGrid.releaseHits();
+		if (this.dayGrid) {
+			this.dayGrid.releaseHits();
+		}
+	},
+
+
+	queryHit: function(left, top) {
+		var hit = this.timeGrid.queryHit(left, top);
+
+		if (!hit && this.dayGrid) {
+			hit = this.dayGrid.queryHit(left, top);
+		}
+
+		return hit;
+	},
+
+
+	getHitSpan: function(hit) {
+		// TODO: hit.component is set as a hack to identify where the hit came from
+		return hit.component.getHitSpan(hit);
+	},
+
+
+	getHitEl: function(hit) {
+		// TODO: hit.component is set as a hack to identify where the hit came from
+		return hit.component.getHitEl(hit);
+	},
+
+
 	/* Events
 	------------------------------------------------------------------------------------------------------------------*/
 
@@ -66602,12 +67915,12 @@ var AgendaView = View.extend({
 
 
 	// Renders a visual indication of a selection
-	renderSelection: function(range) {
-		if (range.start.hasTime() || range.end.hasTime()) {
-			this.timeGrid.renderSelection(range);
+	renderSelection: function(span) {
+		if (span.start.hasTime() || span.end.hasTime()) {
+			this.timeGrid.renderSelection(span);
 		}
 		else if (this.dayGrid) {
-			this.dayGrid.renderSelection(range);
+			this.dayGrid.renderSelection(span);
 		}
 	},
 
@@ -66621,6 +67934,79 @@ var AgendaView = View.extend({
 	}
 
 });
+
+
+// Methods that will customize the rendering behavior of the AgendaView's timeGrid
+// TODO: move into TimeGrid
+var agendaTimeGridMethods = {
+
+
+	// Generates the HTML that will go before the day-of week header cells
+	renderHeadIntroHtml: function() {
+		var view = this.view;
+		var weekText;
+
+		if (view.opt('weekNumbers')) {
+			weekText = this.start.format(view.opt('smallWeekFormat'));
+
+			return '' +
+				'<th class="fc-axis fc-week-number ' + view.widgetHeaderClass + '" ' + view.axisStyleAttr() + '>' +
+					'<span>' + // needed for matchCellWidths
+						htmlEscape(weekText) +
+					'</span>' +
+				'</th>';
+		}
+		else {
+			return '<th class="fc-axis ' + view.widgetHeaderClass + '" ' + view.axisStyleAttr() + '></th>';
+		}
+	},
+
+
+	// Generates the HTML that goes before the bg of the TimeGrid slot area. Long vertical column.
+	renderBgIntroHtml: function() {
+		var view = this.view;
+
+		return '<td class="fc-axis ' + view.widgetContentClass + '" ' + view.axisStyleAttr() + '></td>';
+	},
+
+
+	// Generates the HTML that goes before all other types of cells.
+	// Affects content-skeleton, helper-skeleton, highlight-skeleton for both the time-grid and day-grid.
+	renderIntroHtml: function() {
+		var view = this.view;
+
+		return '<td class="fc-axis" ' + view.axisStyleAttr() + '></td>';
+	}
+
+};
+
+
+// Methods that will customize the rendering behavior of the AgendaView's dayGrid
+var agendaDayGridMethods = {
+
+
+	// Generates the HTML that goes before the all-day cells
+	renderBgIntroHtml: function() {
+		var view = this.view;
+
+		return '' +
+			'<td class="fc-axis ' + view.widgetContentClass + '" ' + view.axisStyleAttr() + '>' +
+				'<span>' + // needed for matchCellWidths
+					(view.opt('allDayHtml') || htmlEscape(view.opt('allDayText'))) +
+				'</span>' +
+			'</td>';
+	},
+
+
+	// Generates the HTML that goes before all other types of cells.
+	// Affects content-skeleton, helper-skeleton, highlight-skeleton for both the time-grid and day-grid.
+	renderIntroHtml: function() {
+		var view = this.view;
+
+		return '<td class="fc-axis" ' + view.axisStyleAttr() + '></td>';
+	}
+
+};
 
 ;;
 
@@ -66659,9 +68045,9 @@ fcViews.agendaWeek = {
 };
 ;;
 
-return fc; // export for Node/CommonJS
+return FC; // export for Node/CommonJS
 });;/*!
- * FullCalendar v2.4.0 Google Calendar Plugin
+ * FullCalendar v2.6.0 Google Calendar Plugin
  * Docs & License: http://fullcalendar.io/
  * (c) 2015 Adam Shaw
  */
@@ -66680,11 +68066,11 @@ return fc; // export for Node/CommonJS
 
 
 var API_BASE = 'https://www.googleapis.com/calendar/v3/calendars';
-var fc = $.fullCalendar;
-var applyAll = fc.applyAll;
+var FC = $.fullCalendar;
+var applyAll = FC.applyAll;
 
 
-fc.sourceNormalizers.push(function(sourceOptions) {
+FC.sourceNormalizers.push(function(sourceOptions) {
 	var googleCalendarId = sourceOptions.googleCalendarId;
 	var url = sourceOptions.url;
 	var match;
@@ -66726,7 +68112,7 @@ fc.sourceNormalizers.push(function(sourceOptions) {
 });
 
 
-fc.sourceFetchers.push(function(sourceOptions, start, end, timezone) {
+FC.sourceFetchers.push(function(sourceOptions, start, end, timezone) {
 	if (sourceOptions.googleCalendarId) {
 		return transformOptions(sourceOptions, start, end, timezone, this); // `this` is the calendar
 	}
@@ -66748,7 +68134,7 @@ function transformOptions(sourceOptions, start, end, timezone, calendar) {
 		(calendar.options.googleCalendarError || $.noop).apply(calendar, errorObjs);
 
 		// print error to debug console
-		fc.warn.apply(null, [ message ].concat(apiErrorObjs || []));
+		FC.warn.apply(null, [ message ].concat(apiErrorObjs || []));
 	}
 
 	if (!apiKey) {
@@ -68655,7 +70041,7 @@ function injectQsComponent(url, component) {
   }
 }(this, function () {
 
-/* Chartist.js 0.9.5
+/* Chartist.js 0.9.4
  * Copyright © 2015 Gion Kunz
  * Free to use under the WTFPL license.
  * http://www.wtfpl.net/
@@ -68666,7 +70052,7 @@ function injectQsComponent(url, component) {
  * @module Chartist.Core
  */
 var Chartist = {
-  version: '0.9.5'
+  version: '0.9.4'
 };
 
 (function (window, document, Chartist) {
@@ -68734,6 +70120,21 @@ var Chartist = {
   };
 
   /**
+   * Converts a string to a number while removing the unit if present. If a number is passed then this will be returned unmodified.
+   *
+   * @memberof Chartist.Core
+   * @param {String|Number} value
+   * @return {Number} Returns the string as number or NaN if the passed length could not be converted to pixel
+   */
+  Chartist.stripUnit = function(value) {
+    if(typeof value === 'string') {
+      value = value.replace(/[^0-9\+-\.]/g, '');
+    }
+
+    return +value;
+  };
+
+  /**
    * Converts a number to a string with a unit. If a string is passed then this will be returned unmodified.
    *
    * @memberof Chartist.Core
@@ -68747,24 +70148,6 @@ var Chartist = {
     }
 
     return value;
-  };
-
-  /**
-   * Converts a number or string to a quantity object.
-   *
-   * @memberof Chartist.Core
-   * @param {String|Number} input
-   * @return {Object} Returns an object containing the value as number and the unit as string.
-   */
-  Chartist.quantity = function(input) {
-    if (typeof input === 'string') {
-      var match = (/^(\d+)\s*(.*)$/g).exec(input);
-      return {
-        value : +match[1],
-        unit: match[2] || undefined
-      };
-    }
-    return { value: input };
   };
 
   /**
@@ -69107,7 +70490,7 @@ var Chartist = {
    * @return {Number} The height of the area in the chart for the data series
    */
   Chartist.getAvailableHeight = function (svg, options) {
-    return Math.max((Chartist.quantity(options.height).value || svg.height()) - (options.chartPadding.top +  options.chartPadding.bottom) - options.axisX.offset, 0);
+    return Math.max((Chartist.stripUnit(options.height) || svg.height()) - (options.chartPadding.top +  options.chartPadding.bottom) - options.axisX.offset, 0);
   };
 
   /**
@@ -69362,7 +70745,7 @@ var Chartist = {
    * @param {Number} centerY X-axis coordinates of center point of circle segment
    * @param {Number} radius Radius of circle segment
    * @param {Number} angleInDegrees Angle of circle segment in degrees
-   * @return {{x:Number, y:Number}} Coordinates of point on circumference
+   * @return {Number} Coordinates of point on circumference
    */
   Chartist.polarToCartesian = function (centerX, centerY, radius, angleInDegrees) {
     var angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
@@ -69387,8 +70770,8 @@ var Chartist = {
     var yAxisOffset = hasAxis ? options.axisY.offset : 0;
     var xAxisOffset = hasAxis ? options.axisX.offset : 0;
     // If width or height results in invalid value (including 0) we fallback to the unitless settings or even 0
-    var width = svg.width() || Chartist.quantity(options.width).value || 0;
-    var height = svg.height() || Chartist.quantity(options.height).value || 0;
+    var width = svg.width() || Chartist.stripUnit(options.width) || 0;
+    var height = svg.height() || Chartist.stripUnit(options.height) || 0;
     var normalizedPadding = Chartist.normalizePadding(options.chartPadding, fallbackPadding);
 
     // If settings were to small to cope with offset (legacy) and padding, we'll adjust
@@ -69611,45 +70994,30 @@ var Chartist = {
   /**
    * This interpolation function does not smooth the path and the result is only containing lines and no curves.
    *
-   * @example
-   * var chart = new Chartist.Line('.ct-chart', {
-   *   labels: [1, 2, 3, 4, 5],
-   *   series: [[1, 2, 8, 1, 7]]
-   * }, {
-   *   lineSmooth: Chartist.Interpolation.none({
-   *     fillHoles: false
-   *   })
-   * });
-   *
-   *
    * @memberof Chartist.Interpolation
    * @return {Function}
    */
-  Chartist.Interpolation.none = function(options) {
-    var defaultOptions = {
-      fillHoles: false
-    };
-    options = Chartist.extend({}, defaultOptions, options);
+  Chartist.Interpolation.none = function() {
     return function none(pathCoordinates, valueData) {
       var path = new Chartist.Svg.Path();
+      // We need to assume that the first value is a "hole"
       var hole = true;
 
-      for(var i = 0; i < pathCoordinates.length; i += 2) {
-        var currX = pathCoordinates[i];
-        var currY = pathCoordinates[i + 1];
-        var currData = valueData[i / 2];
+      for(var i = 1; i < pathCoordinates.length; i += 2) {
+        var data = valueData[(i - 1) / 2];
 
-        if(currData.value !== undefined) {
-
-          if(hole) {
-            path.move(currX, currY, false, currData);
-          } else {
-            path.line(currX, currY, false, currData);
-          }
-
-          hole = false;
-        } else if(!options.fillHoles) {
+        // If the current value is undefined we should treat it as a hole start
+        if(data.value === undefined) {
           hole = true;
+        } else {
+          // If this value is valid we need to check if we're coming out of a hole
+          if(hole) {
+            // If we are coming out of a hole we should first make a move and also reset the hole flag
+            path.move(pathCoordinates[i - 1], pathCoordinates[i], false, data);
+            hole = false;
+          } else {
+            path.line(pathCoordinates[i - 1], pathCoordinates[i], false, data);
+          }
         }
       }
 
@@ -69670,8 +71038,7 @@ var Chartist = {
    *   series: [[1, 2, 8, 1, 7]]
    * }, {
    *   lineSmooth: Chartist.Interpolation.simple({
-   *     divisor: 2,
-   *     fillHoles: false
+   *     divisor: 2
    *   })
    * });
    *
@@ -69682,8 +71049,7 @@ var Chartist = {
    */
   Chartist.Interpolation.simple = function(options) {
     var defaultOptions = {
-      divisor: 2,
-      fillHoles: false
+      divisor: 2
     };
     options = Chartist.extend({}, defaultOptions, options);
 
@@ -69691,19 +71057,26 @@ var Chartist = {
 
     return function simple(pathCoordinates, valueData) {
       var path = new Chartist.Svg.Path();
-      var prevX, prevY, prevData;
+      var hole = true;
 
-      for(var i = 0; i < pathCoordinates.length; i += 2) {
+      for(var i = 2; i < pathCoordinates.length; i += 2) {
+        var prevX = pathCoordinates[i - 2];
+        var prevY = pathCoordinates[i - 1];
         var currX = pathCoordinates[i];
         var currY = pathCoordinates[i + 1];
         var length = (currX - prevX) * d;
+        var prevData = valueData[(i / 2) - 1];
         var currData = valueData[i / 2];
 
-        if(currData.value !== undefined) {
+        if(prevData.value === undefined) {
+          hole = true;
+        } else {
 
-          if(prevData === undefined) {
-            path.move(currX, currY, false, currData);
-          } else {
+          if(hole) {
+            path.move(prevX, prevY, false, prevData);
+          }
+
+          if(currData.value !== undefined) {
             path.curve(
               prevX + length,
               prevY,
@@ -69714,13 +71087,9 @@ var Chartist = {
               false,
               currData
             );
-          }
 
-          prevX = currX;
-          prevY = currY;
-          prevData = currData;
-        } else if(!options.fillHoles) {
-          prevX = currX = prevData = undefined;
+            hole = false;
+          }
         }
       }
 
@@ -69741,8 +71110,7 @@ var Chartist = {
    *   series: [[1, 2, 8, 1, 7]]
    * }, {
    *   lineSmooth: Chartist.Interpolation.cardinal({
-   *     tension: 1,
-   *     fillHoles: false
+   *     tension: 1
    *   })
    * });
    *
@@ -69752,8 +71120,7 @@ var Chartist = {
    */
   Chartist.Interpolation.cardinal = function(options) {
     var defaultOptions = {
-      tension: 1,
-      fillHoles: false
+      tension: 1
     };
 
     options = Chartist.extend({}, defaultOptions, options);
@@ -69771,9 +71138,7 @@ var Chartist = {
       for(var i = 0; i < pathCoordinates.length; i += 2) {
         // If this value is a "hole" we set the hole flag
         if(valueData[i / 2].value === undefined) {
-          if(!options.fillHoles) {
-            hole = true;
-          }
+          hole = true;
         } else {
           // If it's a valid value we need to check if we're coming out of a hole and create a new empty segment
           if(hole) {
@@ -69875,8 +71240,7 @@ var Chartist = {
    *   series: [[1, 2, 8, 1, 7]]
    * }, {
    *   lineSmooth: Chartist.Interpolation.step({
-   *     postpone: true,
-   *     fillHoles: false
+   *     postpone: true
    *   })
    * });
    *
@@ -69886,27 +71250,34 @@ var Chartist = {
    */
   Chartist.Interpolation.step = function(options) {
     var defaultOptions = {
-      postpone: true,
-      fillHoles: false
+      postpone: true
     };
 
     options = Chartist.extend({}, defaultOptions, options);
 
     return function step(pathCoordinates, valueData) {
       var path = new Chartist.Svg.Path();
+      var hole = true;
 
-      var prevX, prevY, prevData;
-
-      for (var i = 0; i < pathCoordinates.length; i += 2) {
+      for (var i = 2; i < pathCoordinates.length; i += 2) {
+        var prevX = pathCoordinates[i - 2];
+        var prevY = pathCoordinates[i - 1];
         var currX = pathCoordinates[i];
         var currY = pathCoordinates[i + 1];
+        var prevData = valueData[(i / 2) - 1];
         var currData = valueData[i / 2];
 
-        // If the current point is also not a hole we can draw the step lines
-        if(currData.value !== undefined) {
-          if(prevData === undefined) {
-            path.move(currX, currY, false, currData);
-          } else {
+        // If last point is a "hole"
+        if(prevData.value === undefined) {
+          hole = true;
+        } else {
+          // If last point is not a "hole" but we just came back out of a "hole" we need to move first
+          if(hole) {
+            path.move(prevX, prevY, false, prevData);
+          }
+
+          // If the current point is also not a hole we can draw the step lines
+          if(currData.value !== undefined) {
             if(options.postpone) {
               // If postponed we should draw the step line with the value of the previous value
               path.line(currX, prevY, false, prevData);
@@ -69916,13 +71287,9 @@ var Chartist = {
             }
             // Line to the actual point (this should only be a Y-Axis movement
             path.line(currX, currY, false, currData);
+            // Reset the "hole" flag as previous and current point have valid values
+            hole = false;
           }
-
-          prevX = currX;
-          prevY = currY;
-          prevData = currData;
-        } else if(!options.fillHoles) {
-          prevX = prevY = prevData = undefined;
         }
       }
 
@@ -70744,7 +72111,7 @@ var Chartist = {
 
           // In guided mode we also set begin to indefinite so we can trigger the start manually and put the begin
           // which needs to be in ms aside
-          timeout = Chartist.quantity(animationDefinition.begin || 0).value;
+          timeout = Chartist.stripUnit(animationDefinition.begin || 0);
           animationDefinition.begin = 'indefinite';
         }
 
@@ -71504,9 +72871,6 @@ var Chartist = {
     this.ticks = options.ticks || Chartist.times(this.divisor).map(function(value, index) {
       return highLow.low + (highLow.high - highLow.low) / this.divisor * index;
     }.bind(this));
-    this.ticks.sort(function(a, b) {
-      return a - b;
-    });
     this.range = {
       min: highLow.low,
       max: highLow.high
@@ -72062,11 +73426,8 @@ var Chartist = {
     },
     // Specify the distance in pixel of bars in a group
     seriesBarDistance: 15,
-    // If set to true this property will cause the series bars to be stacked. Check the `stackMode` option for further stacking options.
+    // If set to true this property will cause the series bars to be stacked and form a total for each series point. This will also influence the y-axis and the overall bounds of the chart. In stacked mode the seriesBarDistance property will have no effect.
     stackBars: false,
-    // If set to 'overlap' this property will force the stacked bars to draw from the zero line.
-    // If set to 'accumulate' this property will form a total for each series point. This will also influence the y-axis and the overall bounds of the chart. In stacked mode the seriesBarDistance property will have no effect.
-    stackMode: 'accumulate',
     // Inverts the axes of the bar chart in order to draw a horizontal bar chart. Be aware that you also need to invert your axis settings as the Y Axis will now display the labels and the X Axis the values.
     horizontalBars: false,
     // If set to true then each bar will represent a series and the data array is expected to be a one dimensional array of data values rather than a series array of series. This is useful if the bar chart should represent a profile rather than some data over time.
@@ -72309,20 +73670,9 @@ var Chartist = {
         var positions = {};
         positions[labelAxis.units.pos + '1'] = projected[labelAxis.units.pos];
         positions[labelAxis.units.pos + '2'] = projected[labelAxis.units.pos];
-
-        if(options.stackBars && (options.stackMode === 'accumulate' || !options.stackMode)) {
-          // Stack mode: accumulate (default)
-          // If bars are stacked we use the stackedBarValues reference and otherwise base all bars off the zero line
-          // We want backwards compatibility, so the expected fallback without the 'stackMode' option
-          // to be the original behaviour (accumulate)
-          positions[labelAxis.counterUnits.pos + '1'] = previousStack;
-          positions[labelAxis.counterUnits.pos + '2'] = stackedBarValues[valueIndex];
-        } else {
-          // Draw from the zero line normally
-          // This is also the same code for Stack mode: overlap
-          positions[labelAxis.counterUnits.pos + '1'] = zeroPoint;
-          positions[labelAxis.counterUnits.pos + '2'] = projected[labelAxis.counterUnits.pos];
-        }
+        // If bars are stacked we use the stackedBarValues reference and otherwise base all bars off the zero line
+        positions[labelAxis.counterUnits.pos + '1'] = options.stackBars ? previousStack : zeroPoint;
+        positions[labelAxis.counterUnits.pos + '2'] = options.stackBars ? stackedBarValues[valueIndex] : projected[labelAxis.counterUnits.pos];
 
         // Limit x and y so that they are within the chart rect
         positions.x1 = Math.min(Math.max(positions.x1, chartRect.x1), chartRect.x2);
@@ -72454,7 +73804,6 @@ var Chartist = {
     // If specified the donut CSS classes will be used and strokes will be drawn instead of pie slices.
     donut: false,
     // Specify the donut stroke width, currently done in javascript for convenience. May move to CSS styles in the future.
-    // This option can be set as number or string to specify a relative width (i.e. 100 or '30%').
     donutWidth: 60,
     // If a label should be shown or not
     showLabel: true,
@@ -72518,15 +73867,10 @@ var Chartist = {
       return previousValue + currentValue;
     }, 0);
 
-    var donutWidth = Chartist.quantity(options.donutWidth);
-    if (donutWidth.unit === '%') {
-      donutWidth.value *= radius / 100;
-    }
-
     // If this is a donut chart we need to adjust our radius to enable strokes to be drawn inside
     // Unfortunately this is not possible with the current SVG Spec
     // See this proposal for more details: http://lists.w3.org/Archives/Public/www-svg/2003Oct/0000.html
-    radius -= options.donut ? donutWidth.value / 2  : 0;
+    radius -= options.donut ? options.donutWidth / 2  : 0;
 
     // If labelPosition is set to `outside` or a donut chart is drawn then the label position is at the radius,
     // if regular pie chart it's half of the radius
@@ -72611,7 +73955,7 @@ var Chartist = {
       // If this is a donut, we add the stroke-width as style attribute
       if(options.donut) {
         pathElement.attr({
-          'style': 'stroke-width: ' + donutWidth.value + 'px'
+          'style': 'stroke-width: ' + (+options.donutWidth) + 'px'
         });
       }
 

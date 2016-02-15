@@ -3,27 +3,7 @@ include includes/nav
 .container(ng-controller='dashController')
 	.row
 		.col-xs-12
-			ol.breadcrumb
-				li
-					a(href='/',target='_self') Home
-				li.active Overview
-			ng-include(src="'views/templates/alert'", ng-show='isAlertEnabled')
-			.calendar(ui-calendar='uiConfig.calendar', ng-model='eventSources', calendar='myCalendar')
-			#loadingCalendar(ng-show='!eventSources.length')
-			h1 Statistics
-	.row
-		div(ng-class="{'hidden':!chartist.data.series.length, 'col-lg-6':chartist.data.series.length}", style='height:300px')
-			chartist.ct-chart(chartist-data='chartist.data', chartist-chart-type='Pie', chartist-chart-options='chartist.options', chartist-responsive-options='chartist.responsiveOptions', chartist-events='chartist.events')
-		div(ng-class="{'col-xs-12':!chartist.data.series.length, 'col-xs-6':chartist.data.series.length}")
-			ul.list-group(ng-show='eventGroups.length', ng-cloak='')
-				li.list-group-item(ng-repeat='e in eventGroups',style='padding:0 15px')
-					include templates/event
-				li.list-group-item(style='background-color: #eeeeee')
-					h4(style='margin:25px 0') Total time
-						.pull-right {{totalTime}}
-			.alert.alert-warning(role='alert', ng-show='!eventGroups.length')
-				p No events found during this period!
-	.row#loadingChart(ng-if='!chartist.data.series.length')
-	include templates/editevent
+			h1.text-center Loading ...
+			#loadingDashboard
 include includes/js
 script(type='text/javascript', src='/js/dashcontroller.js')
