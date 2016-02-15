@@ -69,6 +69,7 @@ ap
 ap
 	.route(/\/profile((\/\w+)+)?\/?/)
 	.get(function * (next) {
+		// return render-able
 		this.render(
 			'profile',
 			{
@@ -86,6 +87,7 @@ ap
 		if (this.request.params.length && this.request.params[0]) {
 			// remove leading '/'
 			var name = this.request.params[0].replace(/^\//gi, '');
+			// return render-able
 			this.render(
 				name,
 				{

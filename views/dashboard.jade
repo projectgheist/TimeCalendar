@@ -2,7 +2,7 @@ include includes/header
 include includes/nav
 .container(ng-controller='dashController')
 	.row
-		.col-xs-12
+		.col-xs-12(style='height:8rem')
 			ng-include(src="'views/templates/alert'", ng-show='isAlertEnabled')
 			.row#loadingDashboard
 	.row
@@ -16,9 +16,18 @@ include includes/nav
 							a.btn.btn-default(href='/edit/eventnames', target='_self')
 								i.fa.fa-search.fa-fw
 						input.form-control(type='text',placeholder='Event name',ng-model='eventName',ng-required,uib-typeahead='e.event.name for e in getEvents($viewValue)',typeahead-loading='loadingEvents',typeahead-no-results='noEvents',typeahead-on-select='onTypeAheadSelect($item, $model, $label)')
-					.alert(ng-class="{'alert-info':noEvents, 'alert-warning':loadingEvents}", ng-show='loadingEvents || noEvents', ng-cloak='')
-						p(ng-show='loadingEvents') Loading ...
-						p(ng-show='noEvents') No events found!
+					div(style='height:8rem')
+						.row(ng-hide='!eventName || eventName.length < 2 || loadingEvents || noEvents')
+							.col-sm-12
+								.text-right
+									button.btn.btn-primary(type='button',ng-click='submitEventItem()') Start {{eventName}}
+						.alert(ng-class="{'alert-info':noEvents, 'alert-warning':loadingEvents}", ng-show='loadingEvents || noEvents', ng-cloak='', style='margin:0')
+							p(ng-show='loadingEvents') Loading ...
+							.row(ng-show='noEvents')
+								.col-sm-8
+									p No match found! Create new?
+								.col-sm-4
+									button.btn.btn-primary(type='button',ng-click='submitEventItem()') Start
 				.row.hidden
 					.col-xs-6
 						.form-group
@@ -28,7 +37,6 @@ include includes/nav
 						.form-group
 							label.sr-only Background color
 							input.form-control.minicolors#bgcolor(type='hidden',ng-model='bgcolor',data-control='saturation',placeholder='Background color',value='{{bgcolor}}')
-				button.btn.btn-primary(type='button',ng-click='submitEventItem()') Start
 			h2 In progress
 			.form-group(ng-if='eventSources && eventSources.length && eventSources[0].length', ng-cloak='')
 				.input-group(ng-repeat='e in eventSources[0]')

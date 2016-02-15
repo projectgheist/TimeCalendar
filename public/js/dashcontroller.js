@@ -61,6 +61,8 @@
 		'uiCalendarConfig'
 	];
 
+	/** The controller class to use
+	 */
 	function dashController ($rootScope, $scope, $http, $location, $route, $routeParams, $anchorScroll, $sce, $interval, $timeout, $window, dashService, uiCalendarConfig) {
 		// !Prevents the page from scrolling to the id
 		$('.nav-tabs a').click(function (e) {
@@ -87,14 +89,19 @@
 		
 		// day or week calendar view
 		$scope.isWeekView = ($location.$$path === '/overview' ? true : false);
+		
+		// external profile
+		$scope.isMyProfile = $location.$$path.match(/\/profile\/.*?/gi) ? false : true;
 
 		// config object for calendar
 		$scope.uiConfig = {
 			calendar: {
+				// Height of the calendar canvas
 				height: 450,
 				// Flag true when an allDay event is present
 				allDaySlot: false,
-				editable: true,
+				// Flag true to make changes to the calendar
+				editable: $scope.isMyProfile,
 				// how far down the scroll pane is initially scrolled down
 				scrollTime: moment().format('HH') + ':00:00',
 				// initial view when the calendar loads
@@ -104,6 +111,8 @@
 					center: 'title',
 					right: '', // 'today prev,next'
 				},
+				// Comment if want to show column headings
+				dayNames: ['', '', '', '', '', '', ''],
 				buttonText: {
 					today: 'Today',
 					month: 'Month',
@@ -120,6 +129,8 @@
 				slotLabelInterval: '01:00:00',
 				// Format of the label on the left side
 				slotLabelFormat: 'h(:mm) a',
+				// Display a marker indicating the current time
+				nowIndicator: true,
 				/*
 				// Hide buttons/titles
 				header: false,
@@ -127,6 +138,8 @@
 				columnFormat: {
 					week: 'ddd' // Only show day of the week names
 				},
+				// When a day is clicked
+				dayClick: onDayClick,
 				// When an event is selected
 				eventClick: onEventClick,
 				eventDrop: onEventModify,
@@ -134,14 +147,17 @@
 			}
 		};
 		
-		//
+		// Declare elements that require a loading bar
 		var loadingbarIds = [
 			'#loadingChart',
 			'#loadingCalendar',
 			'#loadingDashboard'
 		];
+		
+		// Newly created loading bars for the above elements
 		var loadingbars = [];
 		
+		// construct the loading bars
 		for (var q in loadingbarIds) {
 			// make sure that the id exists
 			if ($(loadingbarIds[q]).length) {
@@ -150,6 +166,7 @@
 					parent: loadingbarIds[q],
 					start: true  // start it now
 				});
+				// add to array
 				loadingbars.push(newBar);
 			}
 		}
@@ -163,10 +180,30 @@
 			$scope.datepicker.opened = true;
 		};
 
-		//
+		/**
+		 * Only gets called when event is clicked
+		 */
+		function onDayClick (date, jsEvent, view) {
+			// check if valid event
+			if ($scope.eventName) {
+				// set to retrieved date from click event
+				$scope.startDate = date;
+				// make the event last 1 hour
+				$scope.eventDuration = moment.duration(1, 'hours').valueOf();
+				// submit the event
+				$scope.submitEventItem();
+				// reset the event name
+				$scope.eventName = '';
+			}
+		};
+		
+		/**
+		 * Only gets called when event is clicked
+		 */
 		function onEventClick (event, jsEvent, view) {
 			// set modal header text
 			$('#modalTitle').text(event.title);
+			// store event name
 			$scope.eventName = event.title;
 			// set date
 			$scope.newDate = moment(event.start).startOf('day').format('DD MMMM YYYY');
@@ -199,11 +236,12 @@
 		};
 
 		// Set default colors
+		$scope.eventDuration = false;
 		$scope.textcolor = '#fff';
 		$scope.materialColors = ['#F44336', '#009688', '#9C27B0', '#673AB7', '#3F51B5', '#2196F3', '#03A9F4', '#00BCD4', '#E91E63'];
-		$scope.bgcolor = $scope.materialColors[Math.floor(Math.random() * $scope.materialColors.length)];
+		$scope.bgcolor = false;
 
-		//
+		// Set default start time and format for string
 		$scope.updateStartDate = function () {
 			$scope.startDate = moment();
 			$scope.startDateFormat = $scope.startDate.format('MMM DD, HH:mm');
@@ -228,29 +266,41 @@
 
 		// POST new event
 		$scope.submitEventItem = function () {
+			if (!$scope.bgcolor) {
+				// change to a different color
+				$scope.bgcolor = $scope.materialColors[Math.floor(Math.random() * $scope.materialColors.length)];
+			}
 			dashService.eventItems().save({
 				name: $scope.eventName,
 				desc: $scope.eventDesc,
 				fontTextColor: $('#textcolor').minicolors('value'),
 				fontBgColor: $('#bgcolor').minicolors('value'),
+				// start time
 				st: moment($scope.startDate).valueOf(),
-				td: 0
+				// total time
+				td: $scope.eventDuration || 0
 			}, function (res) {
 				// show alert
 				$scope.showAlert('alert-success', ['Successfully started new <b>', $scope.eventName,'</b> event!'].join(''));
-				// change to a different color
-				$scope.bgcolor = $scope.materialColors[Math.floor(Math.random() * $scope.materialColors.length)];
-				// re fetch events
+				// reset event duration
+				$scope.eventDuration = false;
+				// reset event background color
+				$scope.bgcolor = false;
+				// re-fetch events
 				$scope.getEventItems();
 			}, function (ignore) {
-				$scope.alertStyle = 'alert-danger';
-				$scope.alertMessage = 'Something when wrong submitting new event!';
+				// show alert
+				$scope.showAlert('alert-danger', ['Something when wrong submitting <b>', $scope.eventName,'</b> event!'].join(''));
+				// reset event duration
+				$scope.eventDuration = false;
 			});
 		};
 
 		// Retrieve event types 
 		$scope.onTypeAheadSelect = function (item, model, label) {
+			// set font color
 			$('#textcolor').minicolors('value', item.fontTextColor);
+			// set background color
 			$('#bgcolor').minicolors('value', item.fontBgColor);
 		};
 
@@ -272,7 +322,7 @@
 			dashService.eventItems().save({'id': eventItem.id}, function (res) {
 				// show alert
 				$scope.showAlert('alert-success', ['Successfully stopped <b>', eventItem.title,'</b> event!'].join(''));
-				// re fetch events
+				// re-fetch events
 				$scope.getEventItems();
 			}, function (ignore) {
 				// show alert
@@ -290,14 +340,17 @@
 
 		//
 		$scope.setNewEvent = function (val) {
+			// store event name
 			$scope.eventName = val.title;
+			// set font color
 			$('#textcolor').minicolors('value', val.textColor);
+			// set background color
 			$('#bgcolor').minicolors('value', val.color);
 		};
 
 		//
 		$scope.setRunningEvents = function () {
-			//
+			// Update start time
 			$scope.updateStartDate();
 			//
 			if ($scope.eventSources.length) {
@@ -315,9 +368,9 @@
 				}
 				// force calendar re-render
 				var calendar = uiCalendarConfig.calendars.myCalendar;
-				calendar.fullCalendar('removeEvents');
-				calendar.fullCalendar('addEventSource', $scope.eventSources[0]);
-				calendar.fullCalendar('addEventSource', $scope.eventSources[1]);
+				if (calendar) {
+					calendar.fullCalendar('refetchEvents');
+				}
 			}
 		};
 
@@ -338,6 +391,7 @@
 		// Retrieve event types 
 		$scope.getEventItems = function () {
 			var params = {};
+			// Decide start date dependant on calendar view
 			if ($scope.isWeekView) {
 				params.st = moment().startOf('week').valueOf();
 			} else {
@@ -461,7 +515,7 @@
 			}
 		};
 		
-		//
+		// Display an alert message on the page
 		$scope.showAlert = function (style, message) {
 			// check if alert is already being rendered
 			if ($scope.isAlertEnabled) {
@@ -481,7 +535,8 @@
 			}
 			// auto hide alert
 			$timeout(function () {
-				$('.alert').fadeTo(2000, 500).slideUp(500, function () {
+				var displayTime = 1500;
+				$('.alert').fadeTo(2000, displayTime).slideUp(500, function () {
 					// reset value
 					$scope.isAlertEnabled = false;
 					// display the next alert in the list
