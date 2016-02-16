@@ -369,7 +369,7 @@
 				// force calendar re-render
 				var calendar = uiCalendarConfig.calendars.myCalendar;
 				if (calendar) {
-					calendar.fullCalendar('refetchEvents');
+					calendar.fullCalendar('rerenderEvents');
 				}
 			}
 		};
