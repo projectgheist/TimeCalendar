@@ -12,8 +12,13 @@ route
 	/** Retrieve all event items */
 	.get(function * (next) {
 		if (this.req.isAuthenticated()) {
+			// get arguments
 			var params = this.request.query || this.request.body;
+			// find start time
 			var searchTime = (params.st ? mm(parseInt(params.st, 0)) : mm().startOf('day')).toDate();
+			// find end time
+			var endTime = searchTime.add(1, 'day').startOf('day').toDate();
+			// retrieve all event items
 			var events = yield db.all(db.EventItem, {
 				sort: {
 					endTime: -1
@@ -23,12 +28,16 @@ route
 						user: mg.Types.ObjectId(this.req.user)
 					}, {
 						$or: [ {
-							startTime: { // only today's items
-								$gt: searchTime
+							startTime: {
+								$gt: searchTime // only today's items
 							}
 						}, {
-							duration: { // still running items
-								$lte: 0
+							duration: {
+								$lte: 0 // still running items
+							}
+						}, {
+							endTime: {
+								$lte: endTime // finished on the search day
 							}
 						} ]
 					} ]
@@ -138,7 +147,7 @@ function StopEventItem (Item, Options) {
 	Item.endTime = Options.et ? mm(parseInt(Options.et, 0)) : (Item.endTime || mm().add(1, 'minute').startOf('minute'));
 	// !duration needs to be a value larger then 0
 	Item.duration = mm(Item.endTime).diff(Item.startTime);
-}
+};
 
 route
 	/** Add a new event item */
