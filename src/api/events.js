@@ -49,10 +49,16 @@ route
 					path: 'tags'
 				}
 			});
+			
+			// declare local variables
 			var running = [];
 			var completed = [];
+			
+			// seperate events into completed and running categories
 			for (var i in events) {
+				// declare reference
 				var ref = events[i];
+				// find duration of event
 				var d = ref.duration || mm().diff(ref.startTime);
 				// format that the calendar uses
 				var n = {
@@ -65,32 +71,32 @@ route
 					color: ref.event.fontBgColor || '#000',
 					textColor: ref.event.fontTextColor || '#fff'
 				};
+				// push to specific array
 				if (ref.duration > 0) {
 					completed.push(n);
 				} else {
 					running.push(n);
 				}
 			}
+
 			// find all event items with a start time of supplied
 			var grouped = yield db.EventItem
 				.aggregate([
 					{
 						$match: {
-							startTime: { // only today's items
-								$gt: searchTime
+							startTime: {
+								$gt: searchTime // only today's items
 							},
 							// All events from a specific user
 							user: mg.Types.ObjectId(this.req.user)
 						}
-					},
-					{
+					}, {
 						$group: {
 							_id: '$event', // !required
 							count: {$sum: 1},
 							duration: {$sum: '$duration'}
 						}
-					},
-					{
+					}, {
 						$sort: {
 							duration: -1 // descending
 						}
@@ -98,6 +104,7 @@ route
 				], function (ignore, res) {
 					return res;
 				});
+
 			// find all events associated with the found event items
 			var populated = yield db.Event.find({
 				_id: {
@@ -108,8 +115,10 @@ route
 			}, function (ignore, res) {
 				return res;
 			});
+
 			// declare total time variable
 			var totalTime = 0;
+
 			// populate the event items' event with events
 			for (var j in grouped) {
 				for (var h in populated) {
@@ -128,6 +137,8 @@ route
 				// increment total time
 				totalTime += grouped[j].duration;
 			}
+			
+			// return found data
 			this.body = {'array': [running, completed], groups: grouped, time: totalTime};
 			this.status = 200;
 		} else {
