@@ -14,10 +14,12 @@ route
 		if (this.req.isAuthenticated()) {
 			// get arguments
 			var params = this.request.query || this.request.body;
-			// find start time
-			var searchTime = (params.st ? mm(parseInt(params.st, 0)) : mm().startOf('day')).toDate();
+			// find start time in momentjs format
+			var momentTime = (params.st ? mm(parseInt(params.st, 0)) : mm().startOf('day'));
+			// convert time to datetime
+			var searchTime = momentTime.toDate();
 			// find end time
-			var endTime = searchTime.add(1, 'day').startOf('day').toDate();
+			var endTime = momentTime.add(1, 'day').startOf('day').toDate();
 			// retrieve all event items
 			var events = yield db.all(db.EventItem, {
 				sort: {
