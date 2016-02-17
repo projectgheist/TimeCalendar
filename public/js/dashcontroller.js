@@ -1,6 +1,8 @@
 (function () {
 	'use strict';
 
+	/**
+	 */
 	angular
 		.module('webapp')
 		.controller('dashController', dashController)
@@ -352,8 +354,14 @@
 		$scope.setRunningEvents = function () {
 			// Update start time
 			$scope.updateStartDate();
-			//
-			if ($scope.eventSources.length) {
+			// events present AND running events
+			if ($scope.eventSources.length && $scope.eventSources[0].length) {
+				// get calendar
+				var calendar = uiCalendarConfig.calendars.myCalendar;
+				// clear the previous events in the calendar
+				if (calendar) {
+					calendar.fullCalendar('removeEventSource', $scope.eventSources[0]);
+				}				
 				// reference to running events array
 				var ref = $scope.eventSources[0];
 				// loop all running events
@@ -366,10 +374,9 @@
 						ref[i].duration = moment(moment().diff(moment(ref[i].start))).format('HH:mm');
 					}
 				}
-				// force calendar re-render
-				var calendar = uiCalendarConfig.calendars.myCalendar;
+				// re-add the updated events
 				if (calendar) {
-					calendar.fullCalendar('rerenderEvents');
+					calendar.fullCalendar('addEventSource', $scope.eventSources[0]);
 				}
 			}
 		};
@@ -402,7 +409,7 @@
 				loadingbars[b].start();
 			}
 			dashService.eventItems().get(params, function (res) {
-				// store the events to the calendar
+				// store the events that are displayed on the calendar
 				$scope.eventSources = res.array;
 				// store event group data
 				$scope.eventGroups = res.groups;
@@ -478,10 +485,16 @@
 						$scope.uiConfig.calendar.maxTime = newMaxTime;
 					}
 				}
+				// get calendar
+				var calendar = uiCalendarConfig.calendars.myCalendar;
+				// clear all events
+				if (calendar) {
+					calendar.fullCalendar('removeEvents');
+				}
 				// Update events
 				$scope.setRunningEvents();
-				// format duration of todays previous events
-				if ($scope.eventSources.length) {
+				// format duration of today's previous events
+				if ($scope.eventSources.length && $scope.eventSources[1].length) {
 					var ref = $scope.eventSources[1];
 					// loop all running events
 					for (var i in ref) {
@@ -489,6 +502,9 @@
 							// format duration time
 							ref[i].duration = moment(ref[i].duration).format('HH:mm');
 						}
+					}
+					if (calendar) {
+						calendar.fullCalendar('addEventSource', $scope.eventSources[1]);
 					}
 				}
 				// end loading bars
