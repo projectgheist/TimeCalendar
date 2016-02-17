@@ -17,17 +17,19 @@ include includes/nav
 								i.fa.fa-search.fa-fw
 						input.form-control(type='text',placeholder='Event name',ng-model='eventName',ng-required,uib-typeahead='e.event.name for e in getEvents($viewValue)',typeahead-loading='loadingEvents',typeahead-no-results='noEvents',typeahead-on-select='onTypeAheadSelect($item, $model, $label)')
 					div(style='height:8rem')
-						.row(ng-hide='!eventName || eventName.length < 2 || loadingEvents || noEvents')
+						.row(ng-hide='!loadingEvents && !noEventSelected && eventName && eventName.length >= 2')
 							.col-sm-12
 								.text-right
 									button.btn.btn-primary(type='button',ng-click='submitEventItem()') Start {{eventName}}
 						.alert(ng-class="{'alert-info':noEvents, 'alert-warning':loadingEvents}", ng-show='loadingEvents || noEvents', ng-cloak='', style='margin:0')
 							p(ng-show='loadingEvents') Loading ...
-							.row(ng-show='noEvents')
-								.col-sm-8
-									p No match found! Create new?
-								.col-sm-4
-									button.btn.btn-primary(type='button',ng-click='submitEventItem()') Start
+							div(ng-show='noEventSelected')
+								.row							
+									.col-sm-12
+										.input-group
+											p No match found or selected!
+											span.input-group-btn
+												button.btn.pull-right(type='button',ng-click='submitEventItem()') Create new?
 				.row.hidden
 					.col-xs-6
 						.form-group

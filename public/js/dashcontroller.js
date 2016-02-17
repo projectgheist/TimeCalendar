@@ -242,6 +242,7 @@
 		$scope.textcolor = '#fff';
 		$scope.materialColors = ['#F44336', '#009688', '#9C27B0', '#673AB7', '#3F51B5', '#2196F3', '#03A9F4', '#00BCD4', '#E91E63'];
 		$scope.bgcolor = false;
+		$scope.noEventSelected = true;
 
 		// Set default start time and format for string
 		$scope.updateStartDate = function () {
@@ -284,6 +285,8 @@
 			}, function (res) {
 				// show alert
 				$scope.showAlert('alert-success', ['Successfully started new <b>', $scope.eventName,'</b> event!'].join(''));
+				// Flag variable
+				$scope.noEventSelected = false;
 				// reset event duration
 				$scope.eventDuration = false;
 				// reset event background color
@@ -293,6 +296,8 @@
 			}, function (ignore) {
 				// show alert
 				$scope.showAlert('alert-danger', ['Something when wrong submitting <b>', $scope.eventName,'</b> event!'].join(''));
+				// Flag variable
+				$scope.noEventSelected = false;
 				// reset event duration
 				$scope.eventDuration = false;
 			});
@@ -304,6 +309,8 @@
 			$('#textcolor').minicolors('value', item.fontTextColor);
 			// set background color
 			$('#bgcolor').minicolors('value', item.fontBgColor);
+			// Flag variable
+			$scope.noEventSelected = false;
 		};
 
 		// Post a stop all current running events
