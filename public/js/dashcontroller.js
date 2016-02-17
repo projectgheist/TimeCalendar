@@ -15,7 +15,8 @@
 	function dashService ($resource) {
 		return {
 			eventItems: eventItems,
-			events: events
+			events: events,
+			profile: profile
 		};
 		function eventItems () {
 			return $resource('/api/0/events', {
@@ -45,8 +46,22 @@
 				}
 			});
 		}
+		function profile () {
+			return $resource('/api/0/profiles', {
+				id: '@id',
+				st: '@st', // start time
+				et: '@et'  // end time
+			}, {
+				query: {
+					method: 'GET',
+					isArray: false
+				}
+			});
+		}
 	}
 
+	/** Modules to use with the controller
+	 */
 	dashController.$inject = [
 		'$rootScope',
 		'$scope',
@@ -341,13 +356,14 @@
 
 		// Retrieve event types 
 		$scope.getEvents = function (val) {
-			return dashService.events().query({name: val}).$promise.then(function (res) {
-				// return data
-				return res.events;
-			});
+			return dashService.events().query({name: val}).$promise
+				.then(function (res) {
+					// return data
+					return res.events;
+				});
 		};
 
-		//
+		// Create a new event
 		$scope.setNewEvent = function (val) {
 			// store event name
 			$scope.eventName = val.title;
@@ -357,7 +373,7 @@
 			$('#bgcolor').minicolors('value', val.color);
 		};
 
-		//
+		// Update the running events durations
 		$scope.setRunningEvents = function () {
 			// Update start time
 			$scope.updateStartDate();
@@ -528,6 +544,11 @@
 			});
 		};
 		
+		// Retrieve the profile of a user
+		$scope.getProfile = function () {
+			
+		};
+		
 		//
 		$scope.changeChartColors = function () {
 			for (var i in $scope.eventGroups) {
@@ -573,7 +594,12 @@
 			}, 100);
 		};
 
-		// Immediately call function
-		$scope.getEventItems();
+		// !Do things on page load
+		if ($scope.isMyProfile) {
+			// Immediately call function
+			$scope.getEventItems();
+		} else {
+			$scope.getProfile();
+		}
 	}
 })();
