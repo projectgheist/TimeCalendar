@@ -46,7 +46,7 @@ describe('Events API (no user)', function () {
 			.expect(302)
 			.end(done);
 	});
-	
+
 	it('Route - Profile', function (done) {
 		rq
 			.get('/profile')

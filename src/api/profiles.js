@@ -3,7 +3,7 @@
 var ap = require('../app');
 var db = require('../storage');
 var ut = require('../utils');
-var mg = require('mongoose');
+// var mg = require('mongoose');
 var mm = require('moment');
 
 /** Event route */
@@ -30,31 +30,31 @@ route
 		}
 		// retrieve all event items
 		var events = yield db.all(db.EventItem, {
-				sort: {
-					endTime: -1 // newest first
-				},
-				query: {
-					$and: [ {
-						user: user
+			sort: {
+				endTime: -1 // newest first
+			},
+			query: {
+				$and: [ {
+					user: user
+				}, {
+					$or: [ {
+						startTime: {
+							$gt: mm(parseInt(params.st, 0)).toDate()
+						}
 					}, {
-						$or: [ {
-							startTime: {
-								$gt: mm(parseInt(params.st, 0)).toDate()
-							}
-						}, {
-							endTime: {
-								$lte: mm(parseInt(params.et, 0)).toDate()
-							}
-						}]
-					} ]
-				}
-			})
-			.populate({
-				path: 'event',
-				populate: {
-					path: 'tags'
-				}
-			});
+						endTime: {
+							$lte: mm(parseInt(params.et, 0)).toDate()
+						}
+					}]
+				} ]
+			}
+		})
+		.populate({
+			path: 'event',
+			populate: {
+				path: 'tags'
+			}
+		});
 
 		// return found data
 		this.body = {

@@ -11,6 +11,7 @@ var route = ap.route(/\/api\/0\/events\/?/);
 route
 	/** Retrieve all event items */
 	.get(function * (next) {
+		// is a valid user?
 		if (this.req.isAuthenticated()) {
 			// get arguments
 			var params = this.request.query || this.request.body;
@@ -19,30 +20,23 @@ route
 			// convert time to datetime
 			var searchTime = momentTime.toDate();
 			// find end time
-			var endTime = (params.et ? mm(parseInt(params.et, 0)) : momentTime.add(1, 'day').startOf('day')).toDate();
+			var withinTime = (params.et ? mm(parseInt(params.et, 0)) : momentTime.add(1, 'day').startOf('day')).toDate();
 			// retrieve all event items
 			var events = yield db.all(db.EventItem, {
 				sort: {
 					endTime: -1
 				},
-				query: {
-					$and: [ {
-						user: mg.Types.ObjectId(this.req.user)
-					}, {
+				query: [
+					{ user: mg.Types.ObjectId(this.req.user) },
+					{
 						$or: [ {
-							startTime: {
-								$gt: searchTime // only today's items
-							},
-							endTime: {
-								$lte: endTime // finished on the search day
-							}
+							startTime: { $gt: searchTime }, // only today's items
+							endTime: { $lte: withinTime } // finished on the search day
 						}, {
-							duration: {
-								$lte: 0 // still running items
-							}
+							duration: { $lte: 0 } // still running items
 						} ]
-					} ]
-				}
+					}
+				]
 			})
 			.populate({
 				path: 'event',
@@ -50,11 +44,11 @@ route
 					path: 'tags'
 				}
 			});
-			
+
 			// declare local variables
 			var running = [];
 			var completed = [];
-			
+
 			// seperate events into completed and running categories
 			for (var i in events) {
 				// declare reference
@@ -80,8 +74,12 @@ route
 				}
 			}
 
+			// declare local variables
+			var totalTime = 0;
+			var grouped = [];
+
 			// find all event items with a start time of supplied
-			var grouped = yield db.EventItem
+			grouped = yield db.EventItem
 				.aggregate([
 					{
 						$match: {
@@ -117,13 +115,12 @@ route
 				return res;
 			});
 
-			// declare total time variable
-			var totalTime = 0;
-
 			// populate the event items' event with events
 			for (var j in grouped) {
 				for (var h in populated) {
+					// local reference
 					var event = populated[h];
+					// is the same event?
 					if (String(event._id) === String(grouped[j]._id)) {
 						// convert event to the same format the calendar uses
 						grouped[j].event = {
@@ -131,14 +128,16 @@ route
 							color: event.fontBgColor || '#000',
 							textColor: event.fontTextColor || '#fff'
 						};
+						// remove the id for a more clean return property
 						delete grouped[j]._id;
+						// break out of for-loop
 						break;
 					}
 				}
 				// increment total time
 				totalTime += grouped[j].duration;
 			}
-			
+
 			// return found data
 			this.body = {'array': [running, completed], groups: grouped, time: totalTime};
 			this.status = 200;
@@ -159,32 +158,33 @@ function StopEventItem (Item, Options) {
 	Item.endTime = Options.et ? mm(parseInt(Options.et, 0)) : (Item.endTime || mm().add(1, 'minute').startOf('minute'));
 	// !duration needs to be a value larger then 0
 	Item.duration = mm(Item.endTime).diff(Item.startTime);
-};
+}
 
 route
 	/** Add a new event item */
 	.post(function * (next) {
+		// is a valid user?
 		if (this.req.isAuthenticated()) {
 			var params = this.request.body;
 			if (params && !ut.isEmpty(params)) {
 				if (params.e) { // execute an event?
 					switch (params.e) {
-						case 'a': // stop all running events
-							// Find event item to stop
-							var dbItems = yield db.all(db.EventItem, {
-								query: {
-									user: mg.Types.ObjectId(this.req.user),
-									duration: 0
-								}
-							});
-							for (var i in dbItems) {
-								StopEventItem(dbItems[i], {});
-								// store item
-								yield dbItems[i].save();
+					case 'a': // stop all running events
+						// Find event item to stop
+						var dbItems = yield db.all(db.EventItem, {
+							query: {
+								user: mg.Types.ObjectId(this.req.user),
+								duration: 0
 							}
-							// return valid result
-							this.body = {items: dbItems};
-							this.status = 200;
+						});
+						for (var i in dbItems) {
+							StopEventItem(dbItems[i], {});
+							// store item
+							yield dbItems[i].save();
+						}
+						// return valid result
+						this.body = {items: dbItems};
+						this.status = 200;
 						break;
 					}
 				} else if (params.name) { // Need to find existing item?
@@ -275,8 +275,10 @@ route
 		}
 		yield next;
 	});
+
 route.nested(/\/list\/?/)
 	.get(function * (next) {
+		// is a valid user?
 		if (this.req.isAuthenticated()) {
 			var params = ut.isEmpty(this.request.query) ? this.request.body : this.request.query;
 			// find all event items with a start time of supplied
