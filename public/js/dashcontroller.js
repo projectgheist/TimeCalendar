@@ -98,6 +98,11 @@
 		$scope.chartist = {
 			data: {
 				series: []
+			},
+			events: {
+				'created': function (obj) {
+					$scope.changeChartColors();
+				}
 			}
 		};
 		
@@ -446,15 +451,15 @@
 					// format duration to string
 					ref.duration = $scope.formatDuration(ref.duration);
 					// store duration in minutes for sorting use in the chart
-					ref.durationInMin = moment.duration(ref.duration).minutes();
+					ref.durationInMin = parseInt(moment.duration(ref.duration).minutes(), 0);
 				}
 				// declare chart data when in overview mode
 				if ($scope.isWeekView) {
 					$scope.chartist = {
 						data: {
-							// extract event names
+							// pass event to interpolation function to calculate percentages
 							labels: $scope.eventGroups.map(function (val) {
-								return val.event.title;
+								return val;
 							}),
 							// extract event durations
 							series: $scope.eventGroups.map(function (val) {
@@ -463,7 +468,7 @@
 						},
 						options: {
 							labelInterpolationFnc: function (value) {
-								return Math.round(value / $scope.chartist.data.series.reduce(sum) * 100) + '%';
+								return Math.round(value.durationInMin / $scope.chartist.data.series.reduce(sum) * 100) + '%';
 							}
 						},
 						responsiveOptions: [ [
@@ -472,7 +477,7 @@
 								labelOffset: 100,
 								labelDirection: 'explode',
 								labelInterpolationFnc: function(value) {
-									return value;
+									return value.event.title;
 								}
 							} ], [
 								'screen and (min-width: 1024px)', {
@@ -481,7 +486,7 @@
 							} ]
 						],
 						events: {
-							created: function (obj) {
+							'created': function (obj) {
 								$scope.changeChartColors();
 							}
 						}
@@ -551,8 +556,9 @@
 			
 		};
 		
-		//
+		/** Modifies the chart default colors to the actual event colors for better readability */
 		$scope.changeChartColors = function () {
+			// loop event groups
 			for (var i in $scope.eventGroups) {
 				// create css class string
 				var className = ['.ct-series-', alphabet.charAt(i), ' .ct-slice-pie'].join('');

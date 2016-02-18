@@ -114,4 +114,5 @@ td.form-group input[type=text] {
 
 /** Chartist styling */
 .ct-label {
+	font-size: 1rem;
 }
