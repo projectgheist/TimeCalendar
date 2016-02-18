@@ -34,7 +34,7 @@
     "fullcalendar": "~2.6.0",
     "angular-chartist.js": "~3.3.12",
     "chartist": "~0.9.5",
-    "bootstrap-tagsinput": "~0.7.1",
+    "bootstrap-tagsinput": "~0.8.0",
     "mprogress": "~0.1.1"
   },
   "resolutions": {

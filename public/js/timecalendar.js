@@ -56155,7 +56155,7 @@ angular.module('ui.calendar', [])
     };
 }]);
 ;/*!
- * FullCalendar v2.6.0
+ * FullCalendar v2.6.1
  * Docs & License: http://fullcalendar.io/
  * (c) 2015 Adam Shaw
  */
@@ -56175,8 +56175,8 @@ angular.module('ui.calendar', [])
 ;;
 
 var FC = $.fullCalendar = {
-	version: "2.6.0",
-	internalApiVersion: 2
+	version: "2.6.1",
+	internalApiVersion: 3
 };
 var fcViews = FC.views = {};
 
@@ -58220,6 +58220,14 @@ var CoordCache = FC.CoordCache = Class.extend({
 	},
 
 
+	// When called, if coord caches aren't built, builds them
+	ensureBuilt: function() {
+		if (!this.origin) {
+			this.build();
+		}
+	},
+
+
 	// Compute and return what the elements' bounding rectangle is, from the user's perspective.
 	// Right now, only returns a rectangle if constrained by an overflow:scroll element.
 	queryBoundingRect: function() {
@@ -58272,6 +58280,8 @@ var CoordCache = FC.CoordCache = Class.extend({
 	// Given a left offset (from document left), returns the index of the el that it horizontally intersects.
 	// If no intersection is made, or outside of the boundingRect, returns undefined.
 	getHorizontalIndex: function(leftOffset) {
+		this.ensureBuilt();
+
 		var boundingRect = this.boundingRect;
 		var lefts = this.lefts;
 		var rights = this.rights;
@@ -58291,6 +58301,8 @@ var CoordCache = FC.CoordCache = Class.extend({
 	// Given a top offset (from document top), returns the index of the el that it vertically intersects.
 	// If no intersection is made, or outside of the boundingRect, returns undefined.
 	getVerticalIndex: function(topOffset) {
+		this.ensureBuilt();
+
 		var boundingRect = this.boundingRect;
 		var tops = this.tops;
 		var bottoms = this.bottoms;
@@ -58309,12 +58321,14 @@ var CoordCache = FC.CoordCache = Class.extend({
 
 	// Gets the left offset (from document left) of the element at the given index
 	getLeftOffset: function(leftIndex) {
+		this.ensureBuilt();
 		return this.lefts[leftIndex];
 	},
 
 
 	// Gets the left position (from offsetParent left) of the element at the given index
 	getLeftPosition: function(leftIndex) {
+		this.ensureBuilt();
 		return this.lefts[leftIndex] - this.origin.left;
 	},
 
@@ -58322,6 +58336,7 @@ var CoordCache = FC.CoordCache = Class.extend({
 	// Gets the right offset (from document left) of the element at the given index.
 	// This value is NOT relative to the document's right edge, like the CSS concept of "right" would be.
 	getRightOffset: function(leftIndex) {
+		this.ensureBuilt();
 		return this.rights[leftIndex];
 	},
 
@@ -58329,30 +58344,35 @@ var CoordCache = FC.CoordCache = Class.extend({
 	// Gets the right position (from offsetParent left) of the element at the given index.
 	// This value is NOT relative to the offsetParent's right edge, like the CSS concept of "right" would be.
 	getRightPosition: function(leftIndex) {
+		this.ensureBuilt();
 		return this.rights[leftIndex] - this.origin.left;
 	},
 
 
 	// Gets the width of the element at the given index
 	getWidth: function(leftIndex) {
+		this.ensureBuilt();
 		return this.rights[leftIndex] - this.lefts[leftIndex];
 	},
 
 
 	// Gets the top offset (from document top) of the element at the given index
 	getTopOffset: function(topIndex) {
+		this.ensureBuilt();
 		return this.tops[topIndex];
 	},
 
 
 	// Gets the top position (from offsetParent top) of the element at the given position
 	getTopPosition: function(topIndex) {
+		this.ensureBuilt();
 		return this.tops[topIndex] - this.origin.top;
 	},
 
 	// Gets the bottom offset (from the document top) of the element at the given index.
 	// This value is NOT relative to the offsetParent's bottom edge, like the CSS concept of "bottom" would be.
 	getBottomOffset: function(topIndex) {
+		this.ensureBuilt();
 		return this.bottoms[topIndex];
 	},
 
@@ -58360,12 +58380,14 @@ var CoordCache = FC.CoordCache = Class.extend({
 	// Gets the bottom position (from the offsetParent top) of the element at the given index.
 	// This value is NOT relative to the offsetParent's bottom edge, like the CSS concept of "bottom" would be.
 	getBottomPosition: function(topIndex) {
+		this.ensureBuilt();
 		return this.bottoms[topIndex] - this.origin.top;
 	},
 
 
 	// Gets the height of the element at the given index
 	getHeight: function(topIndex) {
+		this.ensureBuilt();
 		return this.bottoms[topIndex] - this.tops[topIndex];
 	}
 
@@ -59883,20 +59905,9 @@ Grid.mixin({
 
 	// Generates a semicolon-separated CSS string to be used for the default rendering of a background event.
 	// Called by the fill system.
-	// TODO: consolidate with getEventSkinCss?
 	bgEventSegCss: function(seg) {
-		var view = this.view;
-		var event = seg.event;
-		var source = event.source || {};
-
 		return {
-			'background-color':
-				event.backgroundColor ||
-				event.color ||
-				source.backgroundColor ||
-				source.color ||
-				view.opt('eventBackgroundColor') ||
-				view.opt('eventColor')
+			'background-color': this.getSegSkinCss(seg)['background-color']
 		};
 	},
 
@@ -60479,7 +60490,8 @@ Grid.mixin({
 
 
 	// Utility for generating event skin-related CSS properties
-	getEventSkinCss: function(event) {
+	getSegSkinCss: function(seg) {
+		var event = seg.event;
 		var view = this.view;
 		var source = event.source || {};
 		var eventColor = event.color;
@@ -61702,7 +61714,7 @@ DayGrid.mixin({
 		var isResizableFromEnd = !disableResizing && event.allDay &&
 			seg.isEnd && view.isEventResizableFromEnd(event);
 		var classes = this.getSegClasses(seg, isDraggable, isResizableFromStart || isResizableFromEnd);
-		var skinCss = cssToStr(this.getEventSkinCss(event));
+		var skinCss = cssToStr(this.getSegSkinCss(seg));
 		var timeHtml = '';
 		var timeText;
 		var titleHtml;
@@ -63058,7 +63070,7 @@ TimeGrid.mixin({
 		var isResizableFromStart = !disableResizing && seg.isStart && view.isEventResizableFromStart(event);
 		var isResizableFromEnd = !disableResizing && seg.isEnd && view.isEventResizableFromEnd(event);
 		var classes = this.getSegClasses(seg, isDraggable, isResizableFromStart || isResizableFromEnd);
-		var skinCss = cssToStr(this.getEventSkinCss(event));
+		var skinCss = cssToStr(this.getSegSkinCss(seg));
 		var timeText;
 		var fullTimeText; // more verbose time text. for the print stylesheet
 		var startTimeText; // just the start time text
@@ -63469,9 +63481,12 @@ var View = FC.View = Class.extend({
 	// document handlers, bound to `this` object
 	documentMousedownProxy: null, // TODO: doesn't work with touch
 
-	// for refresh timing of now indicator
-	nowIndicatorTimeoutID: null,
-	nowIndicatorIntervalID: null,
+	// now indicator
+	isNowIndicatorRendered: null,
+	initialNowDate: null, // result first getNow call
+	initialNowQueriedMs: null, // ms time the getNow was called
+	nowIndicatorTimeoutID: null, // for refresh timing of now indicator
+	nowIndicatorIntervalID: null, // "
 
 
 	constructor: function(calendar, type, options, intervalDuration) {
@@ -63741,22 +63756,6 @@ var View = FC.View = Class.extend({
 	},
 
 
-	// If the view has already been displayed, tears it down and displays it again.
-	// Will re-render the events if necessary, which display/clear DO NOT do.
-	// TODO: make behavior more consistent.
-	redisplay: function() {
-		if (this.isSkeletonRendered) {
-			var wasEventsRendered = this.isEventsRendered;
-			this.clearEvents(); // won't trigger handlers if events never rendered
-			this.clearView();
-			this.displayView();
-			if (wasEventsRendered) { // only render and trigger handlers if events previously rendered
-				this.displayEvents(this.calendar.getEventCache());
-			}
-		}
-	},
-
-
 	// Displays the view's non-event content, such as date-related content or anything required by events.
 	// Renders the view's non-content skeleton if necessary.
 	// Can be asynchronous and return a promise.
@@ -63774,10 +63773,7 @@ var View = FC.View = Class.extend({
 		this.renderDates();
 		this.updateSize();
 		this.renderBusinessHours(); // might need coordinates, so should go after updateSize()
-
-		if (this.opt('nowIndicator')) {
-			this.startNowIndicator();
-		}
+		this.startNowIndicator();
 	},
 
 
@@ -63879,34 +63875,42 @@ var View = FC.View = Class.extend({
 	// TODO: somehow do this for the current whole day's background too
 	startNowIndicator: function() {
 		var _this = this;
-		var unit = this.getNowIndicatorUnit();
-		var initialNow; // result first getNow call
-		var initialNowQueried; // ms time of then getNow was called
+		var unit;
+		var update;
 		var delay; // ms wait value
 
-		// rerenders the now indicator, computing the new current time from the amount of time that has passed
-		// since the initial getNow call.
-		function update() {
-			_this.unrenderNowIndicator();
-			_this.renderNowIndicator(
-				initialNow.clone().add(new Date() - initialNowQueried) // add ms
-			);
+		if (this.opt('nowIndicator')) {
+			unit = this.getNowIndicatorUnit();
+			if (unit) {
+				update = proxy(this, 'updateNowIndicator'); // bind to `this`
+
+				this.initialNowDate = this.calendar.getNow();
+				this.initialNowQueriedMs = +new Date();
+				this.renderNowIndicator(this.initialNowDate);
+				this.isNowIndicatorRendered = true;
+
+				// wait until the beginning of the next interval
+				delay = this.initialNowDate.clone().startOf(unit).add(1, unit) - this.initialNowDate;
+				this.nowIndicatorTimeoutID = setTimeout(function() {
+					_this.nowIndicatorTimeoutID = null;
+					update();
+					delay = +moment.duration(1, unit);
+					delay = Math.max(100, delay); // prevent too frequent
+					_this.nowIndicatorIntervalID = setInterval(update, delay); // update every interval
+				}, delay);
+			}
 		}
+	},
 
-		if (unit) {
-			initialNow = this.calendar.getNow();
-			initialNowQueried = +new Date();
-			this.renderNowIndicator(initialNow);
 
-			// wait until the beginning of the next interval
-			delay = initialNow.clone().startOf(unit).add(1, unit) - initialNow;
-			this.nowIndicatorTimeoutID = setTimeout(function() {
-				this.nowIndicatorTimeoutID = null;
-				update();
-				delay = +moment.duration(1, unit);
-				delay = Math.max(100, delay); // prevent too frequent
-				this.nowIndicatorIntervalID = setInterval(update, delay); // update every interval
-			}, delay);
+	// rerenders the now indicator, computing the new current time from the amount of time that has passed
+	// since the initial getNow call.
+	updateNowIndicator: function() {
+		if (this.isNowIndicatorRendered) {
+			this.unrenderNowIndicator();
+			this.renderNowIndicator(
+				this.initialNowDate.clone().add(new Date() - this.initialNowQueriedMs) // add ms
+			);
 		}
 	},
 
@@ -63914,19 +63918,19 @@ var View = FC.View = Class.extend({
 	// Immediately unrenders the view's current time indicator and stops any re-rendering timers.
 	// Won't cause side effects if indicator isn't rendered.
 	stopNowIndicator: function() {
-		var cleared = false;
+		if (this.isNowIndicatorRendered) {
 
-		if (this.nowIndicatorTimeoutID) {
-			clearTimeout(this.nowIndicatorTimeoutID);
-			cleared = true;
-		}
-		if (this.nowIndicatorIntervalID) {
-			clearTimeout(this.nowIndicatorIntervalID);
-			cleared = true;
-		}
+			if (this.nowIndicatorTimeoutID) {
+				clearTimeout(this.nowIndicatorTimeoutID);
+				this.nowIndicatorTimeoutID = null;
+			}
+			if (this.nowIndicatorIntervalID) {
+				clearTimeout(this.nowIndicatorIntervalID);
+				this.nowIndicatorIntervalID = null;
+			}
 
-		if (cleared) { // is the indicator currently display?
 			this.unrenderNowIndicator();
+			this.isNowIndicatorRendered = false;
 		}
 	},
 
@@ -63964,6 +63968,7 @@ var View = FC.View = Class.extend({
 
 		this.updateHeight(isResize);
 		this.updateWidth(isResize);
+		this.updateNowIndicator();
 
 		if (isResize) {
 			this.setScroll(scrollState);
@@ -68047,7 +68052,7 @@ fcViews.agendaWeek = {
 
 return FC; // export for Node/CommonJS
 });;/*!
- * FullCalendar v2.6.0 Google Calendar Plugin
+ * FullCalendar v2.6.1 Google Calendar Plugin
  * Docs & License: http://fullcalendar.io/
  * (c) 2015 Adam Shaw
  */
@@ -69263,7 +69268,12 @@ function injectQsComponent(url, component) {
         });
 
 }));
-;(function ($) {
+;/*
+ * bootstrap-tagsinput v0.8.0
+ * 
+ */
+
+(function ($) {
   "use strict";
 
   var defaultOptions = {
@@ -69292,7 +69302,8 @@ function injectQsComponent(url, component) {
       $tag.hide().fadeIn();
     },
     trimValue: false,
-    allowDuplicates: false
+    allowDuplicates: false,
+    triggerChange: true
   };
 
   /**
@@ -69363,7 +69374,7 @@ function injectQsComponent(url, component) {
           }
 
           if (!dontPushVal)
-            self.pushVal();
+            self.pushVal(self.options.triggerChange);
           return;
         }
       }
@@ -69419,13 +69430,11 @@ function injectQsComponent(url, component) {
       }
 
       if (!dontPushVal)
-        self.pushVal();
+        self.pushVal(self.options.triggerChange);
 
       // Add class when reached maxTags
-      if (self.options.maxTags === self.itemsArray.length || self.items().toString().length === self.options.maxInputLength) {
+      if (self.options.maxTags === self.itemsArray.length || self.items().toString().length === self.options.maxInputLength)
         self.$container.addClass('bootstrap-tagsinput-max');
-        self.$element.trigger($.Event('maxItemsReached', { item: item, options: options }));
-    }
 
       // If using typeahead, once the tag has been added, clear the typeahead value so it does not stick around in the input.
       if ($('.typeahead, .twitter-typeahead', self.$container).length) {
@@ -69468,7 +69477,7 @@ function injectQsComponent(url, component) {
       }
 
       if (!dontPushVal)
-        self.pushVal();
+        self.pushVal(self.options.triggerChange);
 
       // Remove class when reached maxTags
       if (self.options.maxTags > self.itemsArray.length)
@@ -69489,7 +69498,7 @@ function injectQsComponent(url, component) {
       while(self.itemsArray.length > 0)
         self.itemsArray.pop();
 
-      self.pushVal();
+      self.pushVal(self.options.triggerChange);
     },
 
     /**
@@ -69536,7 +69545,10 @@ function injectQsComponent(url, component) {
             return self.options.itemValue(item).toString();
           });
 
-      self.$element.val(val, true).trigger('change');
+      self.$element.val(val, true);
+
+      if (self.options.triggerChange)
+        self.$element.trigger('change');
     },
 
     /**
@@ -69938,7 +69950,12 @@ function injectQsComponent(url, component) {
     $("input[data-role=tagsinput], select[multiple][data-role=tagsinput]").tagsinput();
   });
 })(window.jQuery);
-;angular.module('bootstrap-tagsinput', [])
+;/*
+ * bootstrap-tagsinput v0.8.0
+ * 
+ */
+
+angular.module('bootstrap-tagsinput', [])
 .directive('bootstrapTagsinput', [function() {
 
   function getItemProperty(scope, property) {
@@ -70041,7 +70058,7 @@ function injectQsComponent(url, component) {
   }
 }(this, function () {
 
-/* Chartist.js 0.9.4
+/* Chartist.js 0.9.5
  * Copyright © 2015 Gion Kunz
  * Free to use under the WTFPL license.
  * http://www.wtfpl.net/
@@ -70052,7 +70069,7 @@ function injectQsComponent(url, component) {
  * @module Chartist.Core
  */
 var Chartist = {
-  version: '0.9.4'
+  version: '0.9.5'
 };
 
 (function (window, document, Chartist) {
@@ -70120,21 +70137,6 @@ var Chartist = {
   };
 
   /**
-   * Converts a string to a number while removing the unit if present. If a number is passed then this will be returned unmodified.
-   *
-   * @memberof Chartist.Core
-   * @param {String|Number} value
-   * @return {Number} Returns the string as number or NaN if the passed length could not be converted to pixel
-   */
-  Chartist.stripUnit = function(value) {
-    if(typeof value === 'string') {
-      value = value.replace(/[^0-9\+-\.]/g, '');
-    }
-
-    return +value;
-  };
-
-  /**
    * Converts a number to a string with a unit. If a string is passed then this will be returned unmodified.
    *
    * @memberof Chartist.Core
@@ -70148,6 +70150,24 @@ var Chartist = {
     }
 
     return value;
+  };
+
+  /**
+   * Converts a number or string to a quantity object.
+   *
+   * @memberof Chartist.Core
+   * @param {String|Number} input
+   * @return {Object} Returns an object containing the value as number and the unit as string.
+   */
+  Chartist.quantity = function(input) {
+    if (typeof input === 'string') {
+      var match = (/^(\d+)\s*(.*)$/g).exec(input);
+      return {
+        value : +match[1],
+        unit: match[2] || undefined
+      };
+    }
+    return { value: input };
   };
 
   /**
@@ -70490,7 +70510,7 @@ var Chartist = {
    * @return {Number} The height of the area in the chart for the data series
    */
   Chartist.getAvailableHeight = function (svg, options) {
-    return Math.max((Chartist.stripUnit(options.height) || svg.height()) - (options.chartPadding.top +  options.chartPadding.bottom) - options.axisX.offset, 0);
+    return Math.max((Chartist.quantity(options.height).value || svg.height()) - (options.chartPadding.top +  options.chartPadding.bottom) - options.axisX.offset, 0);
   };
 
   /**
@@ -70745,7 +70765,7 @@ var Chartist = {
    * @param {Number} centerY X-axis coordinates of center point of circle segment
    * @param {Number} radius Radius of circle segment
    * @param {Number} angleInDegrees Angle of circle segment in degrees
-   * @return {Number} Coordinates of point on circumference
+   * @return {{x:Number, y:Number}} Coordinates of point on circumference
    */
   Chartist.polarToCartesian = function (centerX, centerY, radius, angleInDegrees) {
     var angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
@@ -70770,8 +70790,8 @@ var Chartist = {
     var yAxisOffset = hasAxis ? options.axisY.offset : 0;
     var xAxisOffset = hasAxis ? options.axisX.offset : 0;
     // If width or height results in invalid value (including 0) we fallback to the unitless settings or even 0
-    var width = svg.width() || Chartist.stripUnit(options.width) || 0;
-    var height = svg.height() || Chartist.stripUnit(options.height) || 0;
+    var width = svg.width() || Chartist.quantity(options.width).value || 0;
+    var height = svg.height() || Chartist.quantity(options.height).value || 0;
     var normalizedPadding = Chartist.normalizePadding(options.chartPadding, fallbackPadding);
 
     // If settings were to small to cope with offset (legacy) and padding, we'll adjust
@@ -70994,30 +71014,45 @@ var Chartist = {
   /**
    * This interpolation function does not smooth the path and the result is only containing lines and no curves.
    *
+   * @example
+   * var chart = new Chartist.Line('.ct-chart', {
+   *   labels: [1, 2, 3, 4, 5],
+   *   series: [[1, 2, 8, 1, 7]]
+   * }, {
+   *   lineSmooth: Chartist.Interpolation.none({
+   *     fillHoles: false
+   *   })
+   * });
+   *
+   *
    * @memberof Chartist.Interpolation
    * @return {Function}
    */
-  Chartist.Interpolation.none = function() {
+  Chartist.Interpolation.none = function(options) {
+    var defaultOptions = {
+      fillHoles: false
+    };
+    options = Chartist.extend({}, defaultOptions, options);
     return function none(pathCoordinates, valueData) {
       var path = new Chartist.Svg.Path();
-      // We need to assume that the first value is a "hole"
       var hole = true;
 
-      for(var i = 1; i < pathCoordinates.length; i += 2) {
-        var data = valueData[(i - 1) / 2];
+      for(var i = 0; i < pathCoordinates.length; i += 2) {
+        var currX = pathCoordinates[i];
+        var currY = pathCoordinates[i + 1];
+        var currData = valueData[i / 2];
 
-        // If the current value is undefined we should treat it as a hole start
-        if(data.value === undefined) {
-          hole = true;
-        } else {
-          // If this value is valid we need to check if we're coming out of a hole
+        if(currData.value !== undefined) {
+
           if(hole) {
-            // If we are coming out of a hole we should first make a move and also reset the hole flag
-            path.move(pathCoordinates[i - 1], pathCoordinates[i], false, data);
-            hole = false;
+            path.move(currX, currY, false, currData);
           } else {
-            path.line(pathCoordinates[i - 1], pathCoordinates[i], false, data);
+            path.line(currX, currY, false, currData);
           }
+
+          hole = false;
+        } else if(!options.fillHoles) {
+          hole = true;
         }
       }
 
@@ -71038,7 +71073,8 @@ var Chartist = {
    *   series: [[1, 2, 8, 1, 7]]
    * }, {
    *   lineSmooth: Chartist.Interpolation.simple({
-   *     divisor: 2
+   *     divisor: 2,
+   *     fillHoles: false
    *   })
    * });
    *
@@ -71049,7 +71085,8 @@ var Chartist = {
    */
   Chartist.Interpolation.simple = function(options) {
     var defaultOptions = {
-      divisor: 2
+      divisor: 2,
+      fillHoles: false
     };
     options = Chartist.extend({}, defaultOptions, options);
 
@@ -71057,26 +71094,19 @@ var Chartist = {
 
     return function simple(pathCoordinates, valueData) {
       var path = new Chartist.Svg.Path();
-      var hole = true;
+      var prevX, prevY, prevData;
 
-      for(var i = 2; i < pathCoordinates.length; i += 2) {
-        var prevX = pathCoordinates[i - 2];
-        var prevY = pathCoordinates[i - 1];
+      for(var i = 0; i < pathCoordinates.length; i += 2) {
         var currX = pathCoordinates[i];
         var currY = pathCoordinates[i + 1];
         var length = (currX - prevX) * d;
-        var prevData = valueData[(i / 2) - 1];
         var currData = valueData[i / 2];
 
-        if(prevData.value === undefined) {
-          hole = true;
-        } else {
+        if(currData.value !== undefined) {
 
-          if(hole) {
-            path.move(prevX, prevY, false, prevData);
-          }
-
-          if(currData.value !== undefined) {
+          if(prevData === undefined) {
+            path.move(currX, currY, false, currData);
+          } else {
             path.curve(
               prevX + length,
               prevY,
@@ -71087,9 +71117,13 @@ var Chartist = {
               false,
               currData
             );
-
-            hole = false;
           }
+
+          prevX = currX;
+          prevY = currY;
+          prevData = currData;
+        } else if(!options.fillHoles) {
+          prevX = currX = prevData = undefined;
         }
       }
 
@@ -71110,7 +71144,8 @@ var Chartist = {
    *   series: [[1, 2, 8, 1, 7]]
    * }, {
    *   lineSmooth: Chartist.Interpolation.cardinal({
-   *     tension: 1
+   *     tension: 1,
+   *     fillHoles: false
    *   })
    * });
    *
@@ -71120,7 +71155,8 @@ var Chartist = {
    */
   Chartist.Interpolation.cardinal = function(options) {
     var defaultOptions = {
-      tension: 1
+      tension: 1,
+      fillHoles: false
     };
 
     options = Chartist.extend({}, defaultOptions, options);
@@ -71138,7 +71174,9 @@ var Chartist = {
       for(var i = 0; i < pathCoordinates.length; i += 2) {
         // If this value is a "hole" we set the hole flag
         if(valueData[i / 2].value === undefined) {
-          hole = true;
+          if(!options.fillHoles) {
+            hole = true;
+          }
         } else {
           // If it's a valid value we need to check if we're coming out of a hole and create a new empty segment
           if(hole) {
@@ -71240,7 +71278,8 @@ var Chartist = {
    *   series: [[1, 2, 8, 1, 7]]
    * }, {
    *   lineSmooth: Chartist.Interpolation.step({
-   *     postpone: true
+   *     postpone: true,
+   *     fillHoles: false
    *   })
    * });
    *
@@ -71250,34 +71289,27 @@ var Chartist = {
    */
   Chartist.Interpolation.step = function(options) {
     var defaultOptions = {
-      postpone: true
+      postpone: true,
+      fillHoles: false
     };
 
     options = Chartist.extend({}, defaultOptions, options);
 
     return function step(pathCoordinates, valueData) {
       var path = new Chartist.Svg.Path();
-      var hole = true;
 
-      for (var i = 2; i < pathCoordinates.length; i += 2) {
-        var prevX = pathCoordinates[i - 2];
-        var prevY = pathCoordinates[i - 1];
+      var prevX, prevY, prevData;
+
+      for (var i = 0; i < pathCoordinates.length; i += 2) {
         var currX = pathCoordinates[i];
         var currY = pathCoordinates[i + 1];
-        var prevData = valueData[(i / 2) - 1];
         var currData = valueData[i / 2];
 
-        // If last point is a "hole"
-        if(prevData.value === undefined) {
-          hole = true;
-        } else {
-          // If last point is not a "hole" but we just came back out of a "hole" we need to move first
-          if(hole) {
-            path.move(prevX, prevY, false, prevData);
-          }
-
-          // If the current point is also not a hole we can draw the step lines
-          if(currData.value !== undefined) {
+        // If the current point is also not a hole we can draw the step lines
+        if(currData.value !== undefined) {
+          if(prevData === undefined) {
+            path.move(currX, currY, false, currData);
+          } else {
             if(options.postpone) {
               // If postponed we should draw the step line with the value of the previous value
               path.line(currX, prevY, false, prevData);
@@ -71287,9 +71319,13 @@ var Chartist = {
             }
             // Line to the actual point (this should only be a Y-Axis movement
             path.line(currX, currY, false, currData);
-            // Reset the "hole" flag as previous and current point have valid values
-            hole = false;
           }
+
+          prevX = currX;
+          prevY = currY;
+          prevData = currData;
+        } else if(!options.fillHoles) {
+          prevX = prevY = prevData = undefined;
         }
       }
 
@@ -72111,7 +72147,7 @@ var Chartist = {
 
           // In guided mode we also set begin to indefinite so we can trigger the start manually and put the begin
           // which needs to be in ms aside
-          timeout = Chartist.stripUnit(animationDefinition.begin || 0);
+          timeout = Chartist.quantity(animationDefinition.begin || 0).value;
           animationDefinition.begin = 'indefinite';
         }
 
@@ -72871,6 +72907,9 @@ var Chartist = {
     this.ticks = options.ticks || Chartist.times(this.divisor).map(function(value, index) {
       return highLow.low + (highLow.high - highLow.low) / this.divisor * index;
     }.bind(this));
+    this.ticks.sort(function(a, b) {
+      return a - b;
+    });
     this.range = {
       min: highLow.low,
       max: highLow.high
@@ -73426,8 +73465,11 @@ var Chartist = {
     },
     // Specify the distance in pixel of bars in a group
     seriesBarDistance: 15,
-    // If set to true this property will cause the series bars to be stacked and form a total for each series point. This will also influence the y-axis and the overall bounds of the chart. In stacked mode the seriesBarDistance property will have no effect.
+    // If set to true this property will cause the series bars to be stacked. Check the `stackMode` option for further stacking options.
     stackBars: false,
+    // If set to 'overlap' this property will force the stacked bars to draw from the zero line.
+    // If set to 'accumulate' this property will form a total for each series point. This will also influence the y-axis and the overall bounds of the chart. In stacked mode the seriesBarDistance property will have no effect.
+    stackMode: 'accumulate',
     // Inverts the axes of the bar chart in order to draw a horizontal bar chart. Be aware that you also need to invert your axis settings as the Y Axis will now display the labels and the X Axis the values.
     horizontalBars: false,
     // If set to true then each bar will represent a series and the data array is expected to be a one dimensional array of data values rather than a series array of series. This is useful if the bar chart should represent a profile rather than some data over time.
@@ -73670,9 +73712,20 @@ var Chartist = {
         var positions = {};
         positions[labelAxis.units.pos + '1'] = projected[labelAxis.units.pos];
         positions[labelAxis.units.pos + '2'] = projected[labelAxis.units.pos];
-        // If bars are stacked we use the stackedBarValues reference and otherwise base all bars off the zero line
-        positions[labelAxis.counterUnits.pos + '1'] = options.stackBars ? previousStack : zeroPoint;
-        positions[labelAxis.counterUnits.pos + '2'] = options.stackBars ? stackedBarValues[valueIndex] : projected[labelAxis.counterUnits.pos];
+
+        if(options.stackBars && (options.stackMode === 'accumulate' || !options.stackMode)) {
+          // Stack mode: accumulate (default)
+          // If bars are stacked we use the stackedBarValues reference and otherwise base all bars off the zero line
+          // We want backwards compatibility, so the expected fallback without the 'stackMode' option
+          // to be the original behaviour (accumulate)
+          positions[labelAxis.counterUnits.pos + '1'] = previousStack;
+          positions[labelAxis.counterUnits.pos + '2'] = stackedBarValues[valueIndex];
+        } else {
+          // Draw from the zero line normally
+          // This is also the same code for Stack mode: overlap
+          positions[labelAxis.counterUnits.pos + '1'] = zeroPoint;
+          positions[labelAxis.counterUnits.pos + '2'] = projected[labelAxis.counterUnits.pos];
+        }
 
         // Limit x and y so that they are within the chart rect
         positions.x1 = Math.min(Math.max(positions.x1, chartRect.x1), chartRect.x2);
@@ -73804,6 +73857,7 @@ var Chartist = {
     // If specified the donut CSS classes will be used and strokes will be drawn instead of pie slices.
     donut: false,
     // Specify the donut stroke width, currently done in javascript for convenience. May move to CSS styles in the future.
+    // This option can be set as number or string to specify a relative width (i.e. 100 or '30%').
     donutWidth: 60,
     // If a label should be shown or not
     showLabel: true,
@@ -73867,10 +73921,15 @@ var Chartist = {
       return previousValue + currentValue;
     }, 0);
 
+    var donutWidth = Chartist.quantity(options.donutWidth);
+    if (donutWidth.unit === '%') {
+      donutWidth.value *= radius / 100;
+    }
+
     // If this is a donut chart we need to adjust our radius to enable strokes to be drawn inside
     // Unfortunately this is not possible with the current SVG Spec
     // See this proposal for more details: http://lists.w3.org/Archives/Public/www-svg/2003Oct/0000.html
-    radius -= options.donut ? options.donutWidth / 2  : 0;
+    radius -= options.donut ? donutWidth.value / 2  : 0;
 
     // If labelPosition is set to `outside` or a donut chart is drawn then the label position is at the radius,
     // if regular pie chart it's half of the radius
@@ -73955,7 +74014,7 @@ var Chartist = {
       // If this is a donut, we add the stroke-width as style attribute
       if(options.donut) {
         pathElement.attr({
-          'style': 'stroke-width: ' + (+options.donutWidth) + 'px'
+          'style': 'stroke-width: ' + donutWidth.value + 'px'
         });
       }
 
