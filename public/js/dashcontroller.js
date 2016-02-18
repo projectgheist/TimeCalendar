@@ -423,7 +423,9 @@
 			var params = {};
 			// Decide start date dependant on calendar view
 			if ($scope.isWeekView) {
-				params.st = moment().startOf('week').valueOf();
+				var momentTime = moment().startOf('week');
+				params.st = momentTime.valueOf();
+				params.et = momentTime.endOf('week').valueOf();
 			} else {
 				params.st = moment().startOf('day').valueOf();
 			}

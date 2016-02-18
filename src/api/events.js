@@ -19,7 +19,7 @@ route
 			// convert time to datetime
 			var searchTime = momentTime.toDate();
 			// find end time
-			var endTime = momentTime.add(1, 'day').startOf('day').toDate();
+			var endTime = (params.et ? mm(parseInt(params.et, 0)) : momentTime.add(1, 'day').startOf('day')).toDate();
 			// retrieve all event items
 			var events = yield db.all(db.EventItem, {
 				sort: {
@@ -32,14 +32,13 @@ route
 						$or: [ {
 							startTime: {
 								$gt: searchTime // only today's items
+							},
+							endTime: {
+								$lte: endTime // finished on the search day
 							}
 						}, {
 							duration: {
 								$lte: 0 // still running items
-							}
-						}, {
-							endTime: {
-								$lte: endTime // finished on the search day
 							}
 						} ]
 					} ]
