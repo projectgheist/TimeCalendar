@@ -81,11 +81,13 @@ route
 				.aggregate([
 					{
 						$match: {
-							startTime: {
-								$gt: searchTime // only today's items
-							},
 							// All events from a specific user
-							user: mg.Types.ObjectId(this.req.user)
+							user: mg.Types.ObjectId(this.req.user),
+							// Needs to be in time range
+							$or: [
+								{ startTime: { $gte: searchTime, $lt: withinTime } },
+								{ endTime: { $gt: searchTime, $lte: withinTime } }
+							]
 						}
 					}, {
 						$group: {
