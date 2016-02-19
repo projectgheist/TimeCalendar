@@ -18,25 +18,23 @@ route
 			// find start time in momentjs format
 			var momentTime = (params.st ? mm(parseInt(params.st, 0)) : mm().startOf('day'));
 			// convert time to datetime
-			var searchTime = momentTime.toDate();
+			var searchTime = momentTime.toISOString();
 			// find end time
-			var withinTime = (params.et ? mm(parseInt(params.et, 0)) : momentTime.add(1, 'day').startOf('day')).toDate();
+			var withinTime = (params.et ? mm(parseInt(params.et, 0)) : momentTime.add(1, 'day').startOf('day')).toISOString();
 			// retrieve all event items
 			var events = yield db.all(db.EventItem, {
 				sort: {
 					endTime: -1
 				},
-				query: [
-					{ user: mg.Types.ObjectId(this.req.user) },
-					{
-						$or: [ {
-							startTime: { $gt: searchTime }, // only today's items
-							endTime: { $lte: withinTime } // finished on the search day
-						}, {
-							duration: { $lte: 0 } // still running items
-						} ]
-					}
-				]
+				query: {
+					// Needs to be from this user
+					user: mg.Types.ObjectId(this.req.user),
+					// Needs to be in time range
+					$or: [
+						{ startTime: { $gte: searchTime, $lt: withinTime } },
+						{ endTime: { $gt: searchTime, $lte: withinTime } }
+					]
+				}
 			})
 			.populate({
 				path: 'event',
@@ -172,14 +170,19 @@ route
 					case 'a': // stop all running events
 						// Find event item to stop
 						var dbItems = yield db.all(db.EventItem, {
-							query: {
-								user: mg.Types.ObjectId(this.req.user),
-								duration: 0
-							}
-						});
+								query: {
+									// All events from a specific user
+									user: mg.Types.ObjectId(this.req.user),
+									// Still running events
+									duration: 0
+								}
+							},
+							false
+						);
 						for (var i in dbItems) {
+							// set event as completed
 							StopEventItem(dbItems[i], {});
-							// store item
+							// store item in database
 							yield dbItems[i].save();
 						}
 						// return valid result
