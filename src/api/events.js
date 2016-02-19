@@ -77,32 +77,31 @@ route
 			var grouped = [];
 
 			// find all event items with a start time of supplied
-			grouped = yield db.EventItem
-				.aggregate([
-					{
-						$match: {
-							// All events from a specific user
-							user: mg.Types.ObjectId(this.req.user),
-							// Needs to be in time range
-							$or: [
-								{ startTime: { $gte: searchTime, $lt: withinTime } },
-								{ endTime: { $gt: searchTime, $lte: withinTime } }
-							]
-						}
-					}, {
-						$group: {
-							_id: '$event', // !required
-							count: {$sum: 1},
-							duration: {$sum: '$duration'}
-						}
-					}, {
-						$sort: {
-							duration: -1 // descending
-						}
+			grouped = yield db.EventItem.aggregate([
+				{
+					$match: {
+						// All events from a specific user
+						user: mg.Types.ObjectId(this.req.user),
+						// Needs to be in time range
+						$or: [
+							{ startTime: { $gte: new Date(searchTime), $lt: new Date(withinTime) } },
+							{ endTime: { $gt: new Date(searchTime), $lte: new Date(withinTime) } }
+						]
 					}
-				], function (ignore, res) {
-					return res;
-				});
+				}, {
+					$group: {
+						_id: '$event', // !required
+						count: {$sum: 1},
+						duration: {$sum: '$duration'}
+					}
+				}, {
+					$sort: {
+						duration: -1 // descending
+					}
+				}
+			], function (ignore, res) {
+				return res;
+			});
 
 			// find all events associated with the found event items
 			var populated = yield db.Event.find({
@@ -171,7 +170,8 @@ route
 					switch (params.e) {
 					case 'a': // stop all running events
 						// Find event item to stop
-						var dbItems = yield db.all(db.EventItem, {
+						var dbItems = yield db.all(db.EventItem,
+							{
 								query: {
 									// All events from a specific user
 									user: mg.Types.ObjectId(this.req.user),
