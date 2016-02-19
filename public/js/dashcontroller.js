@@ -1,6 +1,8 @@
 (function () {
 	'use strict';
 
+	/**
+	 */
 	angular
 		.module('webapp')
 		.controller('dashController', dashController)
@@ -13,7 +15,8 @@
 	function dashService ($resource) {
 		return {
 			eventItems: eventItems,
-			events: events
+			events: events,
+			profile: profile
 		};
 		function eventItems () {
 			return $resource('/api/0/events', {
@@ -43,8 +46,22 @@
 				}
 			});
 		}
+		function profile () {
+			return $resource('/api/0/profiles', {
+				id: '@id',
+				st: '@st', // start time
+				et: '@et'  // end time
+			}, {
+				query: {
+					method: 'GET',
+					isArray: false
+				}
+			});
+		}
 	}
 
+	/** Modules to use with the controller
+	 */
 	dashController.$inject = [
 		'$rootScope',
 		'$scope',
@@ -81,6 +98,11 @@
 		$scope.chartist = {
 			data: {
 				series: []
+			},
+			events: {
+				'created': function (obj) {
+					$scope.changeChartColors();
+				}
 			}
 		};
 		
@@ -240,6 +262,7 @@
 		$scope.textcolor = '#fff';
 		$scope.materialColors = ['#F44336', '#009688', '#9C27B0', '#673AB7', '#3F51B5', '#2196F3', '#03A9F4', '#00BCD4', '#E91E63'];
 		$scope.bgcolor = false;
+		$scope.noEventSelected = true;
 
 		// Set default start time and format for string
 		$scope.updateStartDate = function () {
@@ -282,6 +305,8 @@
 			}, function (res) {
 				// show alert
 				$scope.showAlert('alert-success', ['Successfully started new <b>', $scope.eventName,'</b> event!'].join(''));
+				// Flag variable
+				$scope.noEventSelected = false;
 				// reset event duration
 				$scope.eventDuration = false;
 				// reset event background color
@@ -291,6 +316,8 @@
 			}, function (ignore) {
 				// show alert
 				$scope.showAlert('alert-danger', ['Something when wrong submitting <b>', $scope.eventName,'</b> event!'].join(''));
+				// Flag variable
+				$scope.noEventSelected = false;
 				// reset event duration
 				$scope.eventDuration = false;
 			});
@@ -302,6 +329,8 @@
 			$('#textcolor').minicolors('value', item.fontTextColor);
 			// set background color
 			$('#bgcolor').minicolors('value', item.fontBgColor);
+			// Flag variable
+			$scope.noEventSelected = false;
 		};
 
 		// Post a stop all current running events
@@ -332,13 +361,14 @@
 
 		// Retrieve event types 
 		$scope.getEvents = function (val) {
-			return dashService.events().query({name: val}).$promise.then(function (res) {
-				// return data
-				return res.events;
-			});
+			return dashService.events().query({name: val}).$promise
+				.then(function (res) {
+					// return data
+					return res.events;
+				});
 		};
 
-		//
+		// Create a new event
 		$scope.setNewEvent = function (val) {
 			// store event name
 			$scope.eventName = val.title;
@@ -348,12 +378,18 @@
 			$('#bgcolor').minicolors('value', val.color);
 		};
 
-		//
+		// Update the running events durations
 		$scope.setRunningEvents = function () {
 			// Update start time
 			$scope.updateStartDate();
-			//
-			if ($scope.eventSources.length) {
+			// events present AND running events
+			if ($scope.eventSources.length && $scope.eventSources[0].length) {
+				// get calendar
+				var calendar = uiCalendarConfig.calendars.myCalendar;
+				// clear the previous events in the calendar
+				if (calendar) {
+					calendar.fullCalendar('removeEventSource', $scope.eventSources[0]);
+				}				
 				// reference to running events array
 				var ref = $scope.eventSources[0];
 				// loop all running events
@@ -366,10 +402,9 @@
 						ref[i].duration = moment(moment().diff(moment(ref[i].start))).format('HH:mm');
 					}
 				}
-				// force calendar re-render
-				var calendar = uiCalendarConfig.calendars.myCalendar;
+				// re-add the updated events
 				if (calendar) {
-					calendar.fullCalendar('rerenderEvents');
+					calendar.fullCalendar('addEventSource', $scope.eventSources[0]);
 				}
 			}
 		};
@@ -393,7 +428,9 @@
 			var params = {};
 			// Decide start date dependant on calendar view
 			if ($scope.isWeekView) {
-				params.st = moment().startOf('week').valueOf();
+				var momentTime = moment().startOf('week');
+				params.st = momentTime.valueOf();
+				params.et = momentTime.endOf('week').valueOf();
 			} else {
 				params.st = moment().startOf('day').valueOf();
 			}
@@ -402,7 +439,7 @@
 				loadingbars[b].start();
 			}
 			dashService.eventItems().get(params, function (res) {
-				// store the events to the calendar
+				// store the events that are displayed on the calendar
 				$scope.eventSources = res.array;
 				// store event group data
 				$scope.eventGroups = res.groups;
@@ -414,15 +451,15 @@
 					// format duration to string
 					ref.duration = $scope.formatDuration(ref.duration);
 					// store duration in minutes for sorting use in the chart
-					ref.durationInMin = moment.duration(ref.duration).minutes();
+					ref.durationInMin = parseInt(moment.duration(ref.duration).minutes(), 0);
 				}
 				// declare chart data when in overview mode
 				if ($scope.isWeekView) {
 					$scope.chartist = {
 						data: {
-							// extract event names
+							// pass event to interpolation function to calculate percentages
 							labels: $scope.eventGroups.map(function (val) {
-								return val.event.title;
+								return val;
 							}),
 							// extract event durations
 							series: $scope.eventGroups.map(function (val) {
@@ -431,7 +468,7 @@
 						},
 						options: {
 							labelInterpolationFnc: function (value) {
-								return Math.round(value / $scope.chartist.data.series.reduce(sum) * 100) + '%';
+								return Math.round(value.durationInMin / $scope.chartist.data.series.reduce(sum) * 100) + '%';
 							}
 						},
 						responsiveOptions: [ [
@@ -440,7 +477,7 @@
 								labelOffset: 100,
 								labelDirection: 'explode',
 								labelInterpolationFnc: function(value) {
-									return value;
+									return value.event.title;
 								}
 							} ], [
 								'screen and (min-width: 1024px)', {
@@ -449,7 +486,7 @@
 							} ]
 						],
 						events: {
-							created: function (obj) {
+							'created': function (obj) {
 								$scope.changeChartColors();
 							}
 						}
@@ -478,10 +515,16 @@
 						$scope.uiConfig.calendar.maxTime = newMaxTime;
 					}
 				}
+				// get calendar
+				var calendar = uiCalendarConfig.calendars.myCalendar;
+				// clear all events
+				if (calendar) {
+					calendar.fullCalendar('removeEvents');
+				}
 				// Update events
 				$scope.setRunningEvents();
-				// format duration of todays previous events
-				if ($scope.eventSources.length) {
+				// format duration of today's previous events
+				if ($scope.eventSources.length && $scope.eventSources[1].length) {
 					var ref = $scope.eventSources[1];
 					// loop all running events
 					for (var i in ref) {
@@ -489,6 +532,9 @@
 							// format duration time
 							ref[i].duration = moment(ref[i].duration).format('HH:mm');
 						}
+					}
+					if (calendar) {
+						calendar.fullCalendar('addEventSource', $scope.eventSources[1]);
 					}
 				}
 				// end loading bars
@@ -505,8 +551,14 @@
 			});
 		};
 		
-		//
+		// Retrieve the profile of a user
+		$scope.getProfile = function () {
+			
+		};
+		
+		/** Modifies the chart default colors to the actual event colors for better readability */
 		$scope.changeChartColors = function () {
+			// loop event groups
 			for (var i in $scope.eventGroups) {
 				// create css class string
 				var className = ['.ct-series-', alphabet.charAt(i), ' .ct-slice-pie'].join('');
@@ -550,7 +602,12 @@
 			}, 100);
 		};
 
-		// Immediately call function
-		$scope.getEventItems();
+		// !Do things on page load
+		if ($scope.isMyProfile) {
+			// Immediately call function
+			$scope.getEventItems();
+		} else {
+			$scope.getProfile();
+		}
 	}
 })();

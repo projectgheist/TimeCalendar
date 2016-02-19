@@ -25,20 +25,20 @@ pp.use(
 		// asynchronous verification, for effect...
 		process.nextTick(function () {
 			return db.findOrCreate(db.User, {
-					openID: profile.id
-				})
-				.then(function (user) {
-					// store retrieved info
-					user.provider = profile.provider;
-					user.email = profile.emails[0].value;
-					user.name = profile.displayName;
-					user.lastLogin = Date.now();
-					// store in db
-					return user.save();
-				})
-				.then(function (user) {
-					return done(null, user);
-				});
+				openID: profile.id
+			})
+			.then(function (user) {
+				// store retrieved info
+				user.provider = profile.provider;
+				user.email = profile.emails[0].value;
+				user.name = profile.displayName;
+				user.lastLogin = Date.now();
+				// store in db
+				return user.save();
+			})
+			.then(function (user) {
+				return done(null, user);
+			});
 		});
 	})
 );
@@ -82,3 +82,4 @@ ap
  */
 require('./src/api/events');
 require('./src/api/tags');
+require('./src/api/profiles');

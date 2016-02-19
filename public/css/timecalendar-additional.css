@@ -81,6 +81,11 @@ form .minicolors-theme-bootstrap .minicolors-swatch {
 	margin-bottom: 0;
 }
 
+.input-group p {
+	padding-top: 8px;
+	line-height: 1.42857143;
+}
+
 /** AngularJS styling */
 [ng\:cloak], [ng-cloak], [data-ng-cloak], [x-ng-cloak], .ng-cloak, .x-ng-cloak {
 	display: none !important;
@@ -109,4 +114,5 @@ td.form-group input[type=text] {
 
 /** Chartist styling */
 .ct-label {
+	font-size: 1.5rem;
 }

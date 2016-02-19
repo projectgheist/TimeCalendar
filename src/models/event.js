@@ -28,7 +28,7 @@ var Event = sc({
 
 /** Create unique indices
  */
-Event.index({user: 1, name: 1}, {});
+Event.index({user: 1, name: 1}, {background: true});
 
 /** Export
  */

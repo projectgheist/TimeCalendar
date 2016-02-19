@@ -27,18 +27,22 @@ if (!mg.connection || !mg.connection.db) {
 }
 
 /** function all
+	@param fast: true (default): returns javascript object, false: returns mongoose object
  */
-exports.all = function (model, options) {
+exports.all = function (model, options, fast) {
 	// use parameter or create empty object
 	options || (options = {});
-	// create query
-	var q = model.find(options.query || {});
+	// return javascript or mongoose model
+	fast = (typeof fast !== 'undefined' ? fast : true);
+	// create query AND make faster
+	var q = model.find(options.query || {}).lean(fast);
 	// sort
 	if (options.sort) {
 		q.sort(options.sort);
 	}
 	// limit
 	q.limit(options.limit || false);
+	// return query
 	return q;
 };
 
