@@ -88,7 +88,7 @@
 		});
 
 		// declare events variable
-		$scope.eventSources = [];
+		$scope.eventSources = [[], []];
 		$scope.eventGroups = [];
 		$scope.alerts = [];
 		$scope.isAlertEnabled = false;
@@ -101,12 +101,12 @@
 			},
 			events: {
 				'created': function (obj) {
-					$scope.changeChartColors();
+					changeChartColors();
 				}
 			}
 		};
 		
-		//
+		// declare alphabet for sorting
 		var alphabet = 'abcdefghijklmnopqrst';
 		
 		// day or week calendar view
@@ -289,10 +289,12 @@
 
 		// POST new event
 		$scope.submitEventItem = function () {
+			// backgroundcolor defined?
 			if (!$scope.bgcolor) {
 				// change to a different color
 				$scope.bgcolor = $scope.materialColors[Math.floor(Math.random() * $scope.materialColors.length)];
 			}
+			// save to database
 			dashService.eventItems().save({
 				name: $scope.eventName,
 				desc: $scope.eventDesc,
@@ -377,6 +379,19 @@
 			// set background color
 			$('#bgcolor').minicolors('value', val.color);
 		};
+		
+		function updateRunningEvents (events) {
+			// loop all running events
+			for (var i in events) {
+				// item in array is object?
+				if (typeof events[i] === 'object') {
+					// set end time to now (it's still running)
+					events[i].end = moment();
+					// calculate new duration time
+					events[i].duration = moment(moment().diff(moment(events[i].start))).format('HH:mm');
+				}
+			}
+		}
 
 		// Update the running events durations
 		$scope.setRunningEvents = function () {
@@ -384,27 +399,19 @@
 			$scope.updateStartDate();
 			// events present AND running events
 			if ($scope.eventSources.length && $scope.eventSources[0].length) {
+				// reference to running events array
+				var ref = $scope.eventSources[0];
 				// get calendar
 				var calendar = uiCalendarConfig.calendars.myCalendar;
 				// clear the previous events in the calendar
 				if (calendar) {
-					calendar.fullCalendar('removeEventSource', $scope.eventSources[0]);
-				}				
-				// reference to running events array
-				var ref = $scope.eventSources[0];
-				// loop all running events
-				for (var i in ref) {
-					// item in array is object?
-					if (typeof ref[i] === 'object') {
-						// set end time to now (it's still running)
-						ref[i].end = moment();
-						// calculate new duration time
-						ref[i].duration = moment(moment().diff(moment(ref[i].start))).format('HH:mm');
-					}
-				}
+					calendar.fullCalendar('removeEventSource', ref);
+				}	
+				// update formatting
+				updateRunningEvents(ref);
 				// re-add the updated events
 				if (calendar) {
-					calendar.fullCalendar('addEventSource', $scope.eventSources[0]);
+					calendar.fullCalendar('addEventSource', ref);
 				}
 			}
 		};
@@ -416,7 +423,7 @@
 		var sum = function(a, b) { return a + b };
 
 		// Format time duration to string
-		$scope.formatDuration = function (str) {
+		function formatDuration (str) {
 			// retrieve day count from total time
 			var days = Math.floor(moment.duration(str).asDays());
 			// format string
@@ -438,18 +445,18 @@
 			for (var b in loadingbars) {
 				loadingbars[b].start();
 			}
+
+			// async query database
 			dashService.eventItems().get(params, function (res) {
-				// store the events that are displayed on the calendar
-				$scope.eventSources = res.array;
 				// store event group data
 				$scope.eventGroups = res.groups;
 				// store total time
-				$scope.totalTime = $scope.formatDuration(res.time);
+				$scope.totalTime = formatDuration(res.time);
 				// format duration of grouped events
 				for (var i in $scope.eventGroups) {
 					var ref = $scope.eventGroups[i];
 					// format duration to string
-					ref.duration = $scope.formatDuration(ref.duration);
+					ref.duration = formatDuration(ref.duration);
 					// store duration in minutes for sorting use in the chart
 					ref.durationInMin = parseInt(moment.duration(ref.duration).minutes(), 0);
 				}
@@ -492,51 +499,44 @@
 						}
 					};
 				}
-				// has current running events?
-				if ($scope.eventSources.length && $scope.eventSources[0].length) {
-					// set new day start time
-					var minDate = moment($scope.uiConfig.calendar.minTime, 'HH:mm');
-					if (moment(minDate).diff(moment(), 'minutes') > 0) {
-						var newMinTime = moment().subtract(1, 'hour').format('HH') + ':00:00';
-						// !Special case: Midnight
-						if (newMinTime === '23:00:00') {
-							newMinTime = '00:00:00';
-						}
-						$scope.uiConfig.calendar.minTime = newMinTime;
+				// set new day start time
+				var minDate = moment($scope.uiConfig.calendar.minTime, 'HH:mm');
+				if (moment(minDate).diff(moment(), 'minutes') > 0) {
+					var newMinTime = moment().subtract(1, 'hour').format('HH') + ':00:00';
+					// !Special case: Midnight
+					if (newMinTime === '23:00:00') {
+						newMinTime = '00:00:00';
 					}
-					// set new day end time
-					var maxDate = moment($scope.uiConfig.calendar.maxTime, 'HH:mm');
-					if (moment().diff(maxDate, 'minutes') > 0) {
-						var newMaxTime = moment().add(1, 'hour').format('HH') + ':00:00';
-						// !Special case: Midnight
-						if (newMaxTime === '00:00:00') {
-							newMaxTime = '23:59:59';
-						}
-						$scope.uiConfig.calendar.maxTime = newMaxTime;
+					$scope.uiConfig.calendar.minTime = newMinTime;
+				}
+				// set new day end time
+				var maxDate = moment($scope.uiConfig.calendar.maxTime, 'HH:mm');
+				if (moment().diff(maxDate, 'minutes') > 0) {
+					var newMaxTime = moment().add(1, 'hour').format('HH') + ':00:00';
+					// !Special case: Midnight
+					if (newMaxTime === '00:00:00') {
+						newMaxTime = '23:59:59';
 					}
+					$scope.uiConfig.calendar.maxTime = newMaxTime;
 				}
 				// get calendar
 				var calendar = uiCalendarConfig.calendars.myCalendar;
-				// clear all events
-				if (calendar) {
-					calendar.fullCalendar('removeEvents');
-				}
-				// Update events
-				$scope.setRunningEvents();
-				// format duration of today's previous events
-				if ($scope.eventSources.length && $scope.eventSources[1].length) {
-					var ref = $scope.eventSources[1];
-					// loop all running events
-					for (var i in ref) {
-						if (typeof ref[i] === 'object') {
-							// format duration time
-							ref[i].duration = moment(ref[i].duration).format('HH:mm');
-						}
-					}
-					if (calendar) {
-						calendar.fullCalendar('addEventSource', $scope.eventSources[1]);
+				// decalre local variables
+				var runningEvents = (res.array.length >= 1) ? res.array[0] : [];
+				var completedEvents = (res.array.length >= 2) ? res.array[1] : [];
+				// format duration of today's running events
+				updateRunningEvents(runningEvents);
+				// remove from eventSources AND add new events
+				$scope.eventSources.splice(0, 1, runningEvents);
+				// loop all of today's previously completed events format duration
+				for (var i in completedEvents) {
+					if (typeof completedEvents[i] === 'object') {
+						// format duration time
+						completedEvents[i].duration = moment(completedEvents[i].duration).format('HH:mm');
 					}
 				}
+				// remove from eventSources AND add new events
+				$scope.eventSources.splice(1, 1, completedEvents);
 				// end loading bars
 				for (var b in loadingbars) {
 					loadingbars[b].end();
@@ -557,7 +557,7 @@
 		};
 		
 		/** Modifies the chart default colors to the actual event colors for better readability */
-		$scope.changeChartColors = function () {
+		function changeChartColors () {
 			// loop event groups
 			for (var i in $scope.eventGroups) {
 				// create css class string
