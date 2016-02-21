@@ -31,9 +31,9 @@
     "angular-bootstrap": "~1.1.2",
     "angular-ui-calendar": "~1.0.1",
     "bootstrap": "~3.3.6",
-    "fullcalendar": "~2.6.0",
+    "fullcalendar": "~2.6.1",
     "angular-chartist.js": "~3.3.12",
-    "chartist": "~0.9.5",
+    "chartist": "~0.9.6",
     "bootstrap-tagsinput": "~0.8.0",
     "mprogress": "~0.1.1"
   },
