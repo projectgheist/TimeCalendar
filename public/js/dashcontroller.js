@@ -164,7 +164,9 @@
 				dayClick: onDayClick,
 				// When an event is selected
 				eventClick: onEventClick,
+				// When an event is dropped after being dragged
 				eventDrop: onEventModify,
+				// When an event is resized
 				eventResize: onEventModify
 			}
 		};
@@ -363,6 +365,9 @@
 
 		// Retrieve event types 
 		$scope.getEvents = function (val) {
+			// reset selected event
+			$scope.noEventSelected = true;
+			// async query
 			return dashService.events().query({name: val}).$promise
 				.then(function (res) {
 					// return data
