@@ -479,6 +479,11 @@
 
 			// async query database
 			dashService.eventItems().get(params, function (res) {
+				// events found?
+				if (!res.array[0].length && !res.array[1].length) {
+					// show alert
+					$scope.showAlert('alert-warning', 'No events found!');
+				}
 				// store event group data
 				$scope.eventGroups = res.groups;
 				// store total time

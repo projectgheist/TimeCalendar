@@ -138,7 +138,14 @@ route
 			}
 
 			// return found data
-			this.body = {'array': [running, completed], groups: grouped, time: totalTime};
+			this.body = {
+				'array': [running, completed],
+				groups: grouped,
+				time: totalTime,
+				st: searchTime,
+				et: withinTime,
+				count: events.length
+			};
 			this.status = 200;
 		} else {
 			this.body = {message: 'GET Events: Authentication is required'};
