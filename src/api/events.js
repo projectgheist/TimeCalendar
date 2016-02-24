@@ -20,7 +20,7 @@ route
 			// convert time to datetime
 			var searchTime = momentTime.toISOString();
 			// find end time
-			var withinTime = (params.et ? mm(parseInt(params.et, 0)) : momentTime.add(1, 'day').startOf('day')).toISOString();
+			var withinTime = (params.et ? mm(parseInt(params.et, 0)) : momentTime.endOf('day')).toISOString();
 			// retrieve all event items
 			var events = yield db.all(db.EventItem, {
 				sort: {

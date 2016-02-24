@@ -471,6 +471,7 @@
 				params.et = momentTime.endOf('week').valueOf();
 			} else {
 				params.st = moment().startOf('day').valueOf();
+				params.et = moment().endOf('day').valueOf();
 			}
 			// start loading bars
 			for (var b in loadingbars) {
