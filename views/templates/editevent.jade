@@ -25,7 +25,7 @@ mixin modalBody(obj)
 				span.input-group-btn
 					button.btn.btn-default(type='button', ng-click='openDatepicker()')
 						i.fa.fa-calendar.fa-fw
-				input.form-control(type='text', ng-model='newDate', uib-datepicker-popup='dd MMMM yyyy', is-open='datepicker.opened', ng-required='true')
+				input.form-control(type='text', ng-model='newDate', uib-datepicker-popup='{{newDateFormat}}', is-open='datepicker.opened', ng-required='true')
 		.row
 			.col-lg-6
 				.form-group
@@ -38,7 +38,7 @@ mixin modalBody(obj)
 
 mixin modalFooter(obj)
 	.pull-left
-		button.btn.btn-danger(type="button", data-dismiss="modal") Delete
+		button.btn.btn-danger(type="button", data-dismiss="modal", ng-click="deleteEvent()") Delete
 	button.btn.btn-default(type="button", data-dismiss="modal") Close
 	button.btn.btn-primary(type="button", data-dismiss="modal") Save changes
 
