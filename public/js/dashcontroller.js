@@ -94,6 +94,7 @@
 		$scope.alerts = [];
 		$scope.isAlertEnabled = false;
 		$scope.totalTime = 0;
+		$scope.eventId = '';
 	
 		// declare chart variable
 		$scope.chartist = {
@@ -108,7 +109,7 @@
 		};
 		
 		// declare alphabet for sorting
-		var alphabet = 'abcdefghijklmnopqrst';
+		var alphabet = 'abcdefghijklmnopqrstvwxyz';
 		
 		// day or week calendar view
 		$scope.isWeekView = ($location.$$path === '/overview' ? true : false);
@@ -233,7 +234,9 @@
 			// store event name
 			$scope.eventName = event.title;
 			// set date
-			$scope.newDate = moment(event.start).startOf('day').format('DD MMMM YYYY');
+			$scope.newDate = moment(event.start).startOf('day').toDate();
+			// how to format date
+			$scope.newDateFormat = 'dd MMMM yyyy';
 			// set start time
 			$scope.newStartTime = event.start;
 			// set end time
