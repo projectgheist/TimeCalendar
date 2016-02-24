@@ -46,6 +46,17 @@ exports.all = function (model, options, fast) {
 	return q;
 };
 
+/** function findAndRemove
+ @param model: kind of object to find and remove
+ @param item: query used to find data
+ @param debug: flag to print the output query to the log
+ */
+exports.findAndRemove = function (model, item, debug) {
+	var q = model.findOneAndRemove(item);
+	if (debug) console.log(q);
+	return q;
+};
+ 
 /** function findOrCreate
  * use an empty callback function as a fourth parameter
  */

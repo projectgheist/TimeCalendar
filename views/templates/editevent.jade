@@ -38,7 +38,7 @@ mixin modalBody(obj)
 
 mixin modalFooter(obj)
 	.pull-left
-		button.btn.btn-danger(type="button", data-dismiss="modal") Delete
+		button.btn.btn-danger(type="button", data-dismiss="modal", ng-click="deleteEvent()") Delete
 	button.btn.btn-default(type="button", data-dismiss="modal") Close
 	button.btn.btn-primary(type="button", data-dismiss="modal") Save changes
 

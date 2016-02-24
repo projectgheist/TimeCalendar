@@ -20,6 +20,7 @@
 		};
 		function eventItems () {
 			return $resource('/api/0/events', {
+				e: '@e', // special tasks
 				id: '@id',
 				name: '@name',
 				desc: '@desc',
@@ -227,6 +228,8 @@
 		function onEventClick (event, jsEvent, view) {
 			// set modal header text
 			$('#modalTitle').text(event.title);
+			// store event uid
+			$scope.eventId = event.id;
 			// store event name
 			$scope.eventName = event.title;
 			// set date
@@ -348,6 +351,26 @@
 				// show alert
 				$scope.showAlert('alert-danger', 'Failed to end all events!');
 			});
+		};
+		
+		// Delete event from database
+		$scope.deleteEvent = function () {
+			if (!$scope.eventId) {
+				// show alert
+				$scope.showAlert('alert-warning', ['Delete event: invalid parameters defined.'].join(''));
+			} else {
+				// hide edit event modal
+				$('#ModalDialog').modal({
+					show: false
+				});
+				dashService.eventItems().save({'e': 'd', 'id': $scope.eventId}, function (res) {
+					// re-fetch events
+					$scope.getEventItems();
+				}, function (ignore) {
+					// show alert
+					$scope.showAlert('alert-danger', 'Failed to delete event!');
+				});
+			}
 		};
 
 		// Stop a single event with an unique identifier

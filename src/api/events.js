@@ -165,9 +165,22 @@ route
 		// is a valid user?
 		if (this.req.isAuthenticated()) {
 			var params = this.request.body;
+			// has valid parameters?
 			if (params && !ut.isEmpty(params)) {
 				if (params.e) { // execute an event?
 					switch (params.e) {
+					case 'd': // delete a specific event
+						// Find event item to delete
+						var dbItem = yield db.findAndRemove(db.EventItem, {
+							// All events from a specific user
+							user: mg.Types.ObjectId(this.req.user),
+							// uid of the event
+							sid: params.id
+						});
+						// return valid result
+						this.body = dbItem;
+						this.status = 200;
+						break;
 					case 'a': // stop all running events
 						// Find event item to stop
 						var dbItems = yield db.all(db.EventItem,
