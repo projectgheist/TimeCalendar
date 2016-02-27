@@ -177,7 +177,8 @@
 		var loadingbarIds = [
 			'#loadingChart',
 			'#loadingCalendar',
-			'#loadingDashboard'
+			'#loadingDashboard',
+			'#loadingProfile'
 		];
 		
 		// Newly created loading bars for the above elements
@@ -218,8 +219,6 @@
 				$scope.eventDuration = moment.duration(1, 'hours').valueOf();
 				// submit the event
 				$scope.submitEventItem();
-				// reset the event name
-				$scope.eventName = '';
 			}
 		};
 		
@@ -319,6 +318,8 @@
 				$scope.noEventSelected = false;
 				// reset event duration
 				$scope.eventDuration = false;
+				// reset event name
+				$scope.eventName = '';
 				// reset event background color
 				$scope.bgcolor = false;
 				// re-fetch events
@@ -590,7 +591,13 @@
 		
 		// Retrieve the profile of a user
 		$scope.getProfile = function () {
-			
+			// async query database
+			dashService.profile().get({}, function (res) {
+				
+			}, function (ignore) {
+				// show alert
+				$scope.showAlert('alert-danger', 'Failed to retrieve profile!');
+			});
 		};
 		
 		/** Modifies the chart default colors to the actual event colors for better readability */
