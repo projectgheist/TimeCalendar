@@ -364,7 +364,7 @@ describe('Events API (user)', function () {
 			.get('/api/0/events')
 			.expect(200)
 			.end(function (ignore, res) {
-				if (res.body.array && res.body.array[1].length) {
+				if (res.body.array && res.body.array[0].length) {
 					done();
 				}
 			});

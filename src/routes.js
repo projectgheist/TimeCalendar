@@ -6,6 +6,17 @@ var cf = require('../config');
 /** Routing (!Needs to be after Bodyparser) */
 ap.use(require('koa-routing')(ap));
 
+/** */
+function getUser (user) {
+	if (user) {
+		return {
+			name: user.name,
+			id: user.sid
+		};
+	}
+	return undefined;
+}
+
 /** home route */
 ap
 	.route('/')
@@ -15,10 +26,7 @@ ap
 				'dashboard',
 				{
 					'config': cf.site,
-					'user': {
-						name: this.req.user.name,
-						id: this.req.user.sid
-					}
+					'user': getUser(this.req.user)
 				},
 				true
 			);
@@ -61,10 +69,7 @@ ap
 				'overview',
 				{
 					'config': cf.site,
-					'user': {
-						name: this.req.user.name,
-						id: this.req.user.sid
-					}
+					'user': getUser(this.req.user)
 				},
 				true
 			);
@@ -83,10 +88,7 @@ ap
 			'profile',
 			{
 				'config': cf.site,
-				'user': {
-					name: this.req.user.name,
-					id: this.req.user.sid
-				}
+				'user': getUser(this.req.user)
 			},
 			true
 		);
@@ -105,10 +107,7 @@ ap
 				name,
 				{
 					'config': cf.site,
-					'user': {
-						name: this.req.user.name,
-						id: this.req.user.sid
-					}
+					'user': getUser(this.req.user)
 				},
 				true
 			);
@@ -129,10 +128,7 @@ edit
 				'eventnames',
 				{
 					'config': cf.site,
-					'user': {
-						name: this.req.user.name,
-						id: this.req.user.sid
-					}
+					'user': getUser(this.req.user)
 				},
 				true
 			);
