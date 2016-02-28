@@ -58,8 +58,8 @@ route
 					id: ref.sid,
 					title: ref.event.name,
 					allDay: ref.allDay,
-					start: ref.startTime,
-					end: ref.endTime || mm(ref.startTime).add(d).startOf('minute'),
+					start: ref.startTime.toISOString(),
+					end: (ref.endTime || mm(ref.startTime).add(d).startOf('minute')).toISOString(),
 					duration: d,
 					color: ref.event.fontBgColor || '#000',
 					textColor: ref.event.fontTextColor || '#fff'

@@ -67,8 +67,8 @@ route
 						id: ref.sid,
 						title: ref.event.name,
 						allDay: ref.allDay,
-						start: ref.startTime,
-						end: ref.endTime,
+						start: ref.startTime.toISOString(),
+						end: (ref.endTime || mm(ref.startTime).add(ref.duration).startOf('minute')).toISOString(),
 						duration: ref.duration,
 						color: ref.event.fontBgColor || '#000',
 						textColor: ref.event.fontTextColor || '#fff'
@@ -77,7 +77,10 @@ route
 
 				// return found data
 				this.body = {
-					user: user,
+					user: {
+						name: user.name,
+						id: user.sid
+					},
 					events: outputEvents
 				};
 				this.status = 200;

@@ -132,6 +132,7 @@
 				scrollTime: moment().format('HH') + ':00:00',
 				// initial view when the calendar loads
 				defaultView: ($scope.isWeekView ? 'agendaWeek' : 'agendaDay'),
+				// Flag false to hide buttons/titles
 				header: {
 					left: 'prev', // 'month basicWeek basicDay agendaWeek agendaDay',
 					center: 'title',
@@ -139,6 +140,7 @@
 				},
 				// Comment if want to show column headings
 				dayNames: ['', '', '', '', '', '', ''],
+				// Set custom button names
 				buttonText: {
 					today: 'Today',
 					month: 'Month',
@@ -157,10 +159,6 @@
 				slotLabelFormat: 'h(:mm) a',
 				// Display a marker indicating the current time
 				nowIndicator: true,
-				/*
-				// Hide buttons/titles
-				header: false,
-				*/
 				columnFormat: {
 					week: 'ddd' // Only show day of the week names
 				},
@@ -322,6 +320,8 @@
 				$scope.eventDuration = false;
 				// reset event name
 				$scope.eventName = '';
+				// reset event text color
+				$scope.textcolor = false;
 				// reset event background color
 				$scope.bgcolor = false;
 				// re-fetch events
@@ -339,8 +339,10 @@
 		// Retrieve event types 
 		$scope.onTypeAheadSelect = function (item, model, label) {
 			// set font color
+			$scope.textcolor = item.fontTextColor;
 			$('#textcolor').minicolors('value', item.fontTextColor);
 			// set background color
+			$scope.bgcolor = item.fontBgColor;
 			$('#bgcolor').minicolors('value', item.fontBgColor);
 			// Flag variable
 			$scope.noEventSelected = false;
@@ -348,7 +350,9 @@
 
 		// Post a stop all current running events
 		$scope.stopAllEvents = function () {
-			dashService.eventItems().save({'e': 'a'}, function (res) {
+			dashService.eventItems().save({
+				'e': 'a'
+			}, function (res) {
 				// show alert
 				$scope.showAlert('alert-success', 'Successfully ended all events!');
 				// re fetch events
@@ -431,22 +435,18 @@
 		$scope.setRunningEvents = function () {
 			// Update start time
 			$scope.updateStartDate();
+			// get calendar
+			var calendar = uiCalendarConfig.calendars.myCalendar;
 			// events present AND running events
-			if ($scope.eventSources.length && $scope.eventSources[0].length) {
+			if (calendar && $scope.eventSources.length && $scope.eventSources[0].length) {
 				// reference to running events array
 				var ref = $scope.eventSources[0];
-				// get calendar
-				var calendar = uiCalendarConfig.calendars.myCalendar;
 				// clear the previous events in the calendar
-				if (calendar) {
-					calendar.fullCalendar('removeEventSource', ref);
-				}	
+				calendar.fullCalendar('removeEventSource', ref);
 				// update formatting
 				updateRunningEvents(ref);
 				// re-add the updated events
-				if (calendar) {
-					calendar.fullCalendar('addEventSource', ref);
-				}
+				calendar.fullCalendar('addEventSource', ref);
 			}
 		};
 
@@ -476,6 +476,7 @@
 				params.st = moment().startOf('day').valueOf();
 				params.et = moment().endOf('day').valueOf();
 			}
+
 			// start loading bars
 			for (var b in loadingbars) {
 				loadingbars[b].start();
@@ -580,19 +581,17 @@
 					loadingbars[b].end();
 				}
 			}, function (ignore) {
+				// show alert
+				$scope.showAlert('alert-danger', 'Failed to retrieve events!');
 				// end loading bars
 				for (var b in loadingbars) {
 					loadingbars[b].end();
 				}
-				// show alert
-				$scope.showAlert('alert-danger', 'Failed to retrieve events!');
 			});
 		};
 		
 		/** Retrieve the profile of a user and their events */
 		$scope.getProfile = function () {
-			// clear variable
-			$scope.eventSources = false;
 			// calculate time
 			var momentTime = moment().startOf('week');
 			// async query database
@@ -601,15 +600,15 @@
 				st: momentTime.valueOf(),
 				et: momentTime.endOf('week').valueOf()
 			}, function (res) {
-				// store user
-				$scope.user = res.user;
 				// events found?
 				if (!res.events || !res.events.length) {
 					// show alert
 					$scope.showAlert('alert-warning', 'No events found!');
 				}
-				// store events
+				// store event sources
 				$scope.eventSources = [[], res.events];
+				// store user
+				$scope.user = res.user;
 				// end loading bars
 				for (var b in loadingbars) {
 					loadingbars[b].end();

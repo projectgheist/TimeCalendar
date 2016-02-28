@@ -4,19 +4,19 @@ include includes/nav
 	.row
 		.col-xs-12(style='height:8rem')
 			ng-include(src="'views/templates/alert'", ng-show='isAlertEnabled')
-	.row(ng-hide='user || eventSources', ng-cloak='')
+	.row(ng-hide='user || eventSources.length', ng-cloak='')
 		.col-xs-12
 			h1.text-center Loading ...
 			#loadingProfile
-	.row(ng-show='user && !eventSources', ng-cloak='')
+	.row(ng-show='user && !eventSources.length', ng-cloak='')
 		.col-xs-12
 			.text-muted.text-center
 				p
 					i.fa.fa-minus-circle.fa-fw.fa-5x
 				p Invalid profile
-	.row(ng-show='user && eventSources', ng-cloak='')
+	.row(ng-show='user && eventSources.length', ng-cloak='')
 		.col-xs-12
 			h1 {{user.name}}'s Profile
-			.calendar(ui-calendar='uiConfig.calendar', ng-model='eventSources')
+			.calendar(ui-calendar='uiConfig.calendar', calendar='myCalendar', ng-model='eventSources')
 include includes/js
 script(type='text/javascript', src='/js/dashcontroller.js')
