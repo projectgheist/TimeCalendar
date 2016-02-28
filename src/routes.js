@@ -14,11 +14,13 @@ ap
 			this.render(
 				'dashboard',
 				{
-					'config': cf.site
+					'config': cf.site,
+					'user': this.req.user
 				},
 				true
 			);
 		} else {
+			// render splash page
 			this.render(
 				'index',
 				{
@@ -55,7 +57,8 @@ ap
 			this.render(
 				'overview',
 				{
-					'config': cf.site
+					'config': cf.site,
+					'user': this.req.user
 				},
 				true
 			);
@@ -73,7 +76,8 @@ ap
 		this.render(
 			'profile',
 			{
-				'config': cf.site
+				'config': cf.site,
+				'user': this.req.user
 			},
 			true
 		);
@@ -111,7 +115,8 @@ edit
 			this.render(
 				'eventnames',
 				{
-					'config': cf.site
+					'config': cf.site,
+					'user': this.req.user
 				},
 				true
 			);

@@ -95,6 +95,7 @@
 		$scope.isAlertEnabled = false;
 		$scope.totalTime = 0;
 		$scope.eventId = '';
+		$scope.user = false;
 	
 		// declare chart variable
 		$scope.chartist = {
@@ -111,12 +112,13 @@
 		// declare alphabet for sorting
 		var alphabet = 'abcdefghijklmnopqrstvwxyz';
 		
-		// day or week calendar view
-		$scope.isWeekView = ($location.$$path === '/overview' ? true : false);
-		
 		// external profile
-		$scope.isMyProfile = $location.$$path.match(/\/profile\/.*?/gi) ? false : true;
+		$scope.isProfilePage = /\/profile\//gi.test($location.$$path);
+		$scope.profileId = $scope.isProfilePage ? /\/profile\/(.*[^\/])?/gi.exec($location.$$path)[1] : '';
 
+		// day or week calendar view
+		$scope.isWeekView = ($location.$$path === '/overview' ? true : false) || $scope.isProfilePage;
+		
 		// config object for calendar
 		$scope.uiConfig = {
 			calendar: {
@@ -125,15 +127,15 @@
 				// Flag true when an allDay event is present
 				allDaySlot: false,
 				// Flag true to make changes to the calendar
-				editable: $scope.isMyProfile,
+				editable: !$scope.isProfilePage,
 				// how far down the scroll pane is initially scrolled down
 				scrollTime: moment().format('HH') + ':00:00',
 				// initial view when the calendar loads
 				defaultView: ($scope.isWeekView ? 'agendaWeek' : 'agendaDay'),
 				header: {
-					left: '', // 'month basicWeek basicDay agendaWeek agendaDay',
+					left: 'prev', // 'month basicWeek basicDay agendaWeek agendaDay',
 					center: 'title',
-					right: '', // 'today prev,next'
+					right: 'next', // 'today prev,next'
 				},
 				// Comment if want to show column headings
 				dayNames: ['', '', '', '', '', '', ''],
@@ -557,9 +559,7 @@
 					}
 					$scope.uiConfig.calendar.maxTime = newMaxTime;
 				}
-				// get calendar
-				var calendar = uiCalendarConfig.calendars.myCalendar;
-				// decalre local variables
+				// declare local variables
 				var runningEvents = (res.array.length >= 1) ? res.array[0] : [];
 				var completedEvents = (res.array.length >= 2) ? res.array[1] : [];
 				// format duration of today's running events
@@ -589,12 +589,38 @@
 			});
 		};
 		
-		// Retrieve the profile of a user
+		/** Retrieve the profile of a user and their events */
 		$scope.getProfile = function () {
+			// clear variable
+			$scope.eventSources = false;
+			// calculate time
+			var momentTime = moment().startOf('week');
 			// async query database
-			dashService.profile().get({}, function (res) {
-				
+			dashService.profile().get({
+				id: $scope.profileId,
+				st: momentTime.valueOf(),
+				et: momentTime.endOf('week').valueOf()
+			}, function (res) {
+				// store user
+				$scope.user = res.user;
+				// events found?
+				if (!res.events || !res.events.length) {
+					// show alert
+					$scope.showAlert('alert-warning', 'No events found!');
+				}
+				// store events
+				$scope.eventSources = [[], res.events];
+				// end loading bars
+				for (var b in loadingbars) {
+					loadingbars[b].end();
+				}
 			}, function (ignore) {
+				// end loading bars
+				for (var b in loadingbars) {
+					loadingbars[b].end();
+				}
+				// flag end of loading
+				$scope.user = true;
 				// show alert
 				$scope.showAlert('alert-danger', 'Failed to retrieve profile!');
 			});
@@ -611,7 +637,7 @@
 			}
 		};
 		
-		// Display an alert message on the page
+		/** Display an alert message on the page */
 		$scope.showAlert = function (style, message) {
 			// check if alert is already being rendered
 			if ($scope.isAlertEnabled) {
@@ -647,11 +673,10 @@
 		};
 
 		// !Do things on page load
-		if ($scope.isMyProfile) {
-			// Immediately call function
-			$scope.getEventItems();
-		} else {
+		if ($scope.isProfilePage) {
 			$scope.getProfile();
+		} else {
+			$scope.getEventItems();
 		}
 	}
 })();

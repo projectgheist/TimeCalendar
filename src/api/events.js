@@ -57,10 +57,10 @@ route
 				var n = {
 					id: ref.sid,
 					title: ref.event.name,
+					allDay: ref.allDay,
 					start: ref.startTime,
 					end: ref.endTime || mm(ref.startTime).add(d).startOf('minute'),
 					duration: d,
-					allDay: ref.allDay,
 					color: ref.event.fontBgColor || '#000',
 					textColor: ref.event.fontTextColor || '#fff'
 				};
@@ -328,6 +328,7 @@ route.nested(/\/list\/?/)
 				], function (ignore, res) {
 					return res;
 				});
+
 			// find all events associated with the found event items
 			var populated = yield db.Event.find({
 				// find all events according to event items id's
@@ -342,6 +343,7 @@ route.nested(/\/list\/?/)
 				return res;
 			})
 			.populate('tags');
+
 			// populate the event items' event with events
 			for (var j in grouped) {
 				for (var h in populated) {
@@ -353,6 +355,7 @@ route.nested(/\/list\/?/)
 					}
 				}
 			}
+
 			// remove non-relevant entries
 			if (params.name) {
 				for (var i = grouped.length - 1; i >= 0; --i) {
@@ -361,6 +364,7 @@ route.nested(/\/list\/?/)
 					}
 				}
 			}
+
 			this.body = {'events': grouped};
 			this.status = 200;
 		} else {

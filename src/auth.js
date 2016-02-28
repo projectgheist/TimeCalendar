@@ -25,7 +25,7 @@ ap.use(pp.session());
 //   have a database of user records, the complete Google profile is serialized
 //   and deserialized.
 pp.serializeUser(function (user, done) {
-	done(null, user._id);
+	done(null, user.sid);
 });
 
 pp.deserializeUser(function (id, done) {

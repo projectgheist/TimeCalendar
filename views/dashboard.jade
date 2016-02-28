@@ -40,30 +40,33 @@ include includes/nav
 						.form-group
 							label.sr-only Background color
 							input.form-control.minicolors#bgcolor(type='hidden',ng-model='bgcolor',data-control='saturation',placeholder='Background color',value='{{bgcolor}}')
-			h2 In progress
-			.form-group(ng-if='eventSources && eventSources.length && eventSources[0].length', ng-cloak='')
-				.input-group(ng-repeat='e in eventSources[0]')
-					span.input-group-btn
-						button.btn.btn-block(type='button',ng-click='stopEvent(e)')
-							i.fa.fa-times.fa-fw
-					p(style='margin-top: 7px') {{e.title}}
-						small.pull-right
-							i.fa.fa-clock-o.fa-fw
-							| &nbsp;{{e.duration}}
-				button.btn.btn-raised(type='button', ng-click='stopAllEvents()') Stop all
-			.text-muted.text-center(ng-if='eventSources.length && !eventSources[0].length')
-				p
-					i.fa.fa-minus-circle.fa-fw.fa-5x
-				p No current running events
 		.hidden-xs.col-sm-6
 			.calendar(ui-calendar='uiConfig.calendar', calendar='myCalendar', ng-model="eventSources")
-			a.btn(href='/overview',target='_self') Week
+			.text-center
+				a.btn.btn-primary.btn-raised(href='/profile/' + user,target='_self') Profile
+				a.btn.btn-primary.btn-raised(href='/overview',target='_self') Overview
 	.hidden-xs
 		.row
 			.col-xs-12
 				hr
 		.row
-			.col-sm-6
+			.col-sm-4
+				h2 In progress
+				.form-group(ng-if='eventSources && eventSources.length && eventSources[0].length', ng-cloak='')
+					.input-group(ng-repeat='e in eventSources[0]')
+						span.input-group-btn
+							button.btn.btn-block(type='button',ng-click='stopEvent(e)')
+								i.fa.fa-times.fa-fw
+						p(style='margin-top: 7px') {{e.title}}
+							small.pull-right
+								i.fa.fa-clock-o.fa-fw
+								| &nbsp;{{e.duration}}
+					button.btn.btn-raised(type='button', ng-click='stopAllEvents()') Stop all
+				.text-muted.text-center(ng-if='eventSources.length && !eventSources[0].length')
+					p
+						i.fa.fa-minus-circle.fa-fw.fa-5x
+					p No current running events
+			.col-sm-4
 				h2 Completed events
 				ul.list-group(ng-show='eventSources && eventSources[1]', ng-cloak='')
 					li.list-group-item(ng-repeat='e in eventSources[1]', ng-click='setNewEvent(e)', style='padding:0 15px')
@@ -72,7 +75,7 @@ include includes/nav
 					p
 						i.fa.fa-warning.fa-fw.fa-5x
 					p No previous events
-			.col-sm-6
+			.col-sm-4
 				h2 Statistics
 				ul.list-group(ng-show='eventGroups && eventGroups.length', ng-cloak='')
 					li.list-group-item(ng-repeat='e in eventGroups', ng-click='setNewEvent(e.event)', style='padding:0 15px')
