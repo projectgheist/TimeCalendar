@@ -15,7 +15,10 @@ ap
 				'dashboard',
 				{
 					'config': cf.site,
-					'user': this.req.user
+					'user': {
+						name: this.req.user.name,
+						id: this.req.user.sid
+					}
 				},
 				true
 			);
@@ -58,7 +61,10 @@ ap
 				'overview',
 				{
 					'config': cf.site,
-					'user': this.req.user
+					'user': {
+						name: this.req.user.name,
+						id: this.req.user.sid
+					}
 				},
 				true
 			);
@@ -77,7 +83,10 @@ ap
 			'profile',
 			{
 				'config': cf.site,
-				'user': this.req.user
+				'user': {
+					name: this.req.user.name,
+					id: this.req.user.sid
+				}
 			},
 			true
 		);
@@ -95,7 +104,11 @@ ap
 			this.render(
 				name,
 				{
-					'config': cf.site
+					'config': cf.site,
+					'user': {
+						name: this.req.user.name,
+						id: this.req.user.sid
+					}
 				},
 				true
 			);
@@ -116,7 +129,10 @@ edit
 				'eventnames',
 				{
 					'config': cf.site,
-					'user': this.req.user
+					'user': {
+						name: this.req.user.name,
+						id: this.req.user.sid
+					}
 				},
 				true
 			);

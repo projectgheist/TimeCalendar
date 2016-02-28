@@ -43,7 +43,7 @@ include includes/nav
 		.hidden-xs.col-sm-6
 			.calendar(ui-calendar='uiConfig.calendar', calendar='myCalendar', ng-model="eventSources")
 			.text-center
-				a.btn.btn-primary.btn-raised(href='/profile/' + user,target='_self') Profile
+				a.btn.btn-primary.btn-raised(href='/profile/' + user.id,target='_self') Profile
 				a.btn.btn-primary.btn-raised(href='/overview',target='_self') Overview
 	.hidden-xs
 		.row
