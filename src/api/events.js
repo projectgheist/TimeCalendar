@@ -28,7 +28,7 @@ route
 				},
 				query: {
 					// Needs to be from this user
-					user: mg.Types.ObjectId(this.req.user),
+					user: mg.Types.ObjectId(this.req.user._id),
 					// Needs to be in time range
 					$or: [
 						{ startTime: { $gte: searchTime, $lt: withinTime } },
@@ -81,7 +81,7 @@ route
 				{
 					$match: {
 						// All events from a specific user
-						user: mg.Types.ObjectId(this.req.user),
+						user: mg.Types.ObjectId(this.req.user._id),
 						// Needs to be in time range
 						$or: [
 							{ startTime: { $gte: new Date(searchTime), $lt: new Date(withinTime) } },
@@ -180,7 +180,7 @@ route
 						// Find event item to delete
 						var deletedItem = yield db.findAndRemove(db.EventItem, {
 							// All events from a specific user
-							user: mg.Types.ObjectId(this.req.user),
+							user: mg.Types.ObjectId(this.req.user._id),
 							// uid of the event
 							sid: params.id
 						});
@@ -194,7 +194,7 @@ route
 							{
 								query: {
 									// All events from a specific user
-									user: mg.Types.ObjectId(this.req.user),
+									user: mg.Types.ObjectId(this.req.user._id),
 									// Still running events
 									duration: 0
 								}
@@ -215,7 +215,7 @@ route
 				} else if (params.name) { // Need to find existing item?
 					var opts = {
 						// All events from a specific user
-						user: mg.Types.ObjectId(this.req.user)
+						user: mg.Types.ObjectId(this.req.user._id)
 					};
 					if (params.id) {
 						opts.sid = params.id;
@@ -243,7 +243,7 @@ route
 						for (var k in params.tags) {
 							var tag = yield db.findOrCreate(db.Tag, {
 								// All tags from a specific user
-								user: mg.Types.ObjectId(this.req.user),
+								user: mg.Types.ObjectId(this.req.user._id),
 								// find by tag name
 								name: params.tags[k]
 							});
@@ -257,7 +257,7 @@ route
 						var item = new db.EventItem({
 							event: dbEvent,
 							// All event items from a specific user
-							user: mg.Types.ObjectId(this.req.user),
+							user: mg.Types.ObjectId(this.req.user._id),
 							startTime: mm(params.st).startOf('minute'),
 							duration: params.td || 0,
 							allDay: false
@@ -277,7 +277,7 @@ route
 					// Find event item to stop
 					var dbItem = yield db.findOrCreate(db.EventItem, {
 						// All event items from a specific user
-						user: mg.Types.ObjectId(this.req.user),
+						user: mg.Types.ObjectId(this.req.user._id),
 						// ID of event item to look for
 						sid: params.id
 					});
@@ -312,7 +312,7 @@ route.nested(/\/list\/?/)
 					{
 						$match: {
 							// All events from a specific user
-							user: mg.Types.ObjectId(this.req.user)
+							user: mg.Types.ObjectId(this.req.user._id)
 						}
 					}, {
 						$group: {

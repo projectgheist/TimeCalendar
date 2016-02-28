@@ -58,7 +58,7 @@ route
 						path: 'tags'
 					}
 				});
-				
+
 				// format events into calendar events
 				var outputEvents = [];
 				for (var i in events) {
