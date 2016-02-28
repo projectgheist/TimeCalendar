@@ -32,11 +32,12 @@ include includes/nav
 										span.input-group-btn
 											button.btn.pull-right(type='button',ng-click='submitEventItem()') Create new?
 				.row.hidden
-					.col-xs-6
+					.col-xs-12
 						.form-group
 							label.sr-only Text color
 							input.form-control.minicolors#textcolor(type='hidden',ng-model='textcolor',data-control='saturation',placeholder='Font color',value='{{textcolor}}')
-					.col-xs-6
+				.row.hidden
+					.col-xs-12
 						.form-group
 							label.sr-only Background color
 							input.form-control.minicolors#bgcolor(type='hidden',ng-model='bgcolor',data-control='saturation',placeholder='Background color',value='{{bgcolor}}')
@@ -52,8 +53,8 @@ include includes/nav
 		.row
 			.col-sm-4
 				h2 In progress
-				.form-group(ng-if='eventSources && eventSources.length && eventSources[0].length', ng-cloak='')
-					.input-group(ng-repeat='e in eventSources[0]')
+				.form-group(ng-if='hasRunningEvents()', ng-cloak='')
+					.input-group(ng-repeat='e in eventSources[1]')
 						span.input-group-btn
 							button.btn.btn-block(type='button',ng-click='stopEvent(e)')
 								i.fa.fa-times.fa-fw
@@ -62,16 +63,16 @@ include includes/nav
 								i.fa.fa-clock-o.fa-fw
 								| &nbsp;{{e.duration}}
 					button.btn.btn-raised(type='button', ng-click='stopAllEvents()') Stop all
-				.text-muted.text-center(ng-if='eventSources.length && !eventSources[0].length')
+				.text-muted.text-center(ng-hide='eventSources.length && eventSources[1].length')
 					p
 						i.fa.fa-minus-circle.fa-fw.fa-5x
 					p No current running events
 			.col-sm-4
 				h2 Completed events
-				ul.list-group(ng-show='eventSources && eventSources[1]', ng-cloak='')
-					li.list-group-item(ng-repeat='e in eventSources[1]', ng-click='setNewEvent(e)', style='padding:0 15px')
+				ul.list-group(ng-show='hasCompletedEvents()', ng-cloak='')
+					li.list-group-item(ng-repeat='e in eventSources[0]', ng-click='setNewEvent(e)', style='padding:0 15px')
 						include templates/event
-				.text-muted.text-center(ng-hide='eventSources && eventSources[1].length')
+				.text-muted.text-center(ng-hide='eventSources.length && eventSources[0].length')
 					p
 						i.fa.fa-warning.fa-fw.fa-5x
 					p No previous events

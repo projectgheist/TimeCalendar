@@ -139,7 +139,7 @@ route
 
 			// return found data
 			this.body = {
-				'array': [running, completed],
+				'array': [completed, running],
 				groups: grouped,
 				time: totalTime,
 				st: searchTime,

@@ -31,25 +31,21 @@ route
 			// make sure that user is valid
 			if (dbUser && dbUser.length) {
 				var user = dbUser[0];
+				var searchTime = (params.st ? mm(parseInt(params.st, 0)) : mm().startOf('week')).toISOString();
+				var withinTime = (params.et ? mm(parseInt(params.et, 0)) : mm().endOf('week')).toISOString();
 				// retrieve all event items
 				var events = yield db.all(db.EventItem, {
 					sort: {
 						endTime: -1 // newest first
 					},
 					query: {
-						$and: [ {
-							user: user
-						}, {
-							$or: [ {
-								startTime: {
-									$gt: mm(parseInt(params.st, 0)).toDate()
-								}
-							}, {
-								endTime: {
-									$lte: mm(parseInt(params.et, 0)).toDate()
-								}
-							}]
-						} ]
+						// Needs to be from this user
+						user: user,
+						// Needs to be in time range
+						$or: [
+							{ startTime: { $gte: searchTime, $lt: withinTime } },
+							{ endTime: { $gt: searchTime, $lte: withinTime } }
+						]
 					}
 				})
 				.populate({
@@ -62,14 +58,18 @@ route
 				// format events into calendar events
 				var outputEvents = [];
 				for (var i in events) {
+					// local reference
 					var ref = events[i];
+					// find duration of event
+					var d = ref.duration || mm().diff(ref.startTime);
+					// add formatted event to array
 					outputEvents.push({
 						id: ref.sid,
 						title: ref.event.name,
 						allDay: ref.allDay,
 						start: ref.startTime.toISOString(),
-						end: (ref.endTime || mm(ref.startTime).add(ref.duration).startOf('minute')).toISOString(),
-						duration: ref.duration,
+						end: (ref.endTime || mm(ref.startTime).add(d).startOf('minute')).toISOString(),
+						duration: d,
 						color: ref.event.fontBgColor || '#000',
 						textColor: ref.event.fontTextColor || '#fff'
 					});

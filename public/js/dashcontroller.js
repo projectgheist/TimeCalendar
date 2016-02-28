@@ -89,6 +89,8 @@
 		});
 
 		// declare events variable
+		const EVENTS_COMPLETED = 0;
+		const EVENTS_RUNNING = 1;
 		$scope.eventSources = [[], []];
 		$scope.eventGroups = [];
 		$scope.alerts = [];
@@ -373,7 +375,10 @@
 				$('#ModalDialog').modal({
 					show: false
 				});
-				dashService.eventItems().save({'e': 'd', 'id': $scope.eventId}, function (res) {
+				dashService.eventItems().save({
+					'e': 'd',
+					'id': $scope.eventId
+				}, function (res) {
 					// re-fetch events
 					$scope.getEventItems();
 				}, function (ignore) {
@@ -385,7 +390,9 @@
 
 		// Stop a single event with an unique identifier
 		$scope.stopEvent = function (eventItem) {
-			dashService.eventItems().save({'id': eventItem.id}, function (res) {
+			dashService.eventItems().save({
+				'id': eventItem.id
+			}, function (res) {
 				// show alert
 				$scope.showAlert('alert-success', ['Successfully stopped <b>', eventItem.title,'</b> event!'].join(''));
 				// re-fetch events
@@ -438,9 +445,9 @@
 			// get calendar
 			var calendar = uiCalendarConfig.calendars.myCalendar;
 			// events present AND running events
-			if (calendar && $scope.eventSources.length && $scope.eventSources[0].length) {
+			if (calendar && $scope.eventSources.length && $scope.eventSources[EVENTS_RUNNING].length) {
 				// reference to running events array
-				var ref = $scope.eventSources[0];
+				var ref = $scope.eventSources[EVENTS_RUNNING];
 				// clear the previous events in the calendar
 				calendar.fullCalendar('removeEventSource', ref);
 				// update formatting
@@ -462,6 +469,16 @@
 			var days = Math.floor(moment.duration(str).asDays());
 			// format string
 			return (days > 0 ? [days, 'd '].join('') : '') + moment(str).format('HH:mm');
+		};
+		
+		/** Has running events? */
+		$scope.hasRunningEvents = function () {
+			return $scope.eventSources && $scope.eventSources.length && $scope.eventSources[EVENTS_RUNNING].length;
+		};
+
+		/** Has completed events? */
+		$scope.hasCompletedEvents = function () {
+			return $scope.eventSources && $scope.eventSources.length && $scope.eventSources[EVENTS_COMPLETED].length;
 		};
 		
 		// Retrieve event types 
@@ -496,10 +513,10 @@
 				// format duration of grouped events
 				for (var i in $scope.eventGroups) {
 					var ref = $scope.eventGroups[i];
+					// store duration in minutes for sorting use in the chart
+					ref.durationInMin = parseInt(moment.duration(ref.duration).asMinutes(), 0);
 					// format duration to string
 					ref.duration = formatDuration(ref.duration);
-					// store duration in minutes for sorting use in the chart
-					ref.durationInMin = parseInt(moment.duration(ref.duration).minutes(), 0);
 				}
 				// declare chart data when in overview mode
 				if ($scope.isWeekView) {
@@ -535,7 +552,7 @@
 						],
 						events: {
 							'created': function (obj) {
-								$scope.changeChartColors();
+								changeChartColors();
 							}
 						}
 					};
@@ -561,12 +578,12 @@
 					$scope.uiConfig.calendar.maxTime = newMaxTime;
 				}
 				// declare local variables
-				var runningEvents = (res.array.length >= 1) ? res.array[0] : [];
-				var completedEvents = (res.array.length >= 2) ? res.array[1] : [];
+				var runningEvents = (res.array.length >= EVENTS_RUNNING + 1) ? res.array[EVENTS_RUNNING] : [];
+				var completedEvents = (res.array.length >= EVENTS_COMPLETED + 1) ? res.array[EVENTS_COMPLETED] : [];
 				// format duration of today's running events
 				updateRunningEvents(runningEvents);
 				// remove from eventSources AND add new events
-				$scope.eventSources.splice(0, 1, runningEvents);
+				$scope.eventSources.splice(EVENTS_RUNNING, 1, runningEvents);
 				// loop all of today's previously completed events format duration
 				for (var i in completedEvents) {
 					if (typeof completedEvents[i] === 'object') {
@@ -575,7 +592,7 @@
 					}
 				}
 				// remove from eventSources AND add new events
-				$scope.eventSources.splice(1, 1, completedEvents);
+				$scope.eventSources.splice(EVENTS_COMPLETED, 1, completedEvents);
 				// end loading bars
 				for (var b in loadingbars) {
 					loadingbars[b].end();
@@ -592,6 +609,10 @@
 		
 		/** Retrieve the profile of a user and their events */
 		$scope.getProfile = function () {
+			// start loading bars
+			for (var b in loadingbars) {
+				loadingbars[b].start();
+			}
 			// calculate time
 			var momentTime = moment().startOf('week');
 			// async query database
@@ -604,9 +625,10 @@
 				if (!res.events || !res.events.length) {
 					// show alert
 					$scope.showAlert('alert-warning', 'No events found!');
+				} else {
+					// remove from eventSources AND add new events
+					$scope.eventSources.splice(EVENTS_COMPLETED, 1, res.events);
 				}
-				// store event sources
-				$scope.eventSources = [[], res.events];
 				// store user
 				$scope.user = res.user;
 				// end loading bars
