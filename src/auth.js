@@ -25,11 +25,11 @@ ap.use(pp.session());
 //   have a database of user records, the complete Google profile is serialized
 //   and deserialized.
 pp.serializeUser(function (user, done) {
-	done(null, user._id);
+	done(null, user);
 });
 
-pp.deserializeUser(function (id, done) {
-	done(null, id);
+pp.deserializeUser(function (user, done) {
+	done(null, user);
 });
 
 /** Export as module */

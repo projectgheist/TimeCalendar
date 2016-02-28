@@ -7,7 +7,6 @@ node_js:
 services:
 - mongodb
 install:
-- npm install -g happiness
 - npm install -g istanbul
 - npm install
 before_script:

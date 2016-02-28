@@ -6,6 +6,17 @@ var cf = require('../config');
 /** Routing (!Needs to be after Bodyparser) */
 ap.use(require('koa-routing')(ap));
 
+/** */
+function getUser (user) {
+	if (user) {
+		return {
+			name: user.name,
+			id: user.sid
+		};
+	}
+	return undefined;
+}
+
 /** home route */
 ap
 	.route('/')
@@ -14,11 +25,13 @@ ap
 			this.render(
 				'dashboard',
 				{
-					'config': cf.site
+					'config': cf.site,
+					'user': getUser(this.req.user)
 				},
 				true
 			);
 		} else {
+			// render splash page
 			this.render(
 				'index',
 				{
@@ -55,7 +68,8 @@ ap
 			this.render(
 				'overview',
 				{
-					'config': cf.site
+					'config': cf.site,
+					'user': getUser(this.req.user)
 				},
 				true
 			);
@@ -73,7 +87,8 @@ ap
 		this.render(
 			'profile',
 			{
-				'config': cf.site
+				'config': cf.site,
+				'user': getUser(this.req.user)
 			},
 			true
 		);
@@ -91,7 +106,8 @@ ap
 			this.render(
 				name,
 				{
-					'config': cf.site
+					'config': cf.site,
+					'user': getUser(this.req.user)
 				},
 				true
 			);
@@ -111,7 +127,8 @@ edit
 			this.render(
 				'eventnames',
 				{
-					'config': cf.site
+					'config': cf.site,
+					'user': getUser(this.req.user)
 				},
 				true
 			);

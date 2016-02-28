@@ -28,7 +28,7 @@ route
 				},
 				query: {
 					// Needs to be from this user
-					user: mg.Types.ObjectId(this.req.user),
+					user: mg.Types.ObjectId(this.req.user._id),
 					// Needs to be in time range
 					$or: [
 						{ startTime: { $gte: searchTime, $lt: withinTime } },
@@ -57,10 +57,10 @@ route
 				var n = {
 					id: ref.sid,
 					title: ref.event.name,
-					start: ref.startTime,
-					end: ref.endTime || mm(ref.startTime).add(d).startOf('minute'),
-					duration: d,
 					allDay: ref.allDay,
+					start: ref.startTime.toISOString(),
+					end: (ref.endTime || mm(ref.startTime).add(d).startOf('minute')).toISOString(),
+					duration: d,
 					color: ref.event.fontBgColor || '#000',
 					textColor: ref.event.fontTextColor || '#fff'
 				};
@@ -81,7 +81,7 @@ route
 				{
 					$match: {
 						// All events from a specific user
-						user: mg.Types.ObjectId(this.req.user),
+						user: mg.Types.ObjectId(this.req.user._id),
 						// Needs to be in time range
 						$or: [
 							{ startTime: { $gte: new Date(searchTime), $lt: new Date(withinTime) } },
@@ -139,7 +139,7 @@ route
 
 			// return found data
 			this.body = {
-				'array': [running, completed],
+				'array': [completed, running],
 				groups: grouped,
 				time: totalTime,
 				st: searchTime,
@@ -178,15 +178,15 @@ route
 					switch (params.e) {
 					case 'd': // delete a specific event
 						// Find event item to delete
-						var dbItem = yield db.findAndRemove(db.EventItem, {
+						var deletedItem = yield db.findAndRemove(db.EventItem, {
 							// All events from a specific user
-							user: mg.Types.ObjectId(this.req.user),
+							user: mg.Types.ObjectId(this.req.user._id),
 							// uid of the event
 							sid: params.id
 						});
 						// return valid result
-						this.body = dbItem;
-						this.status = 200;
+						this.body = deletedItem;
+						this.status = deletedItem ? 200 : 400;
 						break;
 					case 'a': // stop all running events
 						// Find event item to stop
@@ -194,7 +194,7 @@ route
 							{
 								query: {
 									// All events from a specific user
-									user: mg.Types.ObjectId(this.req.user),
+									user: mg.Types.ObjectId(this.req.user._id),
 									// Still running events
 									duration: 0
 								}
@@ -215,7 +215,7 @@ route
 				} else if (params.name) { // Need to find existing item?
 					var opts = {
 						// All events from a specific user
-						user: mg.Types.ObjectId(this.req.user)
+						user: mg.Types.ObjectId(this.req.user._id)
 					};
 					if (params.id) {
 						opts.sid = params.id;
@@ -243,7 +243,7 @@ route
 						for (var k in params.tags) {
 							var tag = yield db.findOrCreate(db.Tag, {
 								// All tags from a specific user
-								user: mg.Types.ObjectId(this.req.user),
+								user: mg.Types.ObjectId(this.req.user._id),
 								// find by tag name
 								name: params.tags[k]
 							});
@@ -257,7 +257,7 @@ route
 						var item = new db.EventItem({
 							event: dbEvent,
 							// All event items from a specific user
-							user: mg.Types.ObjectId(this.req.user),
+							user: mg.Types.ObjectId(this.req.user._id),
 							startTime: mm(params.st).startOf('minute'),
 							duration: params.td || 0,
 							allDay: false
@@ -277,7 +277,7 @@ route
 					// Find event item to stop
 					var dbItem = yield db.findOrCreate(db.EventItem, {
 						// All event items from a specific user
-						user: mg.Types.ObjectId(this.req.user),
+						user: mg.Types.ObjectId(this.req.user._id),
 						// ID of event item to look for
 						sid: params.id
 					});
@@ -312,7 +312,7 @@ route.nested(/\/list\/?/)
 					{
 						$match: {
 							// All events from a specific user
-							user: mg.Types.ObjectId(this.req.user)
+							user: mg.Types.ObjectId(this.req.user._id)
 						}
 					}, {
 						$group: {
@@ -328,6 +328,7 @@ route.nested(/\/list\/?/)
 				], function (ignore, res) {
 					return res;
 				});
+
 			// find all events associated with the found event items
 			var populated = yield db.Event.find({
 				// find all events according to event items id's
@@ -342,6 +343,7 @@ route.nested(/\/list\/?/)
 				return res;
 			})
 			.populate('tags');
+
 			// populate the event items' event with events
 			for (var j in grouped) {
 				for (var h in populated) {
@@ -353,6 +355,7 @@ route.nested(/\/list\/?/)
 					}
 				}
 			}
+
 			// remove non-relevant entries
 			if (params.name) {
 				for (var i = grouped.length - 1; i >= 0; --i) {
@@ -361,6 +364,7 @@ route.nested(/\/list\/?/)
 					}
 				}
 			}
+
 			this.body = {'events': grouped};
 			this.status = 200;
 		} else {

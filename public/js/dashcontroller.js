@@ -89,12 +89,15 @@
 		});
 
 		// declare events variable
+		const EVENTS_COMPLETED = 0;
+		const EVENTS_RUNNING = 1;
 		$scope.eventSources = [[], []];
 		$scope.eventGroups = [];
 		$scope.alerts = [];
 		$scope.isAlertEnabled = false;
 		$scope.totalTime = 0;
 		$scope.eventId = '';
+		$scope.user = false;
 	
 		// declare chart variable
 		$scope.chartist = {
@@ -111,12 +114,13 @@
 		// declare alphabet for sorting
 		var alphabet = 'abcdefghijklmnopqrstvwxyz';
 		
-		// day or week calendar view
-		$scope.isWeekView = ($location.$$path === '/overview' ? true : false);
-		
 		// external profile
-		$scope.isMyProfile = $location.$$path.match(/\/profile\/.*?/gi) ? false : true;
+		$scope.isProfilePage = /\/profile\//gi.test($location.$$path);
+		$scope.profileId = $scope.isProfilePage ? /\/profile\/(.*[^\/])?/gi.exec($location.$$path)[1] : '';
 
+		// day or week calendar view
+		$scope.isWeekView = ($location.$$path === '/overview' ? true : false) || $scope.isProfilePage;
+		
 		// config object for calendar
 		$scope.uiConfig = {
 			calendar: {
@@ -125,18 +129,20 @@
 				// Flag true when an allDay event is present
 				allDaySlot: false,
 				// Flag true to make changes to the calendar
-				editable: $scope.isMyProfile,
+				editable: !$scope.isProfilePage,
 				// how far down the scroll pane is initially scrolled down
 				scrollTime: moment().format('HH') + ':00:00',
 				// initial view when the calendar loads
 				defaultView: ($scope.isWeekView ? 'agendaWeek' : 'agendaDay'),
+				// Flag false to hide buttons/titles
 				header: {
-					left: '', // 'month basicWeek basicDay agendaWeek agendaDay',
+					left: 'prev', // 'month basicWeek basicDay agendaWeek agendaDay',
 					center: 'title',
-					right: '', // 'today prev,next'
+					right: 'next', // 'today prev,next'
 				},
 				// Comment if want to show column headings
 				dayNames: ['', '', '', '', '', '', ''],
+				// Set custom button names
 				buttonText: {
 					today: 'Today',
 					month: 'Month',
@@ -155,10 +161,6 @@
 				slotLabelFormat: 'h(:mm) a',
 				// Display a marker indicating the current time
 				nowIndicator: true,
-				/*
-				// Hide buttons/titles
-				header: false,
-				*/
 				columnFormat: {
 					week: 'ddd' // Only show day of the week names
 				},
@@ -177,7 +179,8 @@
 		var loadingbarIds = [
 			'#loadingChart',
 			'#loadingCalendar',
-			'#loadingDashboard'
+			'#loadingDashboard',
+			'#loadingProfile'
 		];
 		
 		// Newly created loading bars for the above elements
@@ -218,8 +221,6 @@
 				$scope.eventDuration = moment.duration(1, 'hours').valueOf();
 				// submit the event
 				$scope.submitEventItem();
-				// reset the event name
-				$scope.eventName = '';
 			}
 		};
 		
@@ -319,6 +320,10 @@
 				$scope.noEventSelected = false;
 				// reset event duration
 				$scope.eventDuration = false;
+				// reset event name
+				$scope.eventName = '';
+				// reset event text color
+				$scope.textcolor = false;
 				// reset event background color
 				$scope.bgcolor = false;
 				// re-fetch events
@@ -336,8 +341,10 @@
 		// Retrieve event types 
 		$scope.onTypeAheadSelect = function (item, model, label) {
 			// set font color
+			$scope.textcolor = item.fontTextColor;
 			$('#textcolor').minicolors('value', item.fontTextColor);
 			// set background color
+			$scope.bgcolor = item.fontBgColor;
 			$('#bgcolor').minicolors('value', item.fontBgColor);
 			// Flag variable
 			$scope.noEventSelected = false;
@@ -345,7 +352,9 @@
 
 		// Post a stop all current running events
 		$scope.stopAllEvents = function () {
-			dashService.eventItems().save({'e': 'a'}, function (res) {
+			dashService.eventItems().save({
+				'e': 'a'
+			}, function (res) {
 				// show alert
 				$scope.showAlert('alert-success', 'Successfully ended all events!');
 				// re fetch events
@@ -366,7 +375,10 @@
 				$('#ModalDialog').modal({
 					show: false
 				});
-				dashService.eventItems().save({'e': 'd', 'id': $scope.eventId}, function (res) {
+				dashService.eventItems().save({
+					'e': 'd',
+					'id': $scope.eventId
+				}, function (res) {
 					// re-fetch events
 					$scope.getEventItems();
 				}, function (ignore) {
@@ -378,7 +390,9 @@
 
 		// Stop a single event with an unique identifier
 		$scope.stopEvent = function (eventItem) {
-			dashService.eventItems().save({'id': eventItem.id}, function (res) {
+			dashService.eventItems().save({
+				'id': eventItem.id
+			}, function (res) {
 				// show alert
 				$scope.showAlert('alert-success', ['Successfully stopped <b>', eventItem.title,'</b> event!'].join(''));
 				// re-fetch events
@@ -428,22 +442,18 @@
 		$scope.setRunningEvents = function () {
 			// Update start time
 			$scope.updateStartDate();
+			// get calendar
+			var calendar = uiCalendarConfig.calendars.myCalendar;
 			// events present AND running events
-			if ($scope.eventSources.length && $scope.eventSources[0].length) {
+			if (calendar && $scope.eventSources.length && $scope.eventSources[EVENTS_RUNNING].length) {
 				// reference to running events array
-				var ref = $scope.eventSources[0];
-				// get calendar
-				var calendar = uiCalendarConfig.calendars.myCalendar;
+				var ref = $scope.eventSources[EVENTS_RUNNING];
 				// clear the previous events in the calendar
-				if (calendar) {
-					calendar.fullCalendar('removeEventSource', ref);
-				}	
+				calendar.fullCalendar('removeEventSource', ref);
 				// update formatting
 				updateRunningEvents(ref);
 				// re-add the updated events
-				if (calendar) {
-					calendar.fullCalendar('addEventSource', ref);
-				}
+				calendar.fullCalendar('addEventSource', ref);
 			}
 		};
 
@@ -461,6 +471,16 @@
 			return (days > 0 ? [days, 'd '].join('') : '') + moment(str).format('HH:mm');
 		};
 		
+		/** Has running events? */
+		$scope.hasRunningEvents = function () {
+			return $scope.eventSources && $scope.eventSources.length && $scope.eventSources[EVENTS_RUNNING].length;
+		};
+
+		/** Has completed events? */
+		$scope.hasCompletedEvents = function () {
+			return $scope.eventSources && $scope.eventSources.length && $scope.eventSources[EVENTS_COMPLETED].length;
+		};
+		
 		// Retrieve event types 
 		$scope.getEventItems = function () {
 			var params = {};
@@ -473,6 +493,7 @@
 				params.st = moment().startOf('day').valueOf();
 				params.et = moment().endOf('day').valueOf();
 			}
+
 			// start loading bars
 			for (var b in loadingbars) {
 				loadingbars[b].start();
@@ -492,10 +513,10 @@
 				// format duration of grouped events
 				for (var i in $scope.eventGroups) {
 					var ref = $scope.eventGroups[i];
+					// store duration in minutes for sorting use in the chart
+					ref.durationInMin = parseInt(moment.duration(ref.duration).asMinutes(), 0);
 					// format duration to string
 					ref.duration = formatDuration(ref.duration);
-					// store duration in minutes for sorting use in the chart
-					ref.durationInMin = parseInt(moment.duration(ref.duration).minutes(), 0);
 				}
 				// declare chart data when in overview mode
 				if ($scope.isWeekView) {
@@ -531,7 +552,7 @@
 						],
 						events: {
 							'created': function (obj) {
-								$scope.changeChartColors();
+								changeChartColors();
 							}
 						}
 					};
@@ -556,15 +577,13 @@
 					}
 					$scope.uiConfig.calendar.maxTime = newMaxTime;
 				}
-				// get calendar
-				var calendar = uiCalendarConfig.calendars.myCalendar;
-				// decalre local variables
-				var runningEvents = (res.array.length >= 1) ? res.array[0] : [];
-				var completedEvents = (res.array.length >= 2) ? res.array[1] : [];
+				// declare local variables
+				var runningEvents = (res.array.length >= EVENTS_RUNNING + 1) ? res.array[EVENTS_RUNNING] : [];
+				var completedEvents = (res.array.length >= EVENTS_COMPLETED + 1) ? res.array[EVENTS_COMPLETED] : [];
 				// format duration of today's running events
 				updateRunningEvents(runningEvents);
 				// remove from eventSources AND add new events
-				$scope.eventSources.splice(0, 1, runningEvents);
+				$scope.eventSources.splice(EVENTS_RUNNING, 1, runningEvents);
 				// loop all of today's previously completed events format duration
 				for (var i in completedEvents) {
 					if (typeof completedEvents[i] === 'object') {
@@ -573,7 +592,45 @@
 					}
 				}
 				// remove from eventSources AND add new events
-				$scope.eventSources.splice(1, 1, completedEvents);
+				$scope.eventSources.splice(EVENTS_COMPLETED, 1, completedEvents);
+				// end loading bars
+				for (var b in loadingbars) {
+					loadingbars[b].end();
+				}
+			}, function (ignore) {
+				// show alert
+				$scope.showAlert('alert-danger', 'Failed to retrieve events!');
+				// end loading bars
+				for (var b in loadingbars) {
+					loadingbars[b].end();
+				}
+			});
+		};
+		
+		/** Retrieve the profile of a user and their events */
+		$scope.getProfile = function () {
+			// start loading bars
+			for (var b in loadingbars) {
+				loadingbars[b].start();
+			}
+			// calculate time
+			var momentTime = moment().startOf('week');
+			// async query database
+			dashService.profile().get({
+				id: $scope.profileId,
+				st: momentTime.valueOf(),
+				et: momentTime.endOf('week').valueOf()
+			}, function (res) {
+				// events found?
+				if (!res.events || !res.events.length) {
+					// show alert
+					$scope.showAlert('alert-warning', 'No events found!');
+				} else {
+					// remove from eventSources AND add new events
+					$scope.eventSources.splice(EVENTS_COMPLETED, 1, res.events);
+				}
+				// store user
+				$scope.user = res.user;
 				// end loading bars
 				for (var b in loadingbars) {
 					loadingbars[b].end();
@@ -583,14 +640,11 @@
 				for (var b in loadingbars) {
 					loadingbars[b].end();
 				}
+				// flag end of loading
+				$scope.user = true;
 				// show alert
-				$scope.showAlert('alert-danger', 'Failed to retrieve events!');
+				$scope.showAlert('alert-danger', 'Failed to retrieve profile!');
 			});
-		};
-		
-		// Retrieve the profile of a user
-		$scope.getProfile = function () {
-			
 		};
 		
 		/** Modifies the chart default colors to the actual event colors for better readability */
@@ -604,7 +658,7 @@
 			}
 		};
 		
-		// Display an alert message on the page
+		/** Display an alert message on the page */
 		$scope.showAlert = function (style, message) {
 			// check if alert is already being rendered
 			if ($scope.isAlertEnabled) {
@@ -640,11 +694,10 @@
 		};
 
 		// !Do things on page load
-		if ($scope.isMyProfile) {
-			// Immediately call function
-			$scope.getEventItems();
-		} else {
+		if ($scope.isProfilePage) {
 			$scope.getProfile();
+		} else {
+			$scope.getEventItems();
 		}
 	}
 })();

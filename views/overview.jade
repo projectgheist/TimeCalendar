@@ -9,7 +9,7 @@ include includes/nav
 				li.active Overview
 			ng-include(src="'views/templates/alert'", ng-show='isAlertEnabled')
 			.calendar(ui-calendar='uiConfig.calendar', ng-model='eventSources', calendar='myCalendar')
-			#loadingCalendar(ng-show='!eventSources.length')
+			#loadingCalendar(ng-show='hasRunningEvents() || hasCompletedEvents()')
 			h1 Statistics
 	.row
 		div(ng-class="{'hidden':!chartist.data.series.length, 'col-lg-6':chartist.data.series.length}", style='height:300px')

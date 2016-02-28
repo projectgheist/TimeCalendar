@@ -2,8 +2,21 @@ include includes/header
 include includes/nav
 .container(ng-controller='dashController')
 	.row
+		.col-xs-12(style='height:8rem')
+			ng-include(src="'views/templates/alert'", ng-show='isAlertEnabled')
+	.row(ng-hide='user || eventSources[0].length', ng-cloak='')
 		.col-xs-12
 			h1.text-center Loading ...
-			#loadingDashboard
+			#loadingProfile
+	.row(ng-show='user && !eventSources[0].length', ng-cloak='')
+		.col-xs-12
+			.text-muted.text-center
+				p
+					i.fa.fa-minus-circle.fa-fw.fa-5x
+				p Invalid profile
+	.row(ng-if='user && eventSources[0].length', ng-cloak='')
+		.col-xs-12
+			h1 {{user.name}}'s Profile
+			.calendar(ui-calendar='uiConfig.calendar', calendar='myCalendar', ng-model='eventSources')
 include includes/js
 script(type='text/javascript', src='/js/dashcontroller.js')
