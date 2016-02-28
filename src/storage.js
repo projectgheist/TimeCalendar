@@ -56,7 +56,7 @@ exports.findAndRemove = function (model, item, debug) {
 	if (debug) console.log(q);
 	return q;
 };
- 
+
 /** function findOrCreate
  * use an empty callback function as a fourth parameter
  */

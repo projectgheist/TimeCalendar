@@ -110,6 +110,13 @@ describe('Events API (no user)', function () {
 			.end(done);
 	});
 
+	it('POST delete event', function (done) {
+		rq
+			.post('/api/0/events')
+			.expect(401)
+			.end(done);
+	});
+
 	it('POST start event', function (done) {
 		rq
 			.post('/api/0/events')
@@ -208,6 +215,16 @@ describe('Events API (user)', function () {
 		rq
 			.get('/api/0/events/list')
 			.expect(200)
+			.end(done);
+	});
+
+	it('POST delete event', function (done) {
+		rq
+			.post('/api/0/events')
+			.send({
+				e: 'd'
+			})
+			.expect(400)
 			.end(done);
 	});
 
@@ -351,6 +368,17 @@ describe('Events API (user)', function () {
 					done();
 				}
 			});
+	});
+
+	it('POST delete event', function (done) {
+		rq
+			.post('/api/0/events')
+			.send({
+				e: 'd',
+				id: item.sid
+			})
+			.expect(200)
+			.end(done);
 	});
 
 	it('GET tags', function (done) {
