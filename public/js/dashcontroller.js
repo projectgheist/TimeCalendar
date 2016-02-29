@@ -160,7 +160,7 @@
 				// Format of the label on the left side
 				slotLabelFormat: 'h(:mm) a',
 				// Display a marker indicating the current time
-				nowIndicator: true,
+				nowIndicator: !$scope.isWeekView,
 				columnFormat: {
 					week: 'ddd' // Only show day of the week names
 				},
@@ -213,14 +213,24 @@
 		 * Only gets called when event is clicked
 		 */
 		function onDayClick (date, jsEvent, view) {
-			// check if valid event
-			if ($scope.eventName) {
-				// set to retrieved date from click event
-				$scope.startDate = date;
-				// make the event last 1 hour
-				$scope.eventDuration = moment.duration(1, 'hours').valueOf();
-				// submit the event
-				$scope.submitEventItem();
+			// in overview page?
+			if ($scope.isWeekView) {
+				// display edit event modal
+				$('#ModalDialog').modal({
+					show: true
+				});
+			} else {
+				// check if valid event
+				if ($scope.eventName) {
+					// set to retrieved date from click event
+					$scope.startDate = date;
+					// make the event last 1 hour
+					$scope.eventDuration = moment.duration(1, 'hours').valueOf();
+					// submit the event
+					$scope.submitEventItem();
+					// reset the event name
+					$scope.eventName = '';
+				}
 			}
 		};
 		
