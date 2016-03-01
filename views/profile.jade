@@ -17,6 +17,9 @@ include includes/nav
 	.row(ng-if='user && eventSources[0].length', ng-cloak='')
 		.col-xs-12
 			h1 {{user.name}}'s Profile
+			h2 Week overview
 			.calendar(ui-calendar='uiConfig.calendar', calendar='myCalendar', ng-model='eventSources')
+			h2 Breakdown
+			chartist.ct-chart(chartist-data='chartistBar.data', chartist-chart-type='Bar', chartist-chart-options='chartistBar.options')
 include includes/js
 script(type='text/javascript', src='/js/dashcontroller.js')

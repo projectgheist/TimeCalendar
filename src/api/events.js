@@ -90,7 +90,7 @@ route
 					}
 				}, {
 					$group: {
-						_id: '$event', // !required
+						_id: '$event', // !required: Group by event type
 						count: {$sum: 1},
 						duration: {$sum: '$duration'}
 					}
