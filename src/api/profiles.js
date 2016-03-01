@@ -33,6 +33,7 @@ route
 				var user = dbUser[0];
 				var searchTime = (params.st ? mm(parseInt(params.st, 0)) : mm().startOf('week')).toISOString();
 				var withinTime = (params.et ? mm(parseInt(params.et, 0)) : mm().endOf('week')).toISOString();
+				
 				// retrieve all event items
 				var events = yield db.all(db.EventItem, {
 					sort: {
@@ -54,7 +55,38 @@ route
 						path: 'tags'
 					}
 				});
-
+				
+				// formulate break down of events per day
+				var dayTimes = yield db.EventItem.aggregate([
+					{
+						$match: {
+							// All events from a specific user
+							user: user._id,
+							// Needs to be in time range
+							$or: [
+								{ startTime: { $gte: new Date(searchTime), $lt: new Date(withinTime) } },
+								{ endTime: { $gt: new Date(searchTime), $lte: new Date(withinTime) } }
+							]
+						}
+					}, {
+						$group: {
+							// !required: Use all found event items
+							_id: {
+								$dayOfWeek: '$startTime'
+							},
+							count: {
+								$sum: '$duration'
+							}
+						}
+					}, {
+						$sort: {
+							_id: 1
+						}
+					}
+				], function (ignore, res) {
+					return res;
+				});
+				
 				// format events into calendar events
 				var outputEvents = [];
 				for (var i in events) {
@@ -81,7 +113,8 @@ route
 						name: user.name,
 						id: user.sid
 					},
-					events: outputEvents
+					events: outputEvents,
+					week: dayTimes
 				};
 				this.status = 200;
 			} else {

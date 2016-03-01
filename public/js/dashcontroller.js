@@ -100,7 +100,7 @@
 		$scope.user = false;
 	
 		// declare chart variable
-		$scope.chartist = {
+		$scope.chartistPie = {
 			data: {
 				series: []
 			},
@@ -530,7 +530,7 @@
 				}
 				// declare chart data when in overview mode
 				if ($scope.isWeekView) {
-					$scope.chartist = {
+					$scope.chartistPie = {
 						data: {
 							// pass event to interpolation function to calculate percentages
 							labels: $scope.eventGroups.map(function (val) {
@@ -543,7 +543,7 @@
 						},
 						options: {
 							labelInterpolationFnc: function (value) {
-								return Math.round(value.durationInMin / $scope.chartist.data.series.reduce(sum) * 100) + '%';
+								return Math.round(value.durationInMin / $scope.chartistPie.data.series.reduce(sum) * 100) + '%';
 							}
 						},
 						responsiveOptions: [ [
@@ -641,6 +641,25 @@
 				}
 				// store user
 				$scope.user = res.user;
+				// flesh out week data
+				var week = [];
+				for (var i = 0; i < 7; ++i) {
+					if (typeof res.week[i] === undefined || res.week[i] === undefined) {
+						week.push(0);
+					} else {
+						week.push(moment.duration(res.week[i].count).asMinutes());
+					}
+				}
+				// store bar chart data
+				$scope.chartistBar = {
+					data: {
+						labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+						series: [week]
+					},
+					options: {
+						seriesBarDistance: 10
+					}
+				};
 				// end loading bars
 				for (var b in loadingbars) {
 					loadingbars[b].end();
