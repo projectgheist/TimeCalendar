@@ -92,7 +92,17 @@ route
 					$group: {
 						_id: '$event', // !required: Group by event type
 						count: {$sum: 1},
-						duration: {$sum: '$duration'}
+						duration: {$sum: '$duration'},
+						minhour: {
+							$min: {
+								$hour: '$startTime'
+							}
+						},
+						maxhour: {
+							$max: {
+								$hour: '$endTime'
+							}
+						}
 					}
 				}, {
 					$sort: {
@@ -110,9 +120,7 @@ route
 						return val._id;
 					})
 				}
-			}, function (ignore, res) {
-				return res;
-			});
+			}).populate('tags');
 
 			// populate the event items' event with events
 			for (var j in grouped) {
@@ -125,7 +133,8 @@ route
 						grouped[j].event = {
 							title: event.name,
 							color: event.fontBgColor || '#000',
-							textColor: event.fontTextColor || '#fff'
+							textColor: event.fontTextColor || '#fff',
+							tags: event.tags
 						};
 						// remove the id for a more clean return property
 						delete grouped[j]._id;
@@ -159,9 +168,10 @@ function StopEventItem (Item, Options) {
 	// make sure that options variable exists
 	Options || (Options = {});
 	// set start time
-	Item.startTime = Options.st ? mm(parseInt(Options.st, 0)) : Item.startTime;
+	Item.startTime = new Date(Options.st ? mm(parseInt(Options.st, 0)) : Item.startTime);
+	console.log(Item.startTime);
 	// set end time OR floor to the nearest minute
-	Item.endTime = Options.et ? mm(parseInt(Options.et, 0)) : (Item.endTime || mm().add(1, 'minute').startOf('minute'));
+	Item.endTime = new Date(Options.et ? mm(parseInt(Options.et, 0)) : (Item.endTime || mm().add(1, 'minute').startOf('minute')));
 	// !duration needs to be a value larger then 0
 	Item.duration = mm(Item.endTime).diff(Item.startTime);
 }
@@ -201,6 +211,7 @@ route
 							},
 							false
 						);
+						// loop all retrieved events
 						for (var i in dbItems) {
 							// set event as completed
 							StopEventItem(dbItems[i], {});
@@ -301,6 +312,7 @@ route
 		yield next;
 	});
 
+/** Returns all event types */
 route.nested(/\/list\/?/)
 	.get(function * (next) {
 		// is a valid user?
@@ -339,10 +351,7 @@ route.nested(/\/list\/?/)
 				},
 				// Search for a specific name
 				name: new RegExp(['.*', (params.name || ''), '.*'].join(''), 'i')
-			}, function (ignore, res) {
-				return res;
-			})
-			.populate('tags');
+			}).populate('tags');
 
 			// populate the event items' event with events
 			for (var j in grouped) {

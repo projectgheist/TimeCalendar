@@ -348,6 +348,11 @@
 			});
 		};
 
+		// POST modify event
+		$scope.submitModify = function () {
+			
+		};
+		
 		// Retrieve event types 
 		$scope.onTypeAheadSelect = function (item, model, label) {
 			// set font color
