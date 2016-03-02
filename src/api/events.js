@@ -89,10 +89,9 @@ route
 						]
 					}
 				}, {
-					$group: {
-						_id: '$event', // !required: Group by event type
-						count: {$sum: 1},
-						duration: {$sum: '$duration'},
+					$project: {
+						event: 1,
+						duration: 1,
 						minhour: {
 							$min: {
 								$hour: '$startTime'
@@ -100,8 +99,22 @@ route
 						},
 						maxhour: {
 							$max: {
-								$hour: '$endTime'
+								$hour: {
+									$ifNull: ['$endTime', new Date(mm().startOf('day'))]
+								}
 							}
+						}
+					}
+				}, {
+					$group: {
+						_id: '$event', // !required: Group by event type
+						count: {$sum: 1},
+						duration: {$sum: '$duration'},
+						minhour: {
+							$first: '$minhour'
+						},
+						maxhour: {
+							$first: '$maxhour'
 						}
 					}
 				}, {
@@ -109,9 +122,7 @@ route
 						duration: -1 // descending
 					}
 				}
-			], function (ignore, res) {
-				return res;
-			});
+			]);
 
 			// find all events associated with the found event items
 			var populated = yield db.Event.find({
@@ -169,7 +180,6 @@ function StopEventItem (Item, Options) {
 	Options || (Options = {});
 	// set start time
 	Item.startTime = new Date(Options.st ? mm(parseInt(Options.st, 0)) : Item.startTime);
-	console.log(Item.startTime);
 	// set end time OR floor to the nearest minute
 	Item.endTime = new Date(Options.et ? mm(parseInt(Options.et, 0)) : (Item.endTime || mm().add(1, 'minute').startOf('minute')));
 	// !duration needs to be a value larger then 0
