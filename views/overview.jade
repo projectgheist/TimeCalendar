@@ -12,9 +12,9 @@ include includes/nav
 			#loadingCalendar(ng-show='hasRunningEvents() || hasCompletedEvents()')
 			h1 Statistics
 	.row
-		div(ng-class="{'hidden':!chartist.data.series.length, 'col-lg-6':chartist.data.series.length}", style='height:300px')
+		div(ng-class="{'hidden':!chartistPie.data.series.length, 'col-lg-6':chartistPie.data.series.length}", style='height:300px')
 			chartist.ct-chart(chartist-data='chartistPie.data', chartist-chart-type='Pie', chartist-chart-options='chartistPie.options', chartist-responsive-options='chartistPie.responsiveOptions', chartist-events='chartistPie.events')
-		div(ng-class="{'col-xs-12':!chartist.data.series.length, 'col-xs-6':chartist.data.series.length}")
+		div(ng-class="{'col-xs-12':!chartistPie.data.series.length, 'col-xs-6':chartistPie.data.series.length}")
 			ul.list-group(ng-show='eventGroups.length', ng-cloak='')
 				li.list-group-item(ng-repeat='e in eventGroups',style='padding:0 15px')
 					include templates/event
@@ -23,7 +23,7 @@ include includes/nav
 						.pull-right {{totalTime}}
 			.alert.alert-warning(role='alert', ng-show='!eventGroups.length')
 				p No events found during this period!
-	.row#loadingChart(ng-if='!chartist.data.series.length')
+	.row#loadingChart(ng-if='!chartistPie.data.series.length')
 	include templates/editevent
 include includes/js
 script(type='text/javascript', src='/js/dashcontroller.js')
