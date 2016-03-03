@@ -122,7 +122,9 @@ route
 						duration: -1 // descending
 					}
 				}
-			]);
+			], function (ignore, res) {
+				return res;
+			});
 
 			// find all events associated with the found event items
 			var populated = yield db.Event.find({

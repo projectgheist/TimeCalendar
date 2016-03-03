@@ -83,7 +83,9 @@ route
 							_id: 1
 						}
 					}
-				]);
+				], function (ignore, res) {
+					return res;
+				});
 
 				// format events into calendar events
 				var outputEvents = [];
