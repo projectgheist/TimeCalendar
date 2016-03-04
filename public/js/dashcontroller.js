@@ -662,7 +662,12 @@
 						series: [week]
 					},
 					options: {
-						seriesBarDistance: 10
+						seriesBarDistance: 10,
+						axisY: {
+							labelInterpolationFnc: function (value) {
+								return moment(value).format('hh:mm');
+							}
+						}
 					}
 				};
 				// end loading bars
