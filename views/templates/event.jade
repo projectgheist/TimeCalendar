@@ -9,4 +9,7 @@
 	h4.list-group-item-heading {{e.title || e.event.title}}
 	p.list-group-item-text
 		span.badge(ng-repeat='t in e.tags || e.event.tags') {{t.name}}
+		| &nbsp;
+		a(href='/edit/eventnames', target='_self')
+			i.fa.fa-plus-square
 hr(ng-hide='$last')
