@@ -8,12 +8,18 @@ include includes/nav
 		.col-xs-12
 			h1.text-center Loading ...
 			#loadingProfile
-	.row(ng-show='user && !eventSources[0].length', ng-cloak='')
+	.row(ng-show='!user', ng-cloak='')
 		.col-xs-12
 			.text-muted.text-center
 				p
 					i.fa.fa-minus-circle.fa-fw.fa-5x
 				p Invalid profile
+	.row(ng-show='user && !eventSources[0].length', ng-cloak='')
+		.col-xs-12
+			.text-muted.text-center
+				p
+					i.fa.fa-warning.fa-fw.fa-5x
+				p No events found during this period
 	.row(ng-if='user && eventSources[0].length', ng-cloak='')
 		.col-xs-12
 			h1 {{user.name}}'s Profile

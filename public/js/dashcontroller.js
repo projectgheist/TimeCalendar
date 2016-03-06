@@ -680,7 +680,7 @@
 					loadingbars[b].end();
 				}
 				// flag end of loading
-				$scope.user = true;
+				$scope.user = false;
 				// show alert
 				$scope.showAlert('alert-danger', 'Failed to retrieve profile!');
 			});

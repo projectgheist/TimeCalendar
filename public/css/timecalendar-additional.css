@@ -97,6 +97,13 @@ td.form-group input[type=text] {
 	margin-right: auto;
 }
 
+.list-group-item > .row-action-primary i.fa {
+	background: none !important;
+	line-height: inherit !important;
+	width: inherit !important;
+	height: inherit !important;
+}
+
 /** Bootstrap tags input with Material boostrap */
 .bootstrap-tagsinput {
 	padding: 7px 0;
@@ -105,6 +112,11 @@ td.form-group input[type=text] {
 	background-size: 0 2px, 100% 1px;
 	background-repeat: no-repeat;
 	background-position: center bottom, center calc(100% - 1px);
+}
+
+/** Fontawesome styling */
+.row-action-primary > .fa-stack > .fa-stack-2x {
+	font-size: 2em !important;
 }
 
 /** Mprogress bar styling*/

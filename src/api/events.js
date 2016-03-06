@@ -39,7 +39,8 @@ route
 			.populate({
 				path: 'event',
 				populate: {
-					path: 'tags'
+					path: 'tags',
+					model: 'Tag'
 				}
 			});
 
@@ -62,7 +63,8 @@ route
 					end: (ref.endTime || mm(ref.startTime).add(d).startOf('minute')).toISOString(),
 					duration: d,
 					color: ref.event.fontBgColor || '#000',
-					textColor: ref.event.fontTextColor || '#fff'
+					textColor: ref.event.fontTextColor || '#fff',
+					tags: ref.event.tags || []
 				};
 				// push to specific array
 				if (ref.duration > 0) {
@@ -263,15 +265,19 @@ route
 						}
 						// find tags in database
 						var newTags = [];
+						// loop tags
 						for (var k in params.tags) {
+							// create query
 							var tag = yield db.findOrCreate(db.Tag, {
 								// All tags from a specific user
 								user: mg.Types.ObjectId(this.req.user._id),
 								// find by tag name
 								name: params.tags[k]
 							});
+							// add to array
 							newTags.push(tag);
 						}
+						// add database array
 						dbEvent.tags = newTags;
 					}
 					// Contains a start time?
