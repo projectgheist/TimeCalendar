@@ -348,6 +348,11 @@
 			});
 		};
 
+		// POST modify event
+		$scope.submitModify = function () {
+			
+		};
+		
 		// Retrieve event types 
 		$scope.onTypeAheadSelect = function (item, model, label) {
 			// set font color
@@ -657,7 +662,12 @@
 						series: [week]
 					},
 					options: {
-						seriesBarDistance: 10
+						seriesBarDistance: 10,
+						axisY: {
+							labelInterpolationFnc: function (value) {
+								return moment(value).format('hh:mm');
+							}
+						}
 					}
 				};
 				// end loading bars
@@ -670,7 +680,7 @@
 					loadingbars[b].end();
 				}
 				// flag end of loading
-				$scope.user = true;
+				$scope.user = false;
 				// show alert
 				$scope.showAlert('alert-danger', 'Failed to retrieve profile!');
 			});

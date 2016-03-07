@@ -33,7 +33,7 @@ route
 				var user = dbUser[0];
 				var searchTime = (params.st ? mm(parseInt(params.st, 0)) : mm().startOf('week')).toISOString();
 				var withinTime = (params.et ? mm(parseInt(params.et, 0)) : mm().endOf('week')).toISOString();
-				
+
 				// retrieve all event items
 				var events = yield db.all(db.EventItem, {
 					sort: {
@@ -55,7 +55,7 @@ route
 						path: 'tags'
 					}
 				});
-				
+
 				// formulate break down of events per day
 				var dayTimes = yield db.EventItem.aggregate([
 					{
@@ -86,7 +86,7 @@ route
 				], function (ignore, res) {
 					return res;
 				});
-				
+
 				// format events into calendar events
 				var outputEvents = [];
 				for (var i in events) {

@@ -39,7 +39,8 @@ route
 			.populate({
 				path: 'event',
 				populate: {
-					path: 'tags'
+					path: 'tags',
+					model: 'Tag'
 				}
 			});
 
@@ -62,7 +63,8 @@ route
 					end: (ref.endTime || mm(ref.startTime).add(d).startOf('minute')).toISOString(),
 					duration: d,
 					color: ref.event.fontBgColor || '#000',
-					textColor: ref.event.fontTextColor || '#fff'
+					textColor: ref.event.fontTextColor || '#fff',
+					tags: ref.event.tags || []
 				};
 				// push to specific array
 				if (ref.duration > 0) {
@@ -89,10 +91,33 @@ route
 						]
 					}
 				}, {
+					$project: {
+						event: 1,
+						duration: 1,
+						minhour: {
+							$min: {
+								$hour: '$startTime'
+							}
+						},
+						maxhour: {
+							$max: {
+								$hour: {
+									$ifNull: ['$endTime', new Date(mm().startOf('day'))]
+								}
+							}
+						}
+					}
+				}, {
 					$group: {
 						_id: '$event', // !required: Group by event type
 						count: {$sum: 1},
-						duration: {$sum: '$duration'}
+						duration: {$sum: '$duration'},
+						minhour: {
+							$first: '$minhour'
+						},
+						maxhour: {
+							$first: '$maxhour'
+						}
 					}
 				}, {
 					$sort: {
@@ -110,9 +135,7 @@ route
 						return val._id;
 					})
 				}
-			}, function (ignore, res) {
-				return res;
-			});
+			}).populate('tags');
 
 			// populate the event items' event with events
 			for (var j in grouped) {
@@ -125,7 +148,8 @@ route
 						grouped[j].event = {
 							title: event.name,
 							color: event.fontBgColor || '#000',
-							textColor: event.fontTextColor || '#fff'
+							textColor: event.fontTextColor || '#fff',
+							tags: event.tags
 						};
 						// remove the id for a more clean return property
 						delete grouped[j]._id;
@@ -159,9 +183,9 @@ function StopEventItem (Item, Options) {
 	// make sure that options variable exists
 	Options || (Options = {});
 	// set start time
-	Item.startTime = Options.st ? mm(parseInt(Options.st, 0)) : Item.startTime;
+	Item.startTime = new Date(Options.st ? mm(parseInt(Options.st, 0)) : Item.startTime);
 	// set end time OR floor to the nearest minute
-	Item.endTime = Options.et ? mm(parseInt(Options.et, 0)) : (Item.endTime || mm().add(1, 'minute').startOf('minute'));
+	Item.endTime = new Date(Options.et ? mm(parseInt(Options.et, 0)) : (Item.endTime || mm().add(1, 'minute').startOf('minute')));
 	// !duration needs to be a value larger then 0
 	Item.duration = mm(Item.endTime).diff(Item.startTime);
 }
@@ -201,6 +225,7 @@ route
 							},
 							false
 						);
+						// loop all retrieved events
 						for (var i in dbItems) {
 							// set event as completed
 							StopEventItem(dbItems[i], {});
@@ -240,15 +265,19 @@ route
 						}
 						// find tags in database
 						var newTags = [];
+						// loop tags
 						for (var k in params.tags) {
+							// create query
 							var tag = yield db.findOrCreate(db.Tag, {
 								// All tags from a specific user
 								user: mg.Types.ObjectId(this.req.user._id),
 								// find by tag name
 								name: params.tags[k]
 							});
+							// add to array
 							newTags.push(tag);
 						}
+						// add database array
 						dbEvent.tags = newTags;
 					}
 					// Contains a start time?
@@ -301,6 +330,7 @@ route
 		yield next;
 	});
 
+/** Returns all event types */
 route.nested(/\/list\/?/)
 	.get(function * (next) {
 		// is a valid user?
@@ -339,10 +369,7 @@ route.nested(/\/list\/?/)
 				},
 				// Search for a specific name
 				name: new RegExp(['.*', (params.name || ''), '.*'].join(''), 'i')
-			}, function (ignore, res) {
-				return res;
-			})
-			.populate('tags');
+			}).populate('tags');
 
 			// populate the event items' event with events
 			for (var j in grouped) {
