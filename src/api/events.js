@@ -39,8 +39,8 @@ route
 			.populate({
 				path: 'event',
 				populate: {
-					path: 'tags',
-					model: 'Tag'
+					path: 'tags'
+					//model: 'Tag'
 				}
 			});
 
@@ -149,7 +149,7 @@ route
 							title: event.name,
 							color: event.fontBgColor || '#000',
 							textColor: event.fontTextColor || '#fff',
-							tags: event.tags
+							tags: event.tags || []
 						};
 						// remove the id for a more clean return property
 						delete grouped[j]._id;
