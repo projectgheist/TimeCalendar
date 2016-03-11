@@ -39,8 +39,8 @@ route
 			.populate({
 				path: 'event',
 				populate: {
-					path: 'tags'
-					//model: 'Tag'
+					path: 'tags',
+					model: 'Tag'
 				}
 			});
 
@@ -79,7 +79,8 @@ route
 			var grouped = [];
 
 			// find all event items with a start time of supplied
-			grouped = yield db.EventItem.aggregate([
+			grouped = yield db.EventItem
+				.aggregate([
 				{
 					$match: {
 						// All events from a specific user
