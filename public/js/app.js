@@ -36,7 +36,7 @@
 
 	/**
 	 */
-	function appConfig ($routeProvider, $locationProvider) {
+	function appConfig ($routeProvider, $locationProvider, $compileProvider) {
 		$locationProvider.html5Mode(true);
 		$routeProvider
 		.when('/overview', {

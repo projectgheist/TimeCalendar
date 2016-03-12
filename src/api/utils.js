@@ -53,6 +53,8 @@ route
 				});
 			}
 			this.body = output;
+			this.type = 'text/plain; charset=utf-8';
+			this.attachment(['timecalendar-',mm().toISOString(),'.json'].join(''));
 			this.status = 200;
 		} else {
 			this.body = {message: 'GET Events: Authentication is required'};
