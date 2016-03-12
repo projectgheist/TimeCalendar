@@ -35,14 +35,13 @@ route
 			// variable to return
 			var output = [];
 			// seperate events into completed and running categories
-			for (var i in events) {
+			for (var i in items) {
 				// declare reference
-				var ref = events[i];
+				var ref = items[i];
 				// find duration of event
 				var d = ref.duration || mm().diff(ref.startTime);
 				// format that the calendar uses
 				output.push({
-					id: ref.sid,
 					title: ref.event.name,
 					allDay: ref.allDay,
 					start: ref.startTime.toISOString(),
@@ -50,7 +49,7 @@ route
 					duration: d,
 					color: ref.event.fontBgColor || '#000',
 					textColor: ref.event.fontTextColor || '#fff',
-					tags: ref.event.tags || []
+					tags: ref.event.tags ? ref.event.tags.map(function (val) { return val.name; }) : []
 				});
 			}
 			this.body = output;

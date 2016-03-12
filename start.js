@@ -83,3 +83,4 @@ ap
 require('./src/api/events');
 require('./src/api/tags');
 require('./src/api/profiles');
+require('./src/api/utils');
