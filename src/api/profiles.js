@@ -52,12 +52,14 @@ route
 				.populate({
 					path: 'event',
 					populate: {
-						path: 'tags'
+						path: 'tags',
+						model: 'Tag'
 					}
 				});
 
 				// formulate break down of events per day
-				var dayTimes = yield db.EventItem.aggregate([
+				var dayTimes = yield db.EventItem
+					.aggregate([
 					{
 						$match: {
 							// All events from a specific user
@@ -70,25 +72,28 @@ route
 						}
 					}, {
 						$group: {
-							// !required: Use all found event items
+							// !required: Group by DAY
 							_id: {
-								$dayOfWeek: '$startTime'
+								$dayOfMonth: '$startTime'
 							},
-							count: {
-								$sum: '$duration'
+							items: {
+								$push: '$_id'
 							}
 						}
 					}, {
 						$sort: {
-							_id: 1
+							// Sort by DATE (Oldest to Newest)
+							'_id': 1
 						}
 					}
 				], function (ignore, res) {
+					console.log(res);
 					return res;
 				});
 
 				// format events into calendar events
 				var outputEvents = [];
+				// loop events
 				for (var i in events) {
 					// local reference
 					var ref = events[i];
