@@ -50,45 +50,7 @@ route
 					}
 				})
 				.populate({
-					path: 'event',
-					populate: {
-						path: 'tags',
-						model: 'Tag'
-					}
-				});
-
-				// formulate break down of events per day
-				var dayTimes = yield db.EventItem
-					.aggregate([
-					{
-						$match: {
-							// All events from a specific user
-							user: user._id,
-							// Needs to be in time range
-							$or: [
-								{ startTime: { $gte: new Date(searchTime), $lt: new Date(withinTime) } },
-								{ endTime: { $gt: new Date(searchTime), $lte: new Date(withinTime) } }
-							]
-						}
-					}, {
-						$group: {
-							// !required: Group by DAY
-							_id: {
-								$dayOfMonth: '$startTime'
-							},
-							items: {
-								$push: '$_id'
-							}
-						}
-					}, {
-						$sort: {
-							// Sort by DATE (Oldest to Newest)
-							'_id': 1
-						}
-					}
-				], function (ignore, res) {
-					console.log(res);
-					return res;
+					path: 'event'
 				});
 
 				// format events into calendar events
@@ -118,8 +80,7 @@ route
 						name: user.name,
 						id: user.sid
 					},
-					events: outputEvents,
-					week: dayTimes
+					events: outputEvents
 				};
 				this.status = 200;
 			} else {
