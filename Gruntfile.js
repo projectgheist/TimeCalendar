@@ -55,6 +55,7 @@ module.exports = function(grunt) {
 
 					'./bower_components/bootstrap-material-design/dist/css/bootstrap-material-design.css',
 					'./bower_components/bootstrap-material-design/dist/css/ripples.css',
+					'./bower_components/angular-bootstrap/ui-bootstrap-csp.css',
 
 					'./bower_components/fullcalendar/dist/fullcalendar.css',
 					'./private/css/_materialFullCalendar.scss',

@@ -128,7 +128,38 @@ route
 			], function (ignore, res) {
 				return res;
 			});
-
+			
+			var tags = yield db.Event
+				.aggregate([
+				{
+					$unwind: '$items'
+				},
+				{
+					$match: {
+						// All events from a specific user
+						user: mg.Types.ObjectId(this.req.user._id),
+						// Needs to be in time range
+						$or: [
+							{ 'items.startTime': { $gte: new Date(searchTime), $lt: new Date(withinTime) } },
+							{ 'items.endTime': { $gt: new Date(searchTime), $lte: new Date(withinTime) } }
+						]
+					}
+				},
+				{
+					$unwind: '$tags'
+				},
+				{
+					$group: {
+						// !required: Group by TAG
+						_id: '$tags',
+						count: {$sum: 1},
+						duration: {$sum: '$items.duration'}
+					}
+				}
+			], function (ignore, res) {
+				return res;
+			});
+			
 			// find all events associated with the found event items
 			var populated = yield db.Event.find({
 				_id: {
